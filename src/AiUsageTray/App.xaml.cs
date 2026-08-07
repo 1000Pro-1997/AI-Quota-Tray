@@ -41,13 +41,22 @@ public partial class App : Application
         _singleInstance = new Mutex(initiallyOwned: true, "AiQuotaTray.SingleInstance", out bool isFirst);
         if (!isFirst)
         {
-            MessageBox.Show("AI Quota Tray가 이미 실행 중입니다. 트레이 아이콘을 확인하세요.",
-                "AI Quota Tray", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(Strings.Get("app.alreadyRunning"),
+                Strings.Get("app.name"), MessageBoxButton.OK, MessageBoxImage.Information);
             Shutdown();
             return;
         }
 
         _settings = AppSettings.Load();
+
+        // 첫 실행이면 Windows 표시 언어를 따르고, 설치된 도구만 켠다.
+        if (string.IsNullOrEmpty(_settings.Language))
+            _settings.Language = Strings.DetectSystemLanguage();
+
+        if (!_settings.SetupCompleted)
+            _settings.DetectInstalledTools();
+
+        Strings.Current = _settings.Language;
         _monitor = new UsageMonitor(_settings);
 
         // 이벤트는 백그라운드 스레드에서 올 수 있으므로 UI 스레드로 넘긴다.
@@ -57,6 +66,9 @@ public partial class App : Application
         BuildFlyout();
         BuildWidgetBar();
         BuildTray();
+
+        // 언어를 바꾸면 이미 만들어둔 UI도 새 말로 갈아끼워야 한다.
+        Strings.Changed += OnLanguageChanged;
         RestartTimer();
         SyncTaskbarPromotion();
 
@@ -132,21 +144,12 @@ public partial class App : Application
     {
         _currentIcon = TrayIconRenderer.Render(null, IconSize());
 
-        var menu = new Forms.ContextMenuStrip();
-        menu.Items.Add("열기", null, (_, _) => ToggleFlyout());
-        menu.Items.Add("새로고침", null, (_, _) => _ = _monitor.RefreshAsync(force: true));
-        menu.Items.Add(new Forms.ToolStripSeparator());
-        menu.Items.Add("설정", null, (_, _) => OpenSettings());
-        menu.Items.Add("문의·버그 신고", null, (_, _) => OpenIssues());
-        menu.Items.Add(new Forms.ToolStripSeparator());
-        menu.Items.Add("종료", null, (_, _) => QuitApp());
-
         _tray = new Forms.NotifyIcon
         {
             Icon = _currentIcon,
-            Text = "AI Quota Tray",
+            Text = Strings.Get("app.name"),
             Visible = true,
-            ContextMenuStrip = menu,
+            ContextMenuStrip = BuildMenu(),
         };
 
         // 좌클릭으로 열고 닫는다. 우클릭은 메뉴가 알아서 처리한다.
@@ -194,6 +197,37 @@ public partial class App : Application
         };
 
         probe.Start();
+    }
+
+    /// <summary>트레이 우클릭 메뉴. 언어가 바뀌면 다시 만든다.</summary>
+    private Forms.ContextMenuStrip BuildMenu()
+    {
+        var menu = new Forms.ContextMenuStrip();
+        menu.Items.Add(Strings.Get("menu.open"), null, (_, _) => ToggleFlyout());
+        menu.Items.Add(Strings.Get("menu.refresh"), null, (_, _) => _ = _monitor.RefreshAsync(force: true));
+        menu.Items.Add(new Forms.ToolStripSeparator());
+        menu.Items.Add(Strings.Get("menu.settings"), null, (_, _) => OpenSettings());
+        menu.Items.Add(Strings.Get("menu.issues"), null, (_, _) => OpenIssues());
+        menu.Items.Add(new Forms.ToolStripSeparator());
+        menu.Items.Add(Strings.Get("menu.quit"), null, (_, _) => QuitApp());
+        return menu;
+    }
+
+    /// <summary>언어가 바뀌었을 때 화면 전체를 새 말로 다시 그린다.</summary>
+    private void OnLanguageChanged()
+    {
+        // 트레이 메뉴는 문자열을 품고 있어 다시 만드는 편이 확실하다.
+        if (_tray?.ContextMenuStrip is { } old)
+        {
+            _tray.ContextMenuStrip = BuildMenu();
+            old.Dispose();
+        }
+
+        if (_tray is not null) _tray.Text = BuildTooltip(_monitor.Latest);
+
+        _flyout.Retranslate();
+        _flyout.Render(_monitor.Latest);
+        _widgetBar?.Render(_monitor.Latest);
     }
 
     /// <summary>DPI에 맞는 트레이 아이콘 크기. 고DPI에서 흐릿해지지 않게.</summary>
@@ -356,12 +390,12 @@ public partial class App : Application
 
         var parts = usages
             .Where(u => u.IsAvailable && u.Windows.Count > 0)
-            .Select(u => remaining
-                ? $"{u.Provider} {100 - u.PeakPercent:F0}% 남음"
-                : $"{u.Provider} {u.PeakPercent:F0}% 사용");
+            .Select(u => u.Provider + " " + (remaining
+                ? Strings.Get("value.remaining", $"{100 - u.PeakPercent:F0}")
+                : Strings.Get("value.used", $"{u.PeakPercent:F0}")));
 
         string text = string.Join("  ", parts);
-        if (string.IsNullOrEmpty(text)) text = "AI Quota Tray";
+        if (string.IsNullOrEmpty(text)) text = Strings.Get("app.name");
 
         return text.Length > 62 ? text[..62] : text;
     }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using AiUsageTray.Services;
 
 namespace AiUsageTray.Models;
 
@@ -45,11 +46,17 @@ public sealed class UsageWindow
             if (ResetsAt is null) return "";
 
             var span = ResetsAt.Value - DateTime.Now;
-            if (span <= TimeSpan.Zero) return "곧";
+            if (span <= TimeSpan.Zero) return Strings.Get("short.soon");
 
-            if (span.TotalDays >= 1) return $"{(int)span.TotalDays}d {span.Hours}h";
-            if (span.TotalHours >= 1) return $"{(int)span.TotalHours}h {span.Minutes}m";
-            return $"{span.Minutes}m";
+            if (span.TotalDays >= 1)
+                return Strings.Get("age.days", (int)span.TotalDays) + " " +
+                       Strings.Get("age.hours", span.Hours);
+
+            if (span.TotalHours >= 1)
+                return Strings.Get("age.hours", (int)span.TotalHours) + " " +
+                       Strings.Get("age.minutes", span.Minutes);
+
+            return Strings.Get("age.minutes", span.Minutes);
         }
     }
 
@@ -60,10 +67,10 @@ public sealed class UsageWindow
         {
             if (ResetsAt is null) return "";
             var span = ResetsAt.Value - DateTime.Now;
-            if (span <= TimeSpan.Zero) return "곧 초기화";
-            if (span.TotalDays >= 1) return $"{(int)span.TotalDays}일 {span.Hours}시간 후 초기화";
-            if (span.TotalHours >= 1) return $"{(int)span.TotalHours}시간 {span.Minutes}분 후 초기화";
-            return $"{span.Minutes}분 후 초기화";
+            if (span <= TimeSpan.Zero) return Strings.Get("reset.soon");
+            if (span.TotalDays >= 1) return Strings.Get("reset.days", (int)span.TotalDays, span.Hours);
+            if (span.TotalHours >= 1) return Strings.Get("reset.hours", (int)span.TotalHours, span.Minutes);
+            return Strings.Get("reset.minutes", span.Minutes);
         }
     }
 }

@@ -34,6 +34,7 @@ public partial class FlyoutWindow : Window
     {
         InitializeComponent();
         ApplyTheme();
+        Retranslate();
         Deactivated += (_, _) => Hide();
         IsVisibleChanged += (_, e) =>
         {
@@ -96,7 +97,7 @@ public partial class FlyoutWindow : Window
 
         if (usages.Count == 0)
         {
-            ProviderList.Items.Add(BuildMessage("표시할 항목이 없습니다. 설정에서 활성화하세요."));
+            ProviderList.Items.Add(BuildMessage(Strings.Get("popup.nothing")));
             return;
         }
 
@@ -120,9 +121,17 @@ public partial class FlyoutWindow : Window
         Child = content,
     };
 
+    /// <summary>언어가 바뀌면 고정 문구를 새 말로 바꾼다.</summary>
+    public void Retranslate()
+    {
+        TitleText.Text = Strings.Get("app.name");
+        RefreshButton.ToolTip = Strings.Get("tip.refresh");
+        SettingsButton.ToolTip = Strings.Get("tip.settings");
+    }
+
     public void SetBusy(bool busy)
     {
-        StatusText.Text = busy ? "확인 중…" : "";
+        StatusText.Text = busy ? Strings.Get("popup.checking") : "";
 
         if (busy) StartSpin();
         else StopSpin();
@@ -298,7 +307,7 @@ public partial class FlyoutWindow : Window
             {
                 panel.Children.Add(new TextBlock
                 {
-                    Text = $"마지막 기록: {FormatAge(age)} 전",
+                    Text = Strings.Get("popup.lastRecord", FormatAge(age)),
                     FontSize = 10.5,
                     Margin = new Thickness(0, 4, 0, 0),
                     Foreground = (Brush)Resources["SubtleBrush"],
@@ -322,7 +331,9 @@ public partial class FlyoutWindow : Window
 
         // 잔여량 모드에서는 바도 남은 만큼 찬다. 줄어드는 게 눈에 보이게.
         double barValue = remaining ? 100 - used : used;
-        string valueText = remaining ? $"{100 - used:F0}% 남음" : $"{used:F0}% 사용";
+        string valueText = remaining
+            ? Strings.Get("value.remaining", $"{100 - used:F0}")
+            : Strings.Get("value.used", $"{used:F0}");
 
         var line = new Grid();
         line.Children.Add(new TextBlock
@@ -398,9 +409,9 @@ public partial class FlyoutWindow : Window
         new SolidColorBrush(Color.FromRgb(c.R, c.G, c.B));
 
     private static string FormatAge(TimeSpan age) =>
-        age.TotalDays >= 1 ? $"{(int)age.TotalDays}일" :
-        age.TotalHours >= 1 ? $"{(int)age.TotalHours}시간" :
-        $"{(int)age.TotalMinutes}분";
+        age.TotalDays >= 1 ? Strings.Get("age.days", (int)age.TotalDays) :
+        age.TotalHours >= 1 ? Strings.Get("age.hours", (int)age.TotalHours) :
+        Strings.Get("age.minutes", (int)age.TotalMinutes);
 
     // ---- 위치 계산 ----
 

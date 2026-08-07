@@ -386,14 +386,17 @@ public partial class WidgetBarWindow : Window
 
         var status = StatusResolver?.Invoke(u.Provider);
         if (status is not null && status.Health != ServiceHealth.Unknown)
-            lines.Add($"서비스 상태: {status.Label}");
+            lines.Add(status.Label);
 
         foreach (var w in u.Windows)
         {
             double used = Math.Clamp(w.Percent, 0, 100);
             double shown = DisplayMode == DisplayMode.Remaining ? 100 - used : used;
-            string suffix = DisplayMode == DisplayMode.Remaining ? "남음" : "사용";
-            lines.Add($"{w.Label}: {shown:F0}% {suffix}" +
+            string value = DisplayMode == DisplayMode.Remaining
+                ? Strings.Get("value.remaining", $"{shown:F0}")
+                : Strings.Get("value.used", $"{shown:F0}");
+
+            lines.Add($"{w.Label}: {value}" +
                       (string.IsNullOrEmpty(w.ResetText) ? "" : $" · {w.ResetText}"));
         }
 

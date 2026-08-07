@@ -63,7 +63,7 @@ public static class TaskbarPromotion
     public static string? SetPromoted(bool promoted)
     {
         if (!IsSupported)
-            return "이 Windows 버전에서는 지원되지 않습니다.";
+            return Strings.Get("pin.unsupported");
 
         try
         {
@@ -71,8 +71,7 @@ public static class TaskbarPromotion
 
             if (entry is null)
             {
-                return "트레이 아이콘 항목을 아직 찾을 수 없습니다. " +
-                       "잠시 후 다시 시도하세요.";
+                return Strings.Get("pin.notFound");
             }
 
             entry.SetValue(PromotedValue, promoted ? 1 : 0, RegistryValueKind.DWord);
@@ -80,7 +79,7 @@ public static class TaskbarPromotion
         }
         catch (UnauthorizedAccessException)
         {
-            return "레지스트리에 쓸 권한이 없습니다.";
+            return Strings.Get("pin.noPermission");
         }
         catch (Exception ex)
         {

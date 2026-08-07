@@ -29,14 +29,8 @@ public partial class SettingsWindow : Window
     private string _claudeColor = AppSettings.DefaultClaudeColor;
     private string _codexColor = AppSettings.DefaultCodexColor;
 
-    private static readonly (string Label, int Seconds)[] Intervals =
-    {
-        ("1분", 60),
-        ("5분", 300),
-        ("10분", 600),
-        ("30분", 1800),
-        ("수동", 0),
-    };
+    /// <summary>고를 수 있는 새로고침 주기(초). 0은 자동 갱신 없음.</summary>
+    private static readonly int[] Intervals = { 60, 300, 600, 1800, 0 };
 
     public SettingsWindow(AppSettings settings)
     {
@@ -117,13 +111,15 @@ public partial class SettingsWindow : Window
         if (!TaskbarPromotion.IsSupported)
         {
             PinToTaskbar.IsEnabled = false;
-            TaskbarHint.Text = "이 Windows 버전에서는 지원되지 않습니다.";
+            TaskbarHint.Text = Strings.Get("settings.pinUnsupported");
         }
         else if (TaskbarPromotion.IsPromoted() is null)
         {
-            TaskbarHint.Text = "트레이 아이콘이 준비되면 적용됩니다.";
+            TaskbarHint.Text = Strings.Get("settings.pinPending");
         }
 
+        BuildLanguageList();
+        Retranslate();
         BuildIntervalSegments();
 
         // 표기 모드는 두 칸짜리 세그먼트다.
@@ -141,14 +137,107 @@ public partial class SettingsWindow : Window
 
     private void OnOpenIssues(object sender, RoutedEventArgs e) => App.OpenIssues();
 
+    /// <summary>지원 언어를 각자의 표기로 나열한다.</summary>
+    private void BuildLanguageList()
+    {
+        _loadingLanguages = true;
+
+        foreach (var (code, native) in Strings.Languages)
+            LanguageBox.Items.Add(native);
+
+        int idx = Array.FindIndex(Strings.Languages,
+            l => string.Equals(l.Code, Strings.Current, StringComparison.OrdinalIgnoreCase));
+        LanguageBox.SelectedIndex = idx >= 0 ? idx : 0;
+
+        _loadingLanguages = false;
+    }
+
+    /// <summary>목록을 채우는 동안 생기는 선택 변경은 무시해야 한다.</summary>
+    private bool _loadingLanguages;
+
+    private void OnLanguageChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_loadingLanguages) return;
+
+        int i = LanguageBox.SelectedIndex;
+        if (i < 0 || i >= Strings.Languages.Length) return;
+
+        // 바로 적용해 어떻게 보이는지 확인할 수 있게 한다.
+        Strings.Current = Strings.Languages[i].Code;
+        Retranslate();
+        UpdatePathStatus();
+    }
+
+    /// <summary>현재 언어로 모든 문구를 다시 채운다.</summary>
+    private void Retranslate()
+    {
+        Title = Strings.Get("settings.title");
+
+        LblSectionTools.Text = Strings.Get("settings.sectionTools");
+        LblSectionDisplay.Text = Strings.Get("settings.sectionDisplay");
+        LblSectionBehavior.Text = Strings.Get("settings.sectionBehavior");
+
+        PathToggle.Content = Strings.Get("settings.pathToggle");
+        LblClaudeCred.Text = Strings.Get("settings.claudeCredential");
+        LblCodexFolder.Text = Strings.Get("settings.codexFolder");
+        BrowseClaude.Content = Strings.Get("settings.browse");
+        BrowseCodex.Content = Strings.Get("settings.browse");
+
+        LblLanguage.Text = Strings.Get("settings.language");
+        LblLanguageHint.Text = Strings.Get("settings.languageHint");
+
+        LblNumberFormat.Text = Strings.Get("settings.numberFormat");
+        LblNumberFormatHint.Text = Strings.Get("settings.numberFormatHint");
+        ModeRemaining.Content = Strings.Get("settings.modeRemaining");
+        ModeUsed.Content = Strings.Get("settings.modeUsed");
+
+        LblWidgetBar.Text = Strings.Get("settings.widgetBar");
+        LblWidgetBarHint.Text = Strings.Get("settings.widgetBarHint");
+        LblPinTaskbar.Text = Strings.Get("settings.pinTaskbar");
+
+        LblBarColors.Text = Strings.Get("settings.barColors");
+        LblBarColorsHint.Text = Strings.Get("settings.barColorsHint");
+        ResetColors.Content = Strings.Get("settings.resetColors");
+
+        LblInterval.Text = Strings.Get("settings.interval");
+        LblIntervalHint.Text = Strings.Get("settings.intervalHint");
+        LblStartup.Text = Strings.Get("settings.startWithWindows");
+
+        TestButton.Content = Strings.Get("settings.test");
+        CancelButton.Content = Strings.Get("settings.cancel");
+        SaveButton.Content = Strings.Get("settings.save");
+        IssuesLink.Content = Strings.Get("settings.issues");
+
+        RelabelIntervals();
+
+        TaskbarHint.Text = !TaskbarPromotion.IsSupported
+            ? Strings.Get("settings.pinUnsupported")
+            : TaskbarPromotion.IsPromoted() is null
+                ? Strings.Get("settings.pinPending")
+                : Strings.Get("settings.pinTaskbarHint");
+    }
+
+    /// <summary>주기 세그먼트의 글자를 현재 언어로.</summary>
+    private void RelabelIntervals()
+    {
+        foreach (RadioButton chip in IntervalGroup.Children)
+            chip.Content = IntervalLabel((int)chip.Tag);
+    }
+
+    /// <summary>0은 자동 갱신 없음, 나머지는 분 단위로.</summary>
+    private static string IntervalLabel(int seconds) =>
+        seconds == 0
+            ? Strings.Get("settings.intervalManual")
+            : Strings.Get("age.minutes", seconds / 60);
+
     /// <summary>새로고침 주기를 세그먼트 버튼으로 만든다.</summary>
     private void BuildIntervalSegments()
     {
-        foreach (var (label, seconds) in Intervals)
+        foreach (int seconds in Intervals)
         {
             var chip = new RadioButton
             {
-                Content = label,
+                Content = IntervalLabel(seconds),
                 GroupName = "Interval",
                 Style = (Style)Resources["SegmentTight"],
                 Tag = seconds,
@@ -189,9 +278,9 @@ public partial class SettingsWindow : Window
     private void UpdatePathStatus()
     {
         bool claudeOk = File.Exists(ClaudePath.Text);
-        ClaudeStatus.Text = claudeOk
-            ? "로그인 정보를 찾았습니다"
-            : "파일을 찾을 수 없습니다. Claude Code에 로그인하세요";
+        ClaudeStatus.Text = Strings.Get(claudeOk
+            ? "settings.claudeFound"
+            : "settings.claudeMissing");
         ClaudeDot.Background = StatusDot(claudeOk);
 
         bool codexOk = Directory.Exists(CodexPath.Text);
@@ -202,14 +291,12 @@ public partial class SettingsWindow : Window
             {
                 int count = Directory.EnumerateFiles(CodexPath.Text, "rollout-*.jsonl",
                     SearchOption.AllDirectories).Take(1).Count();
-                extra = count > 0 ? "세션 기록을 찾았습니다" : "세션 기록이 아직 없습니다";
+                extra = Strings.Get(count > 0 ? "settings.codexFound" : "settings.codexEmpty");
             }
             catch { /* 접근 불가는 아래 메시지로 충분하다 */ }
         }
 
-        CodexStatus.Text = codexOk
-            ? extra
-            : "폴더를 찾을 수 없습니다. Codex를 한 번 실행하세요";
+        CodexStatus.Text = codexOk ? extra : Strings.Get("settings.codexMissing");
         CodexDot.Background = StatusDot(codexOk);
     }
 
@@ -234,6 +321,10 @@ public partial class SettingsWindow : Window
             ? DisplayMode.Used
             : DisplayMode.Remaining;
 
+        int langIdx = LanguageBox.SelectedIndex;
+        if (langIdx >= 0 && langIdx < Strings.Languages.Length)
+            _settings.Language = Strings.Languages[langIdx].Code;
+
         _settings.ClaudeColor = _claudeColor;
         _settings.CodexColor = _codexColor;
 
@@ -248,8 +339,8 @@ public partial class SettingsWindow : Window
         if (TaskbarPromotion.IsSupported && TaskbarPromotion.SetPromoted(pin) is { } pinError)
         {
             MessageBox.Show(this,
-                $"작업표시줄 표시를 바꾸지 못했습니다.{Environment.NewLine}{pinError}",
-                "알림", MessageBoxButton.OK, MessageBoxImage.Information);
+                Strings.Get("dialog.pinFailed", Environment.NewLine, pinError),
+                Strings.Get("dialog.notice"), MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         _settings.SetupCompleted = true;
@@ -257,8 +348,8 @@ public partial class SettingsWindow : Window
         if (_settings.Save() is { } error)
         {
             MessageBox.Show(this,
-                $"설정을 저장하지 못했습니다.{Environment.NewLine}{error}",
-                "저장 실패", MessageBoxButton.OK, MessageBoxImage.Warning);
+                Strings.Get("dialog.saveFailed", Environment.NewLine, error),
+                Strings.Get("dialog.saveFailedTitle"), MessageBoxButton.OK, MessageBoxImage.Warning);
             return; // 창을 닫지 않아 사용자가 다시 시도할 수 있게 한다.
         }
 
@@ -266,7 +357,63 @@ public partial class SettingsWindow : Window
         Close();
     }
 
-    private void OnCancel(object sender, RoutedEventArgs e) => Close();
+    /// <summary>
+    /// 모든 설정을 기본값으로 되돌린다. 되돌릴 수 없으므로 먼저 확인을 받는다.
+    /// 화면만 바꾸고 파일에는 쓰지 않는다. 저장을 눌러야 확정된다.
+    /// </summary>
+    private void OnResetAll(object sender, RoutedEventArgs e)
+    {
+        var answer = MessageBox.Show(this,
+            Strings.Get("dialog.resetAllBody", Environment.NewLine),
+            Strings.Get("dialog.resetAllTitle"),
+            MessageBoxButton.OKCancel, MessageBoxImage.Warning);
+
+        if (answer != MessageBoxResult.OK) return;
+
+        _settings.ResetAll();
+
+        // 바뀐 값으로 화면을 다시 채운다.
+        Strings.Current = _settings.Language;
+        ReloadFromSettings();
+    }
+
+    /// <summary>저장된 값으로 화면을 다시 그린다.</summary>
+    private void ReloadFromSettings()
+    {
+        ClaudeEnabled.IsChecked = _settings.ClaudeEnabled;
+        CodexEnabled.IsChecked = _settings.CodexEnabled;
+        ClaudePath.Text = _settings.EffectiveClaudePath;
+        CodexPath.Text = _settings.EffectiveCodexPath;
+        StartWithWindows.IsChecked = _settings.StartWithWindows;
+        PinToTaskbar.IsChecked = _settings.ShowInTaskbar;
+        ShowWidgetBar.IsChecked = _settings.ShowWidgetBar;
+
+        if (_settings.DisplayMode == DisplayMode.Used) ModeUsed.IsChecked = true;
+        else ModeRemaining.IsChecked = true;
+
+        foreach (RadioButton chip in IntervalGroup.Children)
+            chip.IsChecked = (int)chip.Tag == _settings.RefreshIntervalSeconds;
+
+        _claudeColor = _settings.ClaudeColor;
+        _codexColor = _settings.CodexColor;
+        UpdateSwatches();
+
+        _loadingLanguages = true;
+        int idx = Array.FindIndex(Strings.Languages,
+            l => string.Equals(l.Code, _settings.Language, StringComparison.OrdinalIgnoreCase));
+        LanguageBox.SelectedIndex = idx >= 0 ? idx : 0;
+        _loadingLanguages = false;
+
+        Retranslate();
+        UpdatePathStatus();
+    }
+
+    private void OnCancel(object sender, RoutedEventArgs e)
+    {
+        // 미리보기로 바꿔둔 언어를 저장된 값으로 되돌린다.
+        Strings.Current = _settings.Language;
+        Close();
+    }
 
     private async void OnTest(object sender, RoutedEventArgs e)
     {
@@ -274,7 +421,7 @@ public partial class SettingsWindow : Window
 
         TestButton.IsEnabled = false;
         string original = (string)TestButton.Content;
-        TestButton.Content = "확인 중…";
+        TestButton.Content = Strings.Get("popup.checking");
 
         try
         {
@@ -291,18 +438,18 @@ public partial class SettingsWindow : Window
             await monitor.RefreshAsync();
 
             var lines = monitor.Latest.Select(u => u.Error is null
-                ? $"✓ {u.Provider}: {string.Join(", ", u.Windows.Select(w => $"{w.Label} {w.Percent:F0}% 사용"))}"
+                ? $"✓ {u.Provider}: {string.Join(", ", u.Windows.Select(w => w.Label + " " + Strings.Get("value.used", $"{w.Percent:F0}")))}"
                 : $"✗ {u.Provider}: {u.Error}");
 
             string message = monitor.Latest.Count == 0
-                ? "활성화된 도구가 없습니다."
+                ? Strings.Get("dialog.testNoTools")
                 : string.Join(Environment.NewLine, lines);
 
-            MessageBox.Show(this, message, "연결 테스트", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(this, message, Strings.Get("dialog.testTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, ex.Message, "연결 테스트", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(this, ex.Message, Strings.Get("dialog.testTitle"), MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         finally
         {
@@ -393,8 +540,8 @@ public partial class SettingsWindow : Window
     {
         var dlg = new Microsoft.Win32.OpenFileDialog
         {
-            Title = "Claude 자격증명 파일 선택",
-            Filter = "자격증명 파일 (*.json)|*.json|모든 파일 (*.*)|*.*",
+            Title = Strings.Get("dialog.pickClaude"),
+            Filter = Strings.Get("dialog.credentialFilter"),
             InitialDirectory = SafeDirectory(ClaudePath.Text),
         };
 
@@ -409,7 +556,7 @@ public partial class SettingsWindow : Window
     {
         var dlg = new Microsoft.Win32.OpenFolderDialog
         {
-            Title = "Codex 세션 폴더 선택",
+            Title = Strings.Get("dialog.pickCodex"),
             InitialDirectory = SafeDirectory(CodexPath.Text),
         };
 

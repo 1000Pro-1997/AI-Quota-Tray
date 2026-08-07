@@ -1,0 +1,1266 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+
+namespace AiUsageTray.Services;
+
+/// <summary>
+/// UI 문자열을 언어별로 담아둔다.
+///
+/// .resx 대신 사전을 쓰는 이유: 언어를 바꿀 때 앱을 다시 시작하지 않아도 되고,
+/// 번역이 빠진 항목은 영어로 자동으로 떨어뜨릴 수 있다.
+/// </summary>
+public static class Strings
+{
+    /// <summary>지원 언어. 코드는 두 글자 또는 지역 포함(zh-Hant).</summary>
+    public static readonly (string Code, string Native)[] Languages =
+    {
+        ("en", "English"),
+        ("ko", "한국어"),
+        ("ja", "日本語"),
+        ("zh-Hans", "简体中文"),
+        ("zh-Hant", "繁體中文"),
+        ("es", "Español"),
+        ("pt", "Português"),
+        ("de", "Deutsch"),
+        ("fr", "Français"),
+        ("ru", "Русский"),
+    };
+
+    private static string _current = "en";
+
+    /// <summary>언어가 바뀌면 화면을 다시 그려야 한다.</summary>
+    public static event Action? Changed;
+
+    public static string Current
+    {
+        get => _current;
+        set
+        {
+            string code = Normalize(value);
+            if (code == _current) return;
+
+            _current = code;
+            Changed?.Invoke();
+        }
+    }
+
+    /// <summary>
+    /// 키에 해당하는 문자열. 현재 언어에 없으면 영어로, 그것도 없으면 키 자체를 준다.
+    /// 키를 그대로 돌려주면 번역 누락이 화면에서 바로 눈에 띈다.
+    /// </summary>
+    public static string Get(string key)
+    {
+        if (Table.TryGetValue(_current, out var table) && table.TryGetValue(key, out var text))
+            return text;
+
+        if (Table["en"].TryGetValue(key, out var fallback))
+            return fallback;
+
+        return key;
+    }
+
+    /// <summary>자리표시자를 채워 넣는다.</summary>
+    public static string Get(string key, params object[] args)
+    {
+        try
+        {
+            return string.Format(Get(key), args);
+        }
+        catch (FormatException)
+        {
+            // 번역에 자리표시자가 잘못 들어간 경우. 원문이라도 보여준다.
+            return Get(key);
+        }
+    }
+
+    /// <summary>
+    /// Windows 표시 언어에 맞는 코드를 고른다. 지원하지 않는 언어면 영어.
+    /// </summary>
+    public static string DetectSystemLanguage()
+    {
+        try
+        {
+            var culture = CultureInfo.CurrentUICulture;
+
+            // 중국어는 간체·번체를 구분해야 한다.
+            if (culture.TwoLetterISOLanguageName == "zh")
+            {
+                string name = culture.Name;
+                bool traditional = name.Contains("Hant", StringComparison.OrdinalIgnoreCase)
+                    || name.EndsWith("-TW", StringComparison.OrdinalIgnoreCase)
+                    || name.EndsWith("-HK", StringComparison.OrdinalIgnoreCase)
+                    || name.EndsWith("-MO", StringComparison.OrdinalIgnoreCase);
+
+                return traditional ? "zh-Hant" : "zh-Hans";
+            }
+
+            string two = culture.TwoLetterISOLanguageName;
+            foreach (var (code, _) in Languages)
+                if (code == two) return code;
+        }
+        catch
+        {
+            // 문화권 정보를 못 읽는 환경. 영어로 시작한다.
+        }
+
+        return "en";
+    }
+
+    /// <summary>알 수 없는 코드는 영어로 떨어뜨린다.</summary>
+    private static string Normalize(string code)
+    {
+        foreach (var (known, _) in Languages)
+            if (string.Equals(known, code, StringComparison.OrdinalIgnoreCase)) return known;
+
+        return "en";
+    }
+
+    /// <summary>언어 코드 → (키 → 문자열).</summary>
+    private static readonly Dictionary<string, Dictionary<string, string>> Table = new()
+    {
+        ["en"] = new()
+        {
+            // 공통
+            ["app.name"] = "AI Quota Tray",
+            ["app.alreadyRunning"] = "AI Quota Tray is already running. Check the tray icon.",
+
+            // 트레이 메뉴
+            ["menu.open"] = "Open",
+            ["menu.refresh"] = "Refresh",
+            ["menu.settings"] = "Settings",
+            ["menu.issues"] = "Report an issue",
+            ["menu.quit"] = "Quit",
+
+            // 팝업
+            ["popup.checking"] = "Checking…",
+            ["popup.nothing"] = "Nothing to show. Enable a tool in Settings.",
+            ["popup.lastRecord"] = "Last record: {0} ago",
+            ["tip.refresh"] = "Refresh",
+            ["tip.settings"] = "Settings",
+
+            // 한도 이름
+            ["window.session"] = "5-hour",
+            ["window.weekly"] = "Weekly",
+            ["window.weeklyOpus"] = "Weekly Opus",
+            ["window.weeklySonnet"] = "Weekly Sonnet",
+            ["window.usage"] = "Usage",
+
+            // 수치 표기
+            ["value.remaining"] = "{0}% left",
+            ["value.used"] = "{0}% used",
+            ["reset.soon"] = "Resets soon",
+            ["reset.days"] = "Resets in {0}d {1}h",
+            ["reset.hours"] = "Resets in {0}h {1}m",
+            ["reset.minutes"] = "Resets in {0}m",
+            ["short.soon"] = "soon",
+            ["age.days"] = "{0}d",
+            ["age.hours"] = "{0}h",
+            ["age.minutes"] = "{0}m",
+
+            // 서비스 상태
+            ["status.operational"] = "Operational",
+            ["status.degraded"] = "Degraded",
+            ["status.partialOutage"] = "Partial outage",
+            ["status.majorOutage"] = "Outage",
+            ["status.maintenance"] = "Maintenance",
+            ["status.unknown"] = "Unknown",
+
+            // 오류
+            ["error.notLoggedIn"] = "Not signed in to Claude Code",
+            ["error.credentialsUnreadable"] = "Cannot read credentials: {0}",
+            ["error.noToken"] = "No access token",
+            ["error.tokenRefresh"] = "Waiting for token refresh (run Claude Code to fix)",
+            ["error.rateLimited"] = "Too many requests, paused ({0}s until retry)",
+            ["error.rateLimitedWait"] = "Requests paused ({0}s until retry)",
+            ["error.httpFailed"] = "Request failed (HTTP {0})",
+            ["error.network"] = "Cannot reach the network",
+            ["error.cancelled"] = "Request cancelled",
+            ["error.codexFolder"] = "Codex session folder not found",
+            ["error.codexFolderRead"] = "Cannot read session folder: {0}",
+            ["error.codexNoHistory"] = "No Codex history yet",
+            ["error.codexNoUsage"] = "No usage found in session logs",
+
+            // 설정 - 구역
+            ["settings.title"] = "AI Quota Tray Settings",
+            ["settings.sectionTools"] = "TOOLS TO TRACK",
+            ["settings.sectionDisplay"] = "DISPLAY",
+            ["settings.sectionBehavior"] = "BEHAVIOR",
+
+            // 설정 - 도구
+            ["settings.claudeFound"] = "Sign-in information found",
+            ["settings.claudeMissing"] = "File not found. Sign in to Claude Code",
+            ["settings.codexFound"] = "Session history found",
+            ["settings.codexEmpty"] = "No session history yet",
+            ["settings.codexMissing"] = "Folder not found. Run Codex once",
+            ["settings.pathToggle"] = "Set file locations manually",
+            ["settings.claudeCredential"] = "Claude credentials",
+            ["settings.codexFolder"] = "Codex session folder",
+            ["settings.browse"] = "Browse",
+
+            // 설정 - 표시
+            ["settings.numberFormat"] = "Number format",
+            ["settings.numberFormatHint"] = "Show what is left or what was used",
+            ["settings.modeRemaining"] = "Remaining",
+            ["settings.modeUsed"] = "Used",
+            ["settings.widgetBar"] = "Widget bar",
+            ["settings.widgetBarHint"] = "Show a horizontal bar next to the taskbar",
+            ["settings.pinTaskbar"] = "Always show on taskbar",
+            ["settings.pinTaskbarHint"] = "When off, it moves into the hidden icons (^)",
+            ["settings.pinUnsupported"] = "Not supported on this version of Windows",
+            ["settings.pinPending"] = "Applies once the tray icon is ready",
+            ["settings.barColors"] = "Bar colors",
+            ["settings.barColorsHint"] = "Colors that tell the tools apart",
+            ["settings.resetColors"] = "Reset",
+            ["settings.language"] = "Language",
+            ["settings.languageHint"] = "Applies immediately",
+
+            // 설정 - 동작
+            ["settings.interval"] = "Refresh interval",
+            ["settings.intervalHint"] = "Opening the popup always fetches the latest values",
+            ["settings.intervalManual"] = "Manual",
+            ["settings.startWithWindows"] = "Start with Windows",
+
+            // 설정 - 버튼
+            ["settings.test"] = "Test connection",
+            ["dialog.resetAllTitle"] = "Reset everything",
+            ["dialog.resetAllBody"] = "All settings return to their defaults, including language, colors and paths.{0}{0}Continue?",
+            ["settings.cancel"] = "Cancel",
+            ["settings.save"] = "Save",
+            ["settings.issues"] = "Report an issue",
+
+            // 설정 - 대화상자
+            ["dialog.pickClaude"] = "Select Claude credentials file",
+            ["dialog.pickCodex"] = "Select Codex session folder",
+            ["dialog.credentialFilter"] = "Credential files (*.json)|*.json|All files (*.*)|*.*",
+            ["dialog.testTitle"] = "Test connection",
+            ["dialog.testNoTools"] = "No tools are enabled.",
+            ["dialog.saveFailed"] = "Could not save settings.{0}{1}",
+            ["dialog.saveFailedTitle"] = "Save failed",
+            ["dialog.pinFailed"] = "Could not change taskbar visibility.{0}{1}",
+            ["dialog.notice"] = "Notice",
+
+            // 작업표시줄 고정
+            ["pin.unsupported"] = "Not supported on this version of Windows.",
+            ["pin.notFound"] = "Tray icon entry not found yet. Try again shortly.",
+            ["pin.noPermission"] = "No permission to write to the registry.",
+        },
+
+        ["ko"] = new()
+        {
+            ["app.name"] = "AI Quota Tray",
+            ["app.alreadyRunning"] = "AI Quota Tray가 이미 실행 중입니다. 트레이 아이콘을 확인하세요.",
+
+            ["menu.open"] = "열기",
+            ["menu.refresh"] = "새로고침",
+            ["menu.settings"] = "설정",
+            ["menu.issues"] = "문의 · 버그 신고",
+            ["menu.quit"] = "종료",
+
+            ["popup.checking"] = "확인 중…",
+            ["popup.nothing"] = "표시할 항목이 없습니다. 설정에서 활성화하세요.",
+            ["popup.lastRecord"] = "마지막 기록: {0} 전",
+            ["tip.refresh"] = "새로고침",
+            ["tip.settings"] = "설정",
+
+            ["window.session"] = "5시간",
+            ["window.weekly"] = "주간",
+            ["window.weeklyOpus"] = "주간 Opus",
+            ["window.weeklySonnet"] = "주간 Sonnet",
+            ["window.usage"] = "사용량",
+
+            ["value.remaining"] = "{0}% 남음",
+            ["value.used"] = "{0}% 사용",
+            ["reset.soon"] = "곧 초기화",
+            ["reset.days"] = "{0}일 {1}시간 후 초기화",
+            ["reset.hours"] = "{0}시간 {1}분 후 초기화",
+            ["reset.minutes"] = "{0}분 후 초기화",
+            ["short.soon"] = "곧",
+            ["age.days"] = "{0}일",
+            ["age.hours"] = "{0}시간",
+            ["age.minutes"] = "{0}분",
+
+            ["status.operational"] = "정상",
+            ["status.degraded"] = "성능 저하",
+            ["status.partialOutage"] = "일부 장애",
+            ["status.majorOutage"] = "장애",
+            ["status.maintenance"] = "점검 중",
+            ["status.unknown"] = "확인 불가",
+
+            ["error.notLoggedIn"] = "Claude Code에 로그인되어 있지 않습니다",
+            ["error.credentialsUnreadable"] = "자격증명을 읽을 수 없습니다: {0}",
+            ["error.noToken"] = "액세스 토큰이 없습니다",
+            ["error.tokenRefresh"] = "토큰 갱신 대기 중 (Claude Code를 실행하면 해결됩니다)",
+            ["error.rateLimited"] = "조회 요청이 많아 잠시 제한됨 ({0}초 후 재시도)",
+            ["error.rateLimitedWait"] = "조회가 잠시 제한됨 ({0}초 후 재시도)",
+            ["error.httpFailed"] = "조회 실패 (HTTP {0})",
+            ["error.network"] = "네트워크에 연결할 수 없습니다",
+            ["error.cancelled"] = "조회가 취소되었습니다",
+            ["error.codexFolder"] = "Codex 세션 폴더를 찾을 수 없습니다",
+            ["error.codexFolderRead"] = "세션 폴더를 읽을 수 없습니다: {0}",
+            ["error.codexNoHistory"] = "Codex 사용 기록이 없습니다",
+            ["error.codexNoUsage"] = "세션 로그에서 사용량을 찾지 못했습니다",
+
+            ["settings.title"] = "AI Quota Tray 설정",
+            ["settings.sectionTools"] = "사용량을 가져올 도구",
+            ["settings.sectionDisplay"] = "표시",
+            ["settings.sectionBehavior"] = "동작",
+
+            ["settings.claudeFound"] = "로그인 정보를 찾았습니다",
+            ["settings.claudeMissing"] = "파일을 찾을 수 없습니다. Claude Code에 로그인하세요",
+            ["settings.codexFound"] = "세션 기록을 찾았습니다",
+            ["settings.codexEmpty"] = "세션 기록이 아직 없습니다",
+            ["settings.codexMissing"] = "폴더를 찾을 수 없습니다. Codex를 한 번 실행하세요",
+            ["settings.pathToggle"] = "파일 위치 직접 지정",
+            ["settings.claudeCredential"] = "Claude 자격증명",
+            ["settings.codexFolder"] = "Codex 세션 폴더",
+            ["settings.browse"] = "찾기",
+
+            ["settings.numberFormat"] = "숫자 표기",
+            ["settings.numberFormatHint"] = "남은 양과 쓴 양 중 무엇을 보여줄지",
+            ["settings.modeRemaining"] = "남은 양",
+            ["settings.modeUsed"] = "쓴 양",
+            ["settings.widgetBar"] = "위젯바",
+            ["settings.widgetBarHint"] = "작업표시줄 옆에 가로 막대로 표시",
+            ["settings.pinTaskbar"] = "작업표시줄에 항상 표시",
+            ["settings.pinTaskbarHint"] = "끄면 숨김 아이콘(^) 안으로 들어갑니다",
+            ["settings.pinUnsupported"] = "이 Windows 버전에서는 지원되지 않습니다",
+            ["settings.pinPending"] = "트레이 아이콘이 준비되면 적용됩니다",
+            ["settings.barColors"] = "바 색상",
+            ["settings.barColorsHint"] = "도구를 구분하는 색",
+            ["settings.resetColors"] = "기본값",
+            ["settings.language"] = "언어",
+            ["settings.languageHint"] = "바로 적용됩니다",
+
+            ["settings.interval"] = "새로고침 주기",
+            ["settings.intervalHint"] = "팝업을 열 때는 주기와 무관하게 항상 최신 값을 가져옵니다",
+            ["settings.intervalManual"] = "수동",
+            ["settings.startWithWindows"] = "Windows 시작 시 자동 실행",
+
+            ["settings.test"] = "연결 테스트",
+            ["dialog.resetAllTitle"] = "전체 초기화",
+            ["dialog.resetAllBody"] = "언어, 색상, 경로를 포함한 모든 설정이 기본값으로 돌아갑니다.{0}{0}계속할까요?",
+            ["settings.cancel"] = "취소",
+            ["settings.save"] = "저장",
+            ["settings.issues"] = "문의 · 버그 신고",
+
+            ["dialog.pickClaude"] = "Claude 자격증명 파일 선택",
+            ["dialog.pickCodex"] = "Codex 세션 폴더 선택",
+            ["dialog.credentialFilter"] = "자격증명 파일 (*.json)|*.json|모든 파일 (*.*)|*.*",
+            ["dialog.testTitle"] = "연결 테스트",
+            ["dialog.testNoTools"] = "활성화된 도구가 없습니다.",
+            ["dialog.saveFailed"] = "설정을 저장하지 못했습니다.{0}{1}",
+            ["dialog.saveFailedTitle"] = "저장 실패",
+            ["dialog.pinFailed"] = "작업표시줄 표시를 바꾸지 못했습니다.{0}{1}",
+            ["dialog.notice"] = "알림",
+
+            ["pin.unsupported"] = "이 Windows 버전에서는 지원되지 않습니다.",
+            ["pin.notFound"] = "트레이 아이콘 항목을 아직 찾을 수 없습니다. 잠시 후 다시 시도하세요.",
+            ["pin.noPermission"] = "레지스트리에 쓸 권한이 없습니다.",
+        },
+
+        ["ja"] = new()
+        {
+            ["app.name"] = "AI Quota Tray",
+            ["app.alreadyRunning"] = "AI Quota Tray はすでに実行中です。トレイアイコンを確認してください。",
+
+            ["menu.open"] = "開く",
+            ["menu.refresh"] = "更新",
+            ["menu.settings"] = "設定",
+            ["menu.issues"] = "問題を報告",
+            ["menu.quit"] = "終了",
+
+            ["popup.checking"] = "確認中…",
+            ["popup.nothing"] = "表示する項目がありません。設定で有効にしてください。",
+            ["popup.lastRecord"] = "最終記録: {0}前",
+            ["tip.refresh"] = "更新",
+            ["tip.settings"] = "設定",
+
+            ["window.session"] = "5時間",
+            ["window.weekly"] = "週間",
+            ["window.weeklyOpus"] = "週間 Opus",
+            ["window.weeklySonnet"] = "週間 Sonnet",
+            ["window.usage"] = "使用量",
+
+            ["value.remaining"] = "残り {0}%",
+            ["value.used"] = "{0}% 使用",
+            ["reset.soon"] = "まもなくリセット",
+            ["reset.days"] = "{0}日 {1}時間後にリセット",
+            ["reset.hours"] = "{0}時間 {1}分後にリセット",
+            ["reset.minutes"] = "{0}分後にリセット",
+            ["short.soon"] = "まもなく",
+            ["age.days"] = "{0}日",
+            ["age.hours"] = "{0}時間",
+            ["age.minutes"] = "{0}分",
+
+            ["status.operational"] = "正常",
+            ["status.degraded"] = "性能低下",
+            ["status.partialOutage"] = "一部障害",
+            ["status.majorOutage"] = "障害",
+            ["status.maintenance"] = "メンテナンス中",
+            ["status.unknown"] = "不明",
+
+            ["error.notLoggedIn"] = "Claude Code にサインインしていません",
+            ["error.credentialsUnreadable"] = "認証情報を読み取れません: {0}",
+            ["error.noToken"] = "アクセストークンがありません",
+            ["error.tokenRefresh"] = "トークン更新待ち (Claude Code を実行すると解決します)",
+            ["error.rateLimited"] = "リクエストが多いため一時停止中 ({0}秒後に再試行)",
+            ["error.rateLimitedWait"] = "一時的に制限中 ({0}秒後に再試行)",
+            ["error.httpFailed"] = "取得に失敗しました (HTTP {0})",
+            ["error.network"] = "ネットワークに接続できません",
+            ["error.cancelled"] = "取得がキャンセルされました",
+            ["error.codexFolder"] = "Codex のセッションフォルダーが見つかりません",
+            ["error.codexFolderRead"] = "セッションフォルダーを読み取れません: {0}",
+            ["error.codexNoHistory"] = "Codex の使用履歴がありません",
+            ["error.codexNoUsage"] = "セッションログに使用量が見つかりません",
+
+            ["settings.title"] = "AI Quota Tray 設定",
+            ["settings.sectionTools"] = "取得するツール",
+            ["settings.sectionDisplay"] = "表示",
+            ["settings.sectionBehavior"] = "動作",
+
+            ["settings.claudeFound"] = "サインイン情報が見つかりました",
+            ["settings.claudeMissing"] = "ファイルが見つかりません。Claude Code にサインインしてください",
+            ["settings.codexFound"] = "セッション履歴が見つかりました",
+            ["settings.codexEmpty"] = "セッション履歴がまだありません",
+            ["settings.codexMissing"] = "フォルダーが見つかりません。Codex を一度実行してください",
+            ["settings.pathToggle"] = "ファイルの場所を手動で指定",
+            ["settings.claudeCredential"] = "Claude 認証情報",
+            ["settings.codexFolder"] = "Codex セッションフォルダー",
+            ["settings.browse"] = "参照",
+
+            ["settings.numberFormat"] = "数値の表示",
+            ["settings.numberFormatHint"] = "残量と使用量のどちらを表示するか",
+            ["settings.modeRemaining"] = "残量",
+            ["settings.modeUsed"] = "使用量",
+            ["settings.widgetBar"] = "ウィジェットバー",
+            ["settings.widgetBarHint"] = "タスクバーの横に横棒で表示",
+            ["settings.pinTaskbar"] = "タスクバーに常に表示",
+            ["settings.pinTaskbarHint"] = "オフにすると隠れているアイコン(^)に入ります",
+            ["settings.pinUnsupported"] = "このバージョンの Windows では対応していません",
+            ["settings.pinPending"] = "トレイアイコンの準備ができたら適用されます",
+            ["settings.barColors"] = "バーの色",
+            ["settings.barColorsHint"] = "ツールを区別する色",
+            ["settings.resetColors"] = "既定値",
+            ["settings.language"] = "言語",
+            ["settings.languageHint"] = "すぐに適用されます",
+
+            ["settings.interval"] = "更新間隔",
+            ["settings.intervalHint"] = "ポップアップを開くと常に最新の値を取得します",
+            ["settings.intervalManual"] = "手動",
+            ["settings.startWithWindows"] = "Windows 起動時に自動実行",
+
+            ["settings.test"] = "接続テスト",
+            ["dialog.resetAllTitle"] = "すべてリセット",
+            ["dialog.resetAllBody"] = "言語・色・パスを含むすべての設定が既定値に戻ります。{0}{0}続行しますか?",
+            ["settings.cancel"] = "キャンセル",
+            ["settings.save"] = "保存",
+            ["settings.issues"] = "問題を報告",
+
+            ["dialog.pickClaude"] = "Claude 認証情報ファイルを選択",
+            ["dialog.pickCodex"] = "Codex セッションフォルダーを選択",
+            ["dialog.credentialFilter"] = "認証情報ファイル (*.json)|*.json|すべてのファイル (*.*)|*.*",
+            ["dialog.testTitle"] = "接続テスト",
+            ["dialog.testNoTools"] = "有効なツールがありません。",
+            ["dialog.saveFailed"] = "設定を保存できませんでした。{0}{1}",
+            ["dialog.saveFailedTitle"] = "保存に失敗",
+            ["dialog.pinFailed"] = "タスクバー表示を変更できませんでした。{0}{1}",
+            ["dialog.notice"] = "お知らせ",
+
+            ["pin.unsupported"] = "このバージョンの Windows では対応していません。",
+            ["pin.notFound"] = "トレイアイコンの項目がまだ見つかりません。しばらくしてからお試しください。",
+            ["pin.noPermission"] = "レジストリへの書き込み権限がありません。",
+        },
+
+        ["zh-Hans"] = new()
+        {
+            ["app.name"] = "AI Quota Tray",
+            ["app.alreadyRunning"] = "AI Quota Tray 已在运行。请查看托盘图标。",
+
+            ["menu.open"] = "打开",
+            ["menu.refresh"] = "刷新",
+            ["menu.settings"] = "设置",
+            ["menu.issues"] = "反馈问题",
+            ["menu.quit"] = "退出",
+
+            ["popup.checking"] = "正在检查…",
+            ["popup.nothing"] = "没有可显示的项目。请在设置中启用。",
+            ["popup.lastRecord"] = "最后记录：{0}前",
+            ["tip.refresh"] = "刷新",
+            ["tip.settings"] = "设置",
+
+            ["window.session"] = "5 小时",
+            ["window.weekly"] = "每周",
+            ["window.weeklyOpus"] = "每周 Opus",
+            ["window.weeklySonnet"] = "每周 Sonnet",
+            ["window.usage"] = "用量",
+
+            ["value.remaining"] = "剩余 {0}%",
+            ["value.used"] = "已用 {0}%",
+            ["reset.soon"] = "即将重置",
+            ["reset.days"] = "{0}天 {1}小时后重置",
+            ["reset.hours"] = "{0}小时 {1}分钟后重置",
+            ["reset.minutes"] = "{0}分钟后重置",
+            ["short.soon"] = "即将",
+            ["age.days"] = "{0}天",
+            ["age.hours"] = "{0}小时",
+            ["age.minutes"] = "{0}分钟",
+
+            ["status.operational"] = "正常",
+            ["status.degraded"] = "性能下降",
+            ["status.partialOutage"] = "部分故障",
+            ["status.majorOutage"] = "服务中断",
+            ["status.maintenance"] = "维护中",
+            ["status.unknown"] = "未知",
+
+            ["error.notLoggedIn"] = "尚未登录 Claude Code",
+            ["error.credentialsUnreadable"] = "无法读取凭据：{0}",
+            ["error.noToken"] = "没有访问令牌",
+            ["error.tokenRefresh"] = "等待令牌刷新（运行 Claude Code 即可解决）",
+            ["error.rateLimited"] = "请求过多，已暂停（{0} 秒后重试）",
+            ["error.rateLimitedWait"] = "查询暂时受限（{0} 秒后重试）",
+            ["error.httpFailed"] = "查询失败（HTTP {0}）",
+            ["error.network"] = "无法连接网络",
+            ["error.cancelled"] = "查询已取消",
+            ["error.codexFolder"] = "找不到 Codex 会话文件夹",
+            ["error.codexFolderRead"] = "无法读取会话文件夹：{0}",
+            ["error.codexNoHistory"] = "没有 Codex 使用记录",
+            ["error.codexNoUsage"] = "在会话日志中未找到用量",
+
+            ["settings.title"] = "AI Quota Tray 设置",
+            ["settings.sectionTools"] = "要跟踪的工具",
+            ["settings.sectionDisplay"] = "显示",
+            ["settings.sectionBehavior"] = "行为",
+
+            ["settings.claudeFound"] = "已找到登录信息",
+            ["settings.claudeMissing"] = "找不到文件。请登录 Claude Code",
+            ["settings.codexFound"] = "已找到会话记录",
+            ["settings.codexEmpty"] = "还没有会话记录",
+            ["settings.codexMissing"] = "找不到文件夹。请先运行一次 Codex",
+            ["settings.pathToggle"] = "手动指定文件位置",
+            ["settings.claudeCredential"] = "Claude 凭据",
+            ["settings.codexFolder"] = "Codex 会话文件夹",
+            ["settings.browse"] = "浏览",
+
+            ["settings.numberFormat"] = "数值显示",
+            ["settings.numberFormatHint"] = "显示剩余量还是已用量",
+            ["settings.modeRemaining"] = "剩余",
+            ["settings.modeUsed"] = "已用",
+            ["settings.widgetBar"] = "小组件栏",
+            ["settings.widgetBarHint"] = "在任务栏旁以横条显示",
+            ["settings.pinTaskbar"] = "始终显示在任务栏",
+            ["settings.pinTaskbarHint"] = "关闭后会移入隐藏图标(^)",
+            ["settings.pinUnsupported"] = "此 Windows 版本不支持",
+            ["settings.pinPending"] = "托盘图标就绪后生效",
+            ["settings.barColors"] = "进度条颜色",
+            ["settings.barColorsHint"] = "用于区分工具的颜色",
+            ["settings.resetColors"] = "默认值",
+            ["settings.language"] = "语言",
+            ["settings.languageHint"] = "立即生效",
+
+            ["settings.interval"] = "刷新间隔",
+            ["settings.intervalHint"] = "打开弹窗时始终获取最新数值",
+            ["settings.intervalManual"] = "手动",
+            ["settings.startWithWindows"] = "开机自动启动",
+
+            ["settings.test"] = "测试连接",
+            ["dialog.resetAllTitle"] = "全部重置",
+            ["dialog.resetAllBody"] = "包括语言、颜色和路径在内的所有设置将恢复默认值。{0}{0}要继续吗？",
+            ["settings.cancel"] = "取消",
+            ["settings.save"] = "保存",
+            ["settings.issues"] = "反馈问题",
+
+            ["dialog.pickClaude"] = "选择 Claude 凭据文件",
+            ["dialog.pickCodex"] = "选择 Codex 会话文件夹",
+            ["dialog.credentialFilter"] = "凭据文件 (*.json)|*.json|所有文件 (*.*)|*.*",
+            ["dialog.testTitle"] = "测试连接",
+            ["dialog.testNoTools"] = "没有启用的工具。",
+            ["dialog.saveFailed"] = "无法保存设置。{0}{1}",
+            ["dialog.saveFailedTitle"] = "保存失败",
+            ["dialog.pinFailed"] = "无法更改任务栏显示。{0}{1}",
+            ["dialog.notice"] = "提示",
+
+            ["pin.unsupported"] = "此 Windows 版本不支持。",
+            ["pin.notFound"] = "尚未找到托盘图标项。请稍后重试。",
+            ["pin.noPermission"] = "没有写入注册表的权限。",
+        },
+
+        ["zh-Hant"] = new()
+        {
+            ["app.name"] = "AI Quota Tray",
+            ["app.alreadyRunning"] = "AI Quota Tray 已在執行。請查看系統匣圖示。",
+
+            ["menu.open"] = "開啟",
+            ["menu.refresh"] = "重新整理",
+            ["menu.settings"] = "設定",
+            ["menu.issues"] = "回報問題",
+            ["menu.quit"] = "結束",
+
+            ["popup.checking"] = "檢查中…",
+            ["popup.nothing"] = "沒有可顯示的項目。請在設定中啟用。",
+            ["popup.lastRecord"] = "最後紀錄：{0}前",
+            ["tip.refresh"] = "重新整理",
+            ["tip.settings"] = "設定",
+
+            ["window.session"] = "5 小時",
+            ["window.weekly"] = "每週",
+            ["window.weeklyOpus"] = "每週 Opus",
+            ["window.weeklySonnet"] = "每週 Sonnet",
+            ["window.usage"] = "用量",
+
+            ["value.remaining"] = "剩餘 {0}%",
+            ["value.used"] = "已用 {0}%",
+            ["reset.soon"] = "即將重設",
+            ["reset.days"] = "{0}天 {1}小時後重設",
+            ["reset.hours"] = "{0}小時 {1}分鐘後重設",
+            ["reset.minutes"] = "{0}分鐘後重設",
+            ["short.soon"] = "即將",
+            ["age.days"] = "{0}天",
+            ["age.hours"] = "{0}小時",
+            ["age.minutes"] = "{0}分鐘",
+
+            ["status.operational"] = "正常",
+            ["status.degraded"] = "效能下降",
+            ["status.partialOutage"] = "部分故障",
+            ["status.majorOutage"] = "服務中斷",
+            ["status.maintenance"] = "維護中",
+            ["status.unknown"] = "未知",
+
+            ["error.notLoggedIn"] = "尚未登入 Claude Code",
+            ["error.credentialsUnreadable"] = "無法讀取憑證：{0}",
+            ["error.noToken"] = "沒有存取權杖",
+            ["error.tokenRefresh"] = "等待權杖更新（執行 Claude Code 即可解決）",
+            ["error.rateLimited"] = "請求過多，已暫停（{0} 秒後重試）",
+            ["error.rateLimitedWait"] = "查詢暫時受限（{0} 秒後重試）",
+            ["error.httpFailed"] = "查詢失敗（HTTP {0}）",
+            ["error.network"] = "無法連線至網路",
+            ["error.cancelled"] = "查詢已取消",
+            ["error.codexFolder"] = "找不到 Codex 工作階段資料夾",
+            ["error.codexFolderRead"] = "無法讀取工作階段資料夾：{0}",
+            ["error.codexNoHistory"] = "沒有 Codex 使用紀錄",
+            ["error.codexNoUsage"] = "在工作階段記錄中找不到用量",
+
+            ["settings.title"] = "AI Quota Tray 設定",
+            ["settings.sectionTools"] = "要追蹤的工具",
+            ["settings.sectionDisplay"] = "顯示",
+            ["settings.sectionBehavior"] = "行為",
+
+            ["settings.claudeFound"] = "已找到登入資訊",
+            ["settings.claudeMissing"] = "找不到檔案。請登入 Claude Code",
+            ["settings.codexFound"] = "已找到工作階段紀錄",
+            ["settings.codexEmpty"] = "尚無工作階段紀錄",
+            ["settings.codexMissing"] = "找不到資料夾。請先執行一次 Codex",
+            ["settings.pathToggle"] = "手動指定檔案位置",
+            ["settings.claudeCredential"] = "Claude 憑證",
+            ["settings.codexFolder"] = "Codex 工作階段資料夾",
+            ["settings.browse"] = "瀏覽",
+
+            ["settings.numberFormat"] = "數值顯示",
+            ["settings.numberFormatHint"] = "顯示剩餘量或已用量",
+            ["settings.modeRemaining"] = "剩餘",
+            ["settings.modeUsed"] = "已用",
+            ["settings.widgetBar"] = "小工具列",
+            ["settings.widgetBarHint"] = "在工作列旁以橫條顯示",
+            ["settings.pinTaskbar"] = "永遠顯示在工作列",
+            ["settings.pinTaskbarHint"] = "關閉後會移入隱藏圖示(^)",
+            ["settings.pinUnsupported"] = "此 Windows 版本不支援",
+            ["settings.pinPending"] = "系統匣圖示就緒後生效",
+            ["settings.barColors"] = "進度條顏色",
+            ["settings.barColorsHint"] = "用於區分工具的顏色",
+            ["settings.resetColors"] = "預設值",
+            ["settings.language"] = "語言",
+            ["settings.languageHint"] = "立即生效",
+
+            ["settings.interval"] = "重新整理間隔",
+            ["settings.intervalHint"] = "開啟彈出視窗時一律取得最新數值",
+            ["settings.intervalManual"] = "手動",
+            ["settings.startWithWindows"] = "開機時自動執行",
+
+            ["settings.test"] = "測試連線",
+            ["dialog.resetAllTitle"] = "全部重設",
+            ["dialog.resetAllBody"] = "包括語言、顏色和路徑在內的所有設定將恢復預設值。{0}{0}要繼續嗎？",
+            ["settings.cancel"] = "取消",
+            ["settings.save"] = "儲存",
+            ["settings.issues"] = "回報問題",
+
+            ["dialog.pickClaude"] = "選擇 Claude 憑證檔案",
+            ["dialog.pickCodex"] = "選擇 Codex 工作階段資料夾",
+            ["dialog.credentialFilter"] = "憑證檔案 (*.json)|*.json|所有檔案 (*.*)|*.*",
+            ["dialog.testTitle"] = "測試連線",
+            ["dialog.testNoTools"] = "沒有啟用的工具。",
+            ["dialog.saveFailed"] = "無法儲存設定。{0}{1}",
+            ["dialog.saveFailedTitle"] = "儲存失敗",
+            ["dialog.pinFailed"] = "無法變更工作列顯示。{0}{1}",
+            ["dialog.notice"] = "提示",
+
+            ["pin.unsupported"] = "此 Windows 版本不支援。",
+            ["pin.notFound"] = "尚未找到系統匣圖示項目。請稍後再試。",
+            ["pin.noPermission"] = "沒有寫入登錄檔的權限。",
+        },
+
+        ["es"] = new()
+        {
+            ["app.name"] = "AI Quota Tray",
+            ["app.alreadyRunning"] = "AI Quota Tray ya se está ejecutando. Consulta el icono de la bandeja.",
+
+            ["menu.open"] = "Abrir",
+            ["menu.refresh"] = "Actualizar",
+            ["menu.settings"] = "Configuración",
+            ["menu.issues"] = "Informar de un problema",
+            ["menu.quit"] = "Salir",
+
+            ["popup.checking"] = "Comprobando…",
+            ["popup.nothing"] = "Nada que mostrar. Activa una herramienta en Configuración.",
+            ["popup.lastRecord"] = "Último registro: hace {0}",
+            ["tip.refresh"] = "Actualizar",
+            ["tip.settings"] = "Configuración",
+
+            ["window.session"] = "5 horas",
+            ["window.weekly"] = "Semanal",
+            ["window.weeklyOpus"] = "Semanal Opus",
+            ["window.weeklySonnet"] = "Semanal Sonnet",
+            ["window.usage"] = "Uso",
+
+            ["value.remaining"] = "{0}% restante",
+            ["value.used"] = "{0}% usado",
+            ["reset.soon"] = "Se reinicia pronto",
+            ["reset.days"] = "Se reinicia en {0}d {1}h",
+            ["reset.hours"] = "Se reinicia en {0}h {1}min",
+            ["reset.minutes"] = "Se reinicia en {0}min",
+            ["short.soon"] = "pronto",
+            ["age.days"] = "{0}d",
+            ["age.hours"] = "{0}h",
+            ["age.minutes"] = "{0}min",
+
+            ["status.operational"] = "Operativo",
+            ["status.degraded"] = "Rendimiento degradado",
+            ["status.partialOutage"] = "Interrupción parcial",
+            ["status.majorOutage"] = "Interrupción",
+            ["status.maintenance"] = "Mantenimiento",
+            ["status.unknown"] = "Desconocido",
+
+            ["error.notLoggedIn"] = "No has iniciado sesión en Claude Code",
+            ["error.credentialsUnreadable"] = "No se pueden leer las credenciales: {0}",
+            ["error.noToken"] = "No hay token de acceso",
+            ["error.tokenRefresh"] = "Esperando la renovación del token (ejecuta Claude Code para resolverlo)",
+            ["error.rateLimited"] = "Demasiadas solicitudes, en pausa ({0}s para reintentar)",
+            ["error.rateLimitedWait"] = "Consultas en pausa ({0}s para reintentar)",
+            ["error.httpFailed"] = "Error en la consulta (HTTP {0})",
+            ["error.network"] = "No se puede conectar a la red",
+            ["error.cancelled"] = "Consulta cancelada",
+            ["error.codexFolder"] = "No se encuentra la carpeta de sesiones de Codex",
+            ["error.codexFolderRead"] = "No se puede leer la carpeta de sesiones: {0}",
+            ["error.codexNoHistory"] = "No hay historial de uso de Codex",
+            ["error.codexNoUsage"] = "No se encontró uso en los registros de sesión",
+
+            ["settings.title"] = "Configuración de AI Quota Tray",
+            ["settings.sectionTools"] = "HERRAMIENTAS A SEGUIR",
+            ["settings.sectionDisplay"] = "VISUALIZACIÓN",
+            ["settings.sectionBehavior"] = "COMPORTAMIENTO",
+
+            ["settings.claudeFound"] = "Información de sesión encontrada",
+            ["settings.claudeMissing"] = "Archivo no encontrado. Inicia sesión en Claude Code",
+            ["settings.codexFound"] = "Historial de sesiones encontrado",
+            ["settings.codexEmpty"] = "Aún no hay historial de sesiones",
+            ["settings.codexMissing"] = "Carpeta no encontrada. Ejecuta Codex una vez",
+            ["settings.pathToggle"] = "Indicar ubicaciones manualmente",
+            ["settings.claudeCredential"] = "Credenciales de Claude",
+            ["settings.codexFolder"] = "Carpeta de sesiones de Codex",
+            ["settings.browse"] = "Examinar",
+
+            ["settings.numberFormat"] = "Formato numérico",
+            ["settings.numberFormatHint"] = "Mostrar lo que queda o lo que se ha usado",
+            ["settings.modeRemaining"] = "Restante",
+            ["settings.modeUsed"] = "Usado",
+            ["settings.widgetBar"] = "Barra de widget",
+            ["settings.widgetBarHint"] = "Mostrar una barra horizontal junto a la barra de tareas",
+            ["settings.pinTaskbar"] = "Mostrar siempre en la barra de tareas",
+            ["settings.pinTaskbarHint"] = "Si se desactiva, pasa a los iconos ocultos (^)",
+            ["settings.pinUnsupported"] = "No compatible con esta versión de Windows",
+            ["settings.pinPending"] = "Se aplica cuando el icono esté listo",
+            ["settings.barColors"] = "Colores de barra",
+            ["settings.barColorsHint"] = "Colores que distinguen las herramientas",
+            ["settings.resetColors"] = "Restablecer",
+            ["settings.language"] = "Idioma",
+            ["settings.languageHint"] = "Se aplica de inmediato",
+
+            ["settings.interval"] = "Intervalo de actualización",
+            ["settings.intervalHint"] = "Al abrir la ventana siempre se obtienen los valores más recientes",
+            ["settings.intervalManual"] = "Manual",
+            ["settings.startWithWindows"] = "Iniciar con Windows",
+
+            ["settings.test"] = "Probar conexión",
+            ["dialog.resetAllTitle"] = "Restablecer todo",
+            ["dialog.resetAllBody"] = "Todos los ajustes vuelven a sus valores predeterminados, incluidos idioma, colores y rutas.{0}{0}¿Continuar?",
+            ["settings.cancel"] = "Cancelar",
+            ["settings.save"] = "Guardar",
+            ["settings.issues"] = "Informar de un problema",
+
+            ["dialog.pickClaude"] = "Selecciona el archivo de credenciales de Claude",
+            ["dialog.pickCodex"] = "Selecciona la carpeta de sesiones de Codex",
+            ["dialog.credentialFilter"] = "Archivos de credenciales (*.json)|*.json|Todos los archivos (*.*)|*.*",
+            ["dialog.testTitle"] = "Probar conexión",
+            ["dialog.testNoTools"] = "No hay herramientas activadas.",
+            ["dialog.saveFailed"] = "No se pudo guardar la configuración.{0}{1}",
+            ["dialog.saveFailedTitle"] = "Error al guardar",
+            ["dialog.pinFailed"] = "No se pudo cambiar la visibilidad en la barra de tareas.{0}{1}",
+            ["dialog.notice"] = "Aviso",
+
+            ["pin.unsupported"] = "No compatible con esta versión de Windows.",
+            ["pin.notFound"] = "Aún no se encuentra la entrada del icono. Inténtalo de nuevo en breve.",
+            ["pin.noPermission"] = "Sin permiso para escribir en el registro.",
+        },
+
+        ["pt"] = new()
+        {
+            ["app.name"] = "AI Quota Tray",
+            ["app.alreadyRunning"] = "O AI Quota Tray já está em execução. Verifique o ícone da bandeja.",
+
+            ["menu.open"] = "Abrir",
+            ["menu.refresh"] = "Atualizar",
+            ["menu.settings"] = "Configurações",
+            ["menu.issues"] = "Relatar um problema",
+            ["menu.quit"] = "Sair",
+
+            ["popup.checking"] = "Verificando…",
+            ["popup.nothing"] = "Nada a exibir. Ative uma ferramenta nas Configurações.",
+            ["popup.lastRecord"] = "Último registro: há {0}",
+            ["tip.refresh"] = "Atualizar",
+            ["tip.settings"] = "Configurações",
+
+            ["window.session"] = "5 horas",
+            ["window.weekly"] = "Semanal",
+            ["window.weeklyOpus"] = "Semanal Opus",
+            ["window.weeklySonnet"] = "Semanal Sonnet",
+            ["window.usage"] = "Uso",
+
+            ["value.remaining"] = "{0}% restante",
+            ["value.used"] = "{0}% usado",
+            ["reset.soon"] = "Redefine em breve",
+            ["reset.days"] = "Redefine em {0}d {1}h",
+            ["reset.hours"] = "Redefine em {0}h {1}min",
+            ["reset.minutes"] = "Redefine em {0}min",
+            ["short.soon"] = "em breve",
+            ["age.days"] = "{0}d",
+            ["age.hours"] = "{0}h",
+            ["age.minutes"] = "{0}min",
+
+            ["status.operational"] = "Operacional",
+            ["status.degraded"] = "Desempenho degradado",
+            ["status.partialOutage"] = "Interrupção parcial",
+            ["status.majorOutage"] = "Interrupção",
+            ["status.maintenance"] = "Manutenção",
+            ["status.unknown"] = "Desconhecido",
+
+            ["error.notLoggedIn"] = "Não conectado ao Claude Code",
+            ["error.credentialsUnreadable"] = "Não é possível ler as credenciais: {0}",
+            ["error.noToken"] = "Sem token de acesso",
+            ["error.tokenRefresh"] = "Aguardando renovação do token (execute o Claude Code para resolver)",
+            ["error.rateLimited"] = "Muitas solicitações, pausado ({0}s para tentar de novo)",
+            ["error.rateLimitedWait"] = "Consultas pausadas ({0}s para tentar de novo)",
+            ["error.httpFailed"] = "Falha na consulta (HTTP {0})",
+            ["error.network"] = "Não é possível conectar à rede",
+            ["error.cancelled"] = "Consulta cancelada",
+            ["error.codexFolder"] = "Pasta de sessões do Codex não encontrada",
+            ["error.codexFolderRead"] = "Não é possível ler a pasta de sessões: {0}",
+            ["error.codexNoHistory"] = "Sem histórico de uso do Codex",
+            ["error.codexNoUsage"] = "Nenhum uso encontrado nos registros de sessão",
+
+            ["settings.title"] = "Configurações do AI Quota Tray",
+            ["settings.sectionTools"] = "FERRAMENTAS A ACOMPANHAR",
+            ["settings.sectionDisplay"] = "EXIBIÇÃO",
+            ["settings.sectionBehavior"] = "COMPORTAMENTO",
+
+            ["settings.claudeFound"] = "Informações de login encontradas",
+            ["settings.claudeMissing"] = "Arquivo não encontrado. Faça login no Claude Code",
+            ["settings.codexFound"] = "Histórico de sessões encontrado",
+            ["settings.codexEmpty"] = "Ainda não há histórico de sessões",
+            ["settings.codexMissing"] = "Pasta não encontrada. Execute o Codex uma vez",
+            ["settings.pathToggle"] = "Definir locais dos arquivos manualmente",
+            ["settings.claudeCredential"] = "Credenciais do Claude",
+            ["settings.codexFolder"] = "Pasta de sessões do Codex",
+            ["settings.browse"] = "Procurar",
+
+            ["settings.numberFormat"] = "Formato numérico",
+            ["settings.numberFormatHint"] = "Mostrar o que resta ou o que foi usado",
+            ["settings.modeRemaining"] = "Restante",
+            ["settings.modeUsed"] = "Usado",
+            ["settings.widgetBar"] = "Barra de widget",
+            ["settings.widgetBarHint"] = "Mostrar uma barra horizontal ao lado da barra de tarefas",
+            ["settings.pinTaskbar"] = "Sempre mostrar na barra de tarefas",
+            ["settings.pinTaskbarHint"] = "Se desativado, vai para os ícones ocultos (^)",
+            ["settings.pinUnsupported"] = "Sem suporte nesta versão do Windows",
+            ["settings.pinPending"] = "Aplica-se quando o ícone estiver pronto",
+            ["settings.barColors"] = "Cores das barras",
+            ["settings.barColorsHint"] = "Cores que distinguem as ferramentas",
+            ["settings.resetColors"] = "Padrão",
+            ["settings.language"] = "Idioma",
+            ["settings.languageHint"] = "Aplica-se imediatamente",
+
+            ["settings.interval"] = "Intervalo de atualização",
+            ["settings.intervalHint"] = "Abrir a janela sempre busca os valores mais recentes",
+            ["settings.intervalManual"] = "Manual",
+            ["settings.startWithWindows"] = "Iniciar com o Windows",
+
+            ["settings.test"] = "Testar conexão",
+            ["dialog.resetAllTitle"] = "Redefinir tudo",
+            ["dialog.resetAllBody"] = "Todas as configurações voltam aos padrões, incluindo idioma, cores e caminhos.{0}{0}Continuar?",
+            ["settings.cancel"] = "Cancelar",
+            ["settings.save"] = "Salvar",
+            ["settings.issues"] = "Relatar um problema",
+
+            ["dialog.pickClaude"] = "Selecione o arquivo de credenciais do Claude",
+            ["dialog.pickCodex"] = "Selecione a pasta de sessões do Codex",
+            ["dialog.credentialFilter"] = "Arquivos de credenciais (*.json)|*.json|Todos os arquivos (*.*)|*.*",
+            ["dialog.testTitle"] = "Testar conexão",
+            ["dialog.testNoTools"] = "Nenhuma ferramenta ativada.",
+            ["dialog.saveFailed"] = "Não foi possível salvar as configurações.{0}{1}",
+            ["dialog.saveFailedTitle"] = "Falha ao salvar",
+            ["dialog.pinFailed"] = "Não foi possível alterar a visibilidade na barra de tarefas.{0}{1}",
+            ["dialog.notice"] = "Aviso",
+
+            ["pin.unsupported"] = "Sem suporte nesta versão do Windows.",
+            ["pin.notFound"] = "Entrada do ícone ainda não encontrada. Tente novamente em instantes.",
+            ["pin.noPermission"] = "Sem permissão para gravar no registro.",
+        },
+
+        ["de"] = new()
+        {
+            ["app.name"] = "AI Quota Tray",
+            ["app.alreadyRunning"] = "AI Quota Tray läuft bereits. Sieh im Infobereich nach.",
+
+            ["menu.open"] = "Öffnen",
+            ["menu.refresh"] = "Aktualisieren",
+            ["menu.settings"] = "Einstellungen",
+            ["menu.issues"] = "Problem melden",
+            ["menu.quit"] = "Beenden",
+
+            ["popup.checking"] = "Wird geprüft…",
+            ["popup.nothing"] = "Nichts anzuzeigen. Aktiviere ein Werkzeug in den Einstellungen.",
+            ["popup.lastRecord"] = "Letzter Eintrag: vor {0}",
+            ["tip.refresh"] = "Aktualisieren",
+            ["tip.settings"] = "Einstellungen",
+
+            ["window.session"] = "5 Stunden",
+            ["window.weekly"] = "Wöchentlich",
+            ["window.weeklyOpus"] = "Wöchentlich Opus",
+            ["window.weeklySonnet"] = "Wöchentlich Sonnet",
+            ["window.usage"] = "Nutzung",
+
+            ["value.remaining"] = "{0}% übrig",
+            ["value.used"] = "{0}% genutzt",
+            ["reset.soon"] = "Setzt bald zurück",
+            ["reset.days"] = "Zurücksetzung in {0}T {1}Std",
+            ["reset.hours"] = "Zurücksetzung in {0}Std {1}Min",
+            ["reset.minutes"] = "Zurücksetzung in {0}Min",
+            ["short.soon"] = "bald",
+            ["age.days"] = "{0}T",
+            ["age.hours"] = "{0}Std",
+            ["age.minutes"] = "{0}Min",
+
+            ["status.operational"] = "Betriebsbereit",
+            ["status.degraded"] = "Beeinträchtigt",
+            ["status.partialOutage"] = "Teilausfall",
+            ["status.majorOutage"] = "Ausfall",
+            ["status.maintenance"] = "Wartung",
+            ["status.unknown"] = "Unbekannt",
+
+            ["error.notLoggedIn"] = "Nicht bei Claude Code angemeldet",
+            ["error.credentialsUnreadable"] = "Anmeldedaten nicht lesbar: {0}",
+            ["error.noToken"] = "Kein Zugriffstoken",
+            ["error.tokenRefresh"] = "Warte auf Token-Erneuerung (Claude Code starten hilft)",
+            ["error.rateLimited"] = "Zu viele Anfragen, pausiert ({0}s bis zum erneuten Versuch)",
+            ["error.rateLimitedWait"] = "Abfragen pausiert ({0}s bis zum erneuten Versuch)",
+            ["error.httpFailed"] = "Abfrage fehlgeschlagen (HTTP {0})",
+            ["error.network"] = "Keine Netzwerkverbindung",
+            ["error.cancelled"] = "Abfrage abgebrochen",
+            ["error.codexFolder"] = "Codex-Sitzungsordner nicht gefunden",
+            ["error.codexFolderRead"] = "Sitzungsordner nicht lesbar: {0}",
+            ["error.codexNoHistory"] = "Kein Codex-Nutzungsverlauf",
+            ["error.codexNoUsage"] = "Keine Nutzung in den Sitzungsprotokollen gefunden",
+
+            ["settings.title"] = "AI Quota Tray Einstellungen",
+            ["settings.sectionTools"] = "ZU VERFOLGENDE WERKZEUGE",
+            ["settings.sectionDisplay"] = "ANZEIGE",
+            ["settings.sectionBehavior"] = "VERHALTEN",
+
+            ["settings.claudeFound"] = "Anmeldedaten gefunden",
+            ["settings.claudeMissing"] = "Datei nicht gefunden. Bei Claude Code anmelden",
+            ["settings.codexFound"] = "Sitzungsverlauf gefunden",
+            ["settings.codexEmpty"] = "Noch kein Sitzungsverlauf",
+            ["settings.codexMissing"] = "Ordner nicht gefunden. Codex einmal ausführen",
+            ["settings.pathToggle"] = "Dateipfade manuell angeben",
+            ["settings.claudeCredential"] = "Claude-Anmeldedaten",
+            ["settings.codexFolder"] = "Codex-Sitzungsordner",
+            ["settings.browse"] = "Durchsuchen",
+
+            ["settings.numberFormat"] = "Zahlenformat",
+            ["settings.numberFormatHint"] = "Zeigen, was übrig ist oder was genutzt wurde",
+            ["settings.modeRemaining"] = "Übrig",
+            ["settings.modeUsed"] = "Genutzt",
+            ["settings.widgetBar"] = "Widget-Leiste",
+            ["settings.widgetBarHint"] = "Waagerechte Leiste neben der Taskleiste anzeigen",
+            ["settings.pinTaskbar"] = "Immer in der Taskleiste anzeigen",
+            ["settings.pinTaskbarHint"] = "Ausgeschaltet wandert es zu den ausgeblendeten Symbolen (^)",
+            ["settings.pinUnsupported"] = "Von dieser Windows-Version nicht unterstützt",
+            ["settings.pinPending"] = "Wird angewendet, sobald das Symbol bereit ist",
+            ["settings.barColors"] = "Balkenfarben",
+            ["settings.barColorsHint"] = "Farben zur Unterscheidung der Werkzeuge",
+            ["settings.resetColors"] = "Zurücksetzen",
+            ["settings.language"] = "Sprache",
+            ["settings.languageHint"] = "Wird sofort angewendet",
+
+            ["settings.interval"] = "Aktualisierungsintervall",
+            ["settings.intervalHint"] = "Beim Öffnen des Fensters werden immer aktuelle Werte geholt",
+            ["settings.intervalManual"] = "Manuell",
+            ["settings.startWithWindows"] = "Mit Windows starten",
+
+            ["settings.test"] = "Verbindung testen",
+            ["dialog.resetAllTitle"] = "Alles zurücksetzen",
+            ["dialog.resetAllBody"] = "Alle Einstellungen kehren zu den Standardwerten zurück, auch Sprache, Farben und Pfade.{0}{0}Fortfahren?",
+            ["settings.cancel"] = "Abbrechen",
+            ["settings.save"] = "Speichern",
+            ["settings.issues"] = "Problem melden",
+
+            ["dialog.pickClaude"] = "Claude-Anmeldedatei auswählen",
+            ["dialog.pickCodex"] = "Codex-Sitzungsordner auswählen",
+            ["dialog.credentialFilter"] = "Anmeldedateien (*.json)|*.json|Alle Dateien (*.*)|*.*",
+            ["dialog.testTitle"] = "Verbindung testen",
+            ["dialog.testNoTools"] = "Keine Werkzeuge aktiviert.",
+            ["dialog.saveFailed"] = "Einstellungen konnten nicht gespeichert werden.{0}{1}",
+            ["dialog.saveFailedTitle"] = "Speichern fehlgeschlagen",
+            ["dialog.pinFailed"] = "Taskleisten-Sichtbarkeit konnte nicht geändert werden.{0}{1}",
+            ["dialog.notice"] = "Hinweis",
+
+            ["pin.unsupported"] = "Von dieser Windows-Version nicht unterstützt.",
+            ["pin.notFound"] = "Symbol-Eintrag noch nicht gefunden. Bitte gleich erneut versuchen.",
+            ["pin.noPermission"] = "Keine Berechtigung zum Schreiben in die Registrierung.",
+        },
+
+        ["fr"] = new()
+        {
+            ["app.name"] = "AI Quota Tray",
+            ["app.alreadyRunning"] = "AI Quota Tray est déjà en cours d'exécution. Vérifiez l'icône de la barre d'état.",
+
+            ["menu.open"] = "Ouvrir",
+            ["menu.refresh"] = "Actualiser",
+            ["menu.settings"] = "Paramètres",
+            ["menu.issues"] = "Signaler un problème",
+            ["menu.quit"] = "Quitter",
+
+            ["popup.checking"] = "Vérification…",
+            ["popup.nothing"] = "Rien à afficher. Activez un outil dans les Paramètres.",
+            ["popup.lastRecord"] = "Dernier relevé : il y a {0}",
+            ["tip.refresh"] = "Actualiser",
+            ["tip.settings"] = "Paramètres",
+
+            ["window.session"] = "5 heures",
+            ["window.weekly"] = "Hebdomadaire",
+            ["window.weeklyOpus"] = "Hebdomadaire Opus",
+            ["window.weeklySonnet"] = "Hebdomadaire Sonnet",
+            ["window.usage"] = "Utilisation",
+
+            ["value.remaining"] = "{0}% restant",
+            ["value.used"] = "{0}% utilisé",
+            ["reset.soon"] = "Réinitialisation imminente",
+            ["reset.days"] = "Réinitialisation dans {0}j {1}h",
+            ["reset.hours"] = "Réinitialisation dans {0}h {1}min",
+            ["reset.minutes"] = "Réinitialisation dans {0}min",
+            ["short.soon"] = "bientôt",
+            ["age.days"] = "{0}j",
+            ["age.hours"] = "{0}h",
+            ["age.minutes"] = "{0}min",
+
+            ["status.operational"] = "Opérationnel",
+            ["status.degraded"] = "Performances dégradées",
+            ["status.partialOutage"] = "Panne partielle",
+            ["status.majorOutage"] = "Panne",
+            ["status.maintenance"] = "Maintenance",
+            ["status.unknown"] = "Inconnu",
+
+            ["error.notLoggedIn"] = "Non connecté à Claude Code",
+            ["error.credentialsUnreadable"] = "Impossible de lire les identifiants : {0}",
+            ["error.noToken"] = "Aucun jeton d'accès",
+            ["error.tokenRefresh"] = "En attente du renouvellement du jeton (lancez Claude Code pour résoudre)",
+            ["error.rateLimited"] = "Trop de requêtes, en pause ({0}s avant nouvel essai)",
+            ["error.rateLimitedWait"] = "Requêtes en pause ({0}s avant nouvel essai)",
+            ["error.httpFailed"] = "Échec de la requête (HTTP {0})",
+            ["error.network"] = "Impossible de joindre le réseau",
+            ["error.cancelled"] = "Requête annulée",
+            ["error.codexFolder"] = "Dossier de sessions Codex introuvable",
+            ["error.codexFolderRead"] = "Impossible de lire le dossier de sessions : {0}",
+            ["error.codexNoHistory"] = "Aucun historique d'utilisation Codex",
+            ["error.codexNoUsage"] = "Aucune utilisation trouvée dans les journaux de session",
+
+            ["settings.title"] = "Paramètres d'AI Quota Tray",
+            ["settings.sectionTools"] = "OUTILS À SUIVRE",
+            ["settings.sectionDisplay"] = "AFFICHAGE",
+            ["settings.sectionBehavior"] = "COMPORTEMENT",
+
+            ["settings.claudeFound"] = "Informations de connexion trouvées",
+            ["settings.claudeMissing"] = "Fichier introuvable. Connectez-vous à Claude Code",
+            ["settings.codexFound"] = "Historique de sessions trouvé",
+            ["settings.codexEmpty"] = "Pas encore d'historique de sessions",
+            ["settings.codexMissing"] = "Dossier introuvable. Lancez Codex une fois",
+            ["settings.pathToggle"] = "Définir les emplacements manuellement",
+            ["settings.claudeCredential"] = "Identifiants Claude",
+            ["settings.codexFolder"] = "Dossier de sessions Codex",
+            ["settings.browse"] = "Parcourir",
+
+            ["settings.numberFormat"] = "Format des nombres",
+            ["settings.numberFormatHint"] = "Afficher ce qui reste ou ce qui a été utilisé",
+            ["settings.modeRemaining"] = "Restant",
+            ["settings.modeUsed"] = "Utilisé",
+            ["settings.widgetBar"] = "Barre widget",
+            ["settings.widgetBarHint"] = "Afficher une barre horizontale près de la barre des tâches",
+            ["settings.pinTaskbar"] = "Toujours afficher dans la barre des tâches",
+            ["settings.pinTaskbarHint"] = "Désactivé, l'icône passe dans les icônes masquées (^)",
+            ["settings.pinUnsupported"] = "Non pris en charge par cette version de Windows",
+            ["settings.pinPending"] = "S'applique dès que l'icône est prête",
+            ["settings.barColors"] = "Couleurs des barres",
+            ["settings.barColorsHint"] = "Couleurs qui distinguent les outils",
+            ["settings.resetColors"] = "Réinitialiser",
+            ["settings.language"] = "Langue",
+            ["settings.languageHint"] = "S'applique immédiatement",
+
+            ["settings.interval"] = "Intervalle d'actualisation",
+            ["settings.intervalHint"] = "L'ouverture de la fenêtre récupère toujours les valeurs les plus récentes",
+            ["settings.intervalManual"] = "Manuel",
+            ["settings.startWithWindows"] = "Démarrer avec Windows",
+
+            ["settings.test"] = "Tester la connexion",
+            ["dialog.resetAllTitle"] = "Tout réinitialiser",
+            ["dialog.resetAllBody"] = "Tous les paramètres reviennent à leurs valeurs par défaut, y compris la langue, les couleurs et les chemins.{0}{0}Continuer ?",
+            ["settings.cancel"] = "Annuler",
+            ["settings.save"] = "Enregistrer",
+            ["settings.issues"] = "Signaler un problème",
+
+            ["dialog.pickClaude"] = "Sélectionner le fichier d'identifiants Claude",
+            ["dialog.pickCodex"] = "Sélectionner le dossier de sessions Codex",
+            ["dialog.credentialFilter"] = "Fichiers d'identifiants (*.json)|*.json|Tous les fichiers (*.*)|*.*",
+            ["dialog.testTitle"] = "Tester la connexion",
+            ["dialog.testNoTools"] = "Aucun outil activé.",
+            ["dialog.saveFailed"] = "Impossible d'enregistrer les paramètres.{0}{1}",
+            ["dialog.saveFailedTitle"] = "Échec de l'enregistrement",
+            ["dialog.pinFailed"] = "Impossible de modifier l'affichage dans la barre des tâches.{0}{1}",
+            ["dialog.notice"] = "Information",
+
+            ["pin.unsupported"] = "Non pris en charge par cette version de Windows.",
+            ["pin.notFound"] = "Entrée d'icône introuvable pour l'instant. Réessayez sous peu.",
+            ["pin.noPermission"] = "Pas d'autorisation d'écriture dans le registre.",
+        },
+
+        ["ru"] = new()
+        {
+            ["app.name"] = "AI Quota Tray",
+            ["app.alreadyRunning"] = "AI Quota Tray уже запущен. Проверьте значок в области уведомлений.",
+
+            ["menu.open"] = "Открыть",
+            ["menu.refresh"] = "Обновить",
+            ["menu.settings"] = "Настройки",
+            ["menu.issues"] = "Сообщить о проблеме",
+            ["menu.quit"] = "Выход",
+
+            ["popup.checking"] = "Проверка…",
+            ["popup.nothing"] = "Нечего показать. Включите инструмент в настройках.",
+            ["popup.lastRecord"] = "Последняя запись: {0} назад",
+            ["tip.refresh"] = "Обновить",
+            ["tip.settings"] = "Настройки",
+
+            ["window.session"] = "5 часов",
+            ["window.weekly"] = "Неделя",
+            ["window.weeklyOpus"] = "Неделя Opus",
+            ["window.weeklySonnet"] = "Неделя Sonnet",
+            ["window.usage"] = "Использование",
+
+            ["value.remaining"] = "осталось {0}%",
+            ["value.used"] = "использовано {0}%",
+            ["reset.soon"] = "Скоро сброс",
+            ["reset.days"] = "Сброс через {0}д {1}ч",
+            ["reset.hours"] = "Сброс через {0}ч {1}мин",
+            ["reset.minutes"] = "Сброс через {0}мин",
+            ["short.soon"] = "скоро",
+            ["age.days"] = "{0}д",
+            ["age.hours"] = "{0}ч",
+            ["age.minutes"] = "{0}мин",
+
+            ["status.operational"] = "Работает",
+            ["status.degraded"] = "Снижена производительность",
+            ["status.partialOutage"] = "Частичный сбой",
+            ["status.majorOutage"] = "Сбой",
+            ["status.maintenance"] = "Обслуживание",
+            ["status.unknown"] = "Неизвестно",
+
+            ["error.notLoggedIn"] = "Вы не вошли в Claude Code",
+            ["error.credentialsUnreadable"] = "Не удалось прочитать учётные данные: {0}",
+            ["error.noToken"] = "Нет токена доступа",
+            ["error.tokenRefresh"] = "Ожидание обновления токена (запустите Claude Code)",
+            ["error.rateLimited"] = "Слишком много запросов, пауза ({0}с до повтора)",
+            ["error.rateLimitedWait"] = "Запросы приостановлены ({0}с до повтора)",
+            ["error.httpFailed"] = "Ошибка запроса (HTTP {0})",
+            ["error.network"] = "Нет подключения к сети",
+            ["error.cancelled"] = "Запрос отменён",
+            ["error.codexFolder"] = "Папка сессий Codex не найдена",
+            ["error.codexFolderRead"] = "Не удалось прочитать папку сессий: {0}",
+            ["error.codexNoHistory"] = "Нет истории использования Codex",
+            ["error.codexNoUsage"] = "В журналах сессий не найдено данных об использовании",
+
+            ["settings.title"] = "Настройки AI Quota Tray",
+            ["settings.sectionTools"] = "ОТСЛЕЖИВАЕМЫЕ ИНСТРУМЕНТЫ",
+            ["settings.sectionDisplay"] = "ОТОБРАЖЕНИЕ",
+            ["settings.sectionBehavior"] = "ПОВЕДЕНИЕ",
+
+            ["settings.claudeFound"] = "Данные для входа найдены",
+            ["settings.claudeMissing"] = "Файл не найден. Войдите в Claude Code",
+            ["settings.codexFound"] = "История сессий найдена",
+            ["settings.codexEmpty"] = "История сессий пока пуста",
+            ["settings.codexMissing"] = "Папка не найдена. Запустите Codex один раз",
+            ["settings.pathToggle"] = "Указать расположение файлов вручную",
+            ["settings.claudeCredential"] = "Учётные данные Claude",
+            ["settings.codexFolder"] = "Папка сессий Codex",
+            ["settings.browse"] = "Обзор",
+
+            ["settings.numberFormat"] = "Формат чисел",
+            ["settings.numberFormatHint"] = "Показывать остаток или израсходованное",
+            ["settings.modeRemaining"] = "Остаток",
+            ["settings.modeUsed"] = "Израсходовано",
+            ["settings.widgetBar"] = "Виджет-панель",
+            ["settings.widgetBarHint"] = "Показывать горизонтальную полосу рядом с панелью задач",
+            ["settings.pinTaskbar"] = "Всегда показывать на панели задач",
+            ["settings.pinTaskbarHint"] = "При выключении значок уходит в скрытые (^)",
+            ["settings.pinUnsupported"] = "Не поддерживается в этой версии Windows",
+            ["settings.pinPending"] = "Применится, когда значок будет готов",
+            ["settings.barColors"] = "Цвета полос",
+            ["settings.barColorsHint"] = "Цвета для различения инструментов",
+            ["settings.resetColors"] = "По умолчанию",
+            ["settings.language"] = "Язык",
+            ["settings.languageHint"] = "Применяется сразу",
+
+            ["settings.interval"] = "Интервал обновления",
+            ["settings.intervalHint"] = "При открытии окна всегда загружаются свежие значения",
+            ["settings.intervalManual"] = "Вручную",
+            ["settings.startWithWindows"] = "Запускать вместе с Windows",
+
+            ["settings.test"] = "Проверить подключение",
+            ["dialog.resetAllTitle"] = "Сбросить всё",
+            ["dialog.resetAllBody"] = "Все настройки вернутся к значениям по умолчанию, включая язык, цвета и пути.{0}{0}Продолжить?",
+            ["settings.cancel"] = "Отмена",
+            ["settings.save"] = "Сохранить",
+            ["settings.issues"] = "Сообщить о проблеме",
+
+            ["dialog.pickClaude"] = "Выберите файл учётных данных Claude",
+            ["dialog.pickCodex"] = "Выберите папку сессий Codex",
+            ["dialog.credentialFilter"] = "Файлы учётных данных (*.json)|*.json|Все файлы (*.*)|*.*",
+            ["dialog.testTitle"] = "Проверка подключения",
+            ["dialog.testNoTools"] = "Нет включённых инструментов.",
+            ["dialog.saveFailed"] = "Не удалось сохранить настройки.{0}{1}",
+            ["dialog.saveFailedTitle"] = "Ошибка сохранения",
+            ["dialog.pinFailed"] = "Не удалось изменить отображение на панели задач.{0}{1}",
+            ["dialog.notice"] = "Уведомление",
+
+            ["pin.unsupported"] = "Не поддерживается в этой версии Windows.",
+            ["pin.notFound"] = "Запись значка пока не найдена. Повторите попытку позже.",
+            ["pin.noPermission"] = "Нет прав на запись в реестр.",
+        },
+    };
+}

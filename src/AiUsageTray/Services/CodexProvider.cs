@@ -35,7 +35,7 @@ public sealed class CodexProvider : IUsageProvider
     {
         string root = _sessionsRoot();
         if (!Directory.Exists(root))
-            return ProviderUsage.Unavailable(Name, "Codex 세션 폴더를 찾을 수 없습니다");
+            return ProviderUsage.Unavailable(Name, Strings.Get("error.codexFolder"));
 
         List<FileInfo> files;
         try
@@ -48,11 +48,11 @@ public sealed class CodexProvider : IUsageProvider
         }
         catch (Exception ex)
         {
-            return ProviderUsage.Unavailable(Name, $"세션 폴더를 읽을 수 없습니다: {ex.Message}");
+            return ProviderUsage.Unavailable(Name, Strings.Get("error.codexFolderRead", ex.Message));
         }
 
         if (files.Count == 0)
-            return ProviderUsage.Unavailable(Name, "Codex 사용 기록이 없습니다");
+            return ProviderUsage.Unavailable(Name, Strings.Get("error.codexNoHistory"));
 
         foreach (var file in files)
         {
@@ -61,7 +61,7 @@ public sealed class CodexProvider : IUsageProvider
             if (usage is not null) return usage;
         }
 
-        return ProviderUsage.Unavailable(Name, "세션 로그에서 사용량을 찾지 못했습니다");
+        return ProviderUsage.Unavailable(Name, Strings.Get("error.codexNoUsage"));
     }
 
     /// <summary>파일 끝부분만 읽어 가장 마지막 rate_limits / token_count 이벤트를 찾는다.</summary>
@@ -180,12 +180,12 @@ public sealed class CodexProvider : IUsageProvider
     /// <summary>window_minutes를 사람이 읽는 이름으로. 10080분 = 주간.</summary>
     private static string DescribeWindow(int minutes) => minutes switch
     {
-        0 => "사용량",
-        < 60 => $"{minutes}분",
-        < 1440 => $"{minutes / 60}시간",
-        10080 => "주간",
-        < 10080 => $"{minutes / 1440}일",
-        _ => $"{minutes / 10080}주",
+        0 => Strings.Get("window.usage"),
+        < 60 => Strings.Get("age.minutes", minutes),
+        < 1440 => Strings.Get("age.hours", minutes / 60),
+        10080 => Strings.Get("window.weekly"),
+        < 10080 => Strings.Get("age.days", minutes / 1440),
+        _ => Strings.Get("window.weekly"),
     };
 
     /// <summary>파일 끝 TailBytes만 읽는다. 첫 줄은 잘렸을 수 있으므로 버린다.</summary>

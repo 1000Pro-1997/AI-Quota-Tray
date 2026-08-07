@@ -173,7 +173,7 @@ public sealed class UsageMonitor : IDisposable
         }
         catch (OperationCanceledException)
         {
-            return ProviderUsage.Unavailable(p.Name, "조회가 취소되었습니다");
+            return ProviderUsage.Unavailable(p.Name, Strings.Get("error.cancelled"));
         }
         catch (Exception ex)
         {

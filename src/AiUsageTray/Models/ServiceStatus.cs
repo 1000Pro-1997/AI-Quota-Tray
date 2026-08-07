@@ -1,4 +1,5 @@
 using System;
+using AiUsageTray.Services;
 
 namespace AiUsageTray.Models;
 
@@ -36,15 +37,15 @@ public sealed class ServiceStatus
     public DateTime? CheckedAt { get; init; }
 
     /// <summary>사용자에게 보여줄 짧은 말.</summary>
-    public string Label => Health switch
+    public string Label => Strings.Get(Health switch
     {
-        ServiceHealth.Operational => "정상",
-        ServiceHealth.Degraded => "성능 저하",
-        ServiceHealth.PartialOutage => "일부 장애",
-        ServiceHealth.MajorOutage => "장애",
-        ServiceHealth.Maintenance => "점검 중",
-        _ => "확인 불가",
-    };
+        ServiceHealth.Operational => "status.operational",
+        ServiceHealth.Degraded => "status.degraded",
+        ServiceHealth.PartialOutage => "status.partialOutage",
+        ServiceHealth.MajorOutage => "status.majorOutage",
+        ServiceHealth.Maintenance => "status.maintenance",
+        _ => "status.unknown",
+    });
 
     /// <summary>상태 점 색. #RRGGBB.</summary>
     public string Color => Health switch

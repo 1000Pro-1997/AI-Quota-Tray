@@ -37,7 +37,7 @@ public sealed class ClaudeProvider : IUsageProvider
     {
         string path = _credentialsPath();
         if (!File.Exists(path))
-            return ProviderUsage.Unavailable(Name, "Claude Code에 로그인되어 있지 않습니다");
+            return ProviderUsage.Unavailable(Name, Strings.Get("error.notLoggedIn"));
 
         string token, plan;
         try
@@ -46,17 +46,17 @@ public sealed class ClaudeProvider : IUsageProvider
         }
         catch (Exception ex)
         {
-            return ProviderUsage.Unavailable(Name, $"자격증명을 읽을 수 없습니다: {ex.Message}");
+            return ProviderUsage.Unavailable(Name, Strings.Get("error.credentialsUnreadable", ex.Message));
         }
 
         if (string.IsNullOrEmpty(token))
-            return ProviderUsage.Unavailable(Name, "액세스 토큰이 없습니다");
+            return ProviderUsage.Unavailable(Name, Strings.Get("error.noToken"));
 
         // 아직 백오프 중이면 아예 부르지 않는다. 부르면 429만 더 쌓인다.
         if (DateTime.Now < _blockedUntil)
         {
             int wait = (int)Math.Ceiling((_blockedUntil - DateTime.Now).TotalSeconds);
-            return ProviderUsage.Unavailable(Name, $"조회가 잠시 제한됨 ({wait}초 후 재시도)");
+            return ProviderUsage.Unavailable(Name, Strings.Get("error.rateLimitedWait", wait));
         }
 
         try
@@ -68,7 +68,7 @@ public sealed class ClaudeProvider : IUsageProvider
             using var res = await _http.SendAsync(req, ct).ConfigureAwait(false);
 
             if (res.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-                return ProviderUsage.Unavailable(Name, "토큰 갱신 대기 중 (Claude Code를 실행하면 해결됩니다)");
+                return ProviderUsage.Unavailable(Name, Strings.Get("error.tokenRefresh"));
 
             if ((int)res.StatusCode == 429)
             {
@@ -90,11 +90,11 @@ public sealed class ClaudeProvider : IUsageProvider
                 _blockedUntil = DateTime.Now + retry;
 
                 return ProviderUsage.Unavailable(Name,
-                    $"조회 요청이 많아 잠시 제한됨 ({(int)retry.TotalSeconds}초 후 재시도)");
+                    Strings.Get("error.rateLimited", (int)retry.TotalSeconds));
             }
 
             if (!res.IsSuccessStatusCode)
-                return ProviderUsage.Unavailable(Name, $"조회 실패 (HTTP {(int)res.StatusCode})");
+                return ProviderUsage.Unavailable(Name, Strings.Get("error.httpFailed", (int)res.StatusCode));
 
             // 성공했으니 백오프를 푼다.
             _blockedUntil = DateTime.MinValue;
@@ -105,7 +105,7 @@ public sealed class ClaudeProvider : IUsageProvider
         catch (OperationCanceledException) { throw; }
         catch (HttpRequestException)
         {
-            return ProviderUsage.Unavailable(Name, "네트워크에 연결할 수 없습니다");
+            return ProviderUsage.Unavailable(Name, Strings.Get("error.network"));
         }
         catch (Exception ex)
         {
@@ -162,8 +162,8 @@ public sealed class ClaudeProvider : IUsageProvider
         // limits가 비어 있으면 최상위 필드로 대체한다.
         if (windows.Count == 0)
         {
-            AddLegacy(root, "five_hour", "5시간", WindowKind.Session, windows);
-            AddLegacy(root, "seven_day", "주간", WindowKind.Weekly, windows);
+            AddLegacy(root, "five_hour", Strings.Get("window.session"), WindowKind.Session, windows);
+            AddLegacy(root, "seven_day", Strings.Get("window.weekly"), WindowKind.Weekly, windows);
         }
 
         return new ProviderUsage
@@ -204,10 +204,10 @@ public sealed class ClaudeProvider : IUsageProvider
 
         string baseLabel = kind switch
         {
-            "session" => "5시간",
-            "weekly_all" => "주간",
-            "weekly_opus" => "주간 Opus",
-            "weekly_sonnet" => "주간 Sonnet",
+            "session" => Strings.Get("window.session"),
+            "weekly_all" => Strings.Get("window.weekly"),
+            "weekly_opus" => Strings.Get("window.weeklyOpus"),
+            "weekly_sonnet" => Strings.Get("window.weeklySonnet"),
             _ => kind.Replace('_', ' '),
         };
 

@@ -97,10 +97,10 @@
             <!-- 헤더: 제목 + 새로고침 | 상태 + 설정 -->
             <Grid Margin="2,0,2,11">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="AI Quota Tray" FontSize="13.5" FontWeight="SemiBold"
+                    <TextBlock x:Name="TitleText" FontSize="13.5" FontWeight="SemiBold"
                                Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center"/>
                     <Button x:Name="RefreshButton" Style="{StaticResource IconButton}"
-                            Margin="6,0,0,0" Click="OnRefreshClick" ToolTip="새로고침">
+                            Margin="6,0,0,0" Click="OnRefreshClick">
                         <!-- 마주보는 두 반원 화살표. 새로고침 중에는 돈다. -->
                         <Canvas x:Name="RefreshGlyph" Width="16" Height="16"
                                 RenderTransformOrigin="0.5,0.5">
@@ -125,7 +125,7 @@
                     <TextBlock x:Name="StatusText" VerticalAlignment="Center"
                                FontSize="11" Foreground="{DynamicResource SubtleBrush}"/>
                     <Button x:Name="SettingsButton" Style="{StaticResource IconButton}"
-                            Margin="6,0,0,0" Click="OnSettingsClick" ToolTip="설정">
+                            Margin="6,0,0,0" Click="OnSettingsClick">
                         <!-- 6개 돌기가 있는 톱니바퀴. 가운데는 뚫린 링. -->
                         <Canvas Width="16" Height="16">
                             <Path Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"

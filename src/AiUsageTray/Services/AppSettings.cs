@@ -54,6 +54,9 @@ public sealed class AppSettings
     /// <summary>설정 마법사를 이미 완료했는지.</summary>
     public bool SetupCompleted { get; set; }
 
+    /// <summary>UI 언어. 비우면 첫 실행 때 시스템 언어로 정한다.</summary>
+    public string Language { get; set; } = "";
+
     /// <summary>숫자를 남은 양으로 볼지, 쓴 양으로 볼지.</summary>
     public DisplayMode DisplayMode { get; set; } = DisplayMode.Remaining;
 
@@ -105,6 +108,48 @@ public sealed class AppSettings
         WriteIndented = true,
         DefaultIgnoreCondition = JsonIgnoreCondition.Never,
     };
+
+    /// <summary>
+    /// 설치돼 있는 도구만 켠다. 첫 실행 때 한 번 부른다.
+    /// 없는 도구를 켜두면 팝업이 오류로 가득 차 보인다.
+    /// </summary>
+    public void DetectInstalledTools()
+    {
+        ClaudeEnabled = File.Exists(EffectiveClaudePath);
+        CodexEnabled = Directory.Exists(EffectiveCodexPath);
+
+        // 둘 다 없으면 사용자가 나중에 켤 수 있도록 그대로 둔다.
+        // 하나라도 켜졌으면 그 상태가 맞다.
+        if (!ClaudeEnabled && !CodexEnabled)
+        {
+            ClaudeEnabled = true;
+            CodexEnabled = true;
+        }
+    }
+
+    /// <summary>
+    /// 모든 설정을 처음 상태로 되돌린다. 언어와 경로, 색, 표기까지 전부.
+    /// </summary>
+    public void ResetAll()
+    {
+        var fresh = new AppSettings();
+
+        ClaudeCredentialsPath = fresh.ClaudeCredentialsPath;
+        CodexSessionsPath = fresh.CodexSessionsPath;
+        RefreshIntervalSeconds = fresh.RefreshIntervalSeconds;
+        StartWithWindows = fresh.StartWithWindows;
+        ShowInTaskbar = fresh.ShowInTaskbar;
+        ShowWidgetBar = fresh.ShowWidgetBar;
+        DisplayMode = fresh.DisplayMode;
+        ClaudeColor = fresh.ClaudeColor;
+        CodexColor = fresh.CodexColor;
+
+        // 언어는 시스템 언어로 되돌린다.
+        Language = Strings.DetectSystemLanguage();
+
+        // 도구는 지금 설치된 것에 맞춘다.
+        DetectInstalledTools();
+    }
 
     public static AppSettings Load()
     {
