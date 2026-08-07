@@ -54,6 +54,9 @@ public sealed class AppSettings
     /// <summary>설정 마법사를 이미 완료했는지.</summary>
     public bool SetupCompleted { get; set; }
 
+    /// <summary>새 버전을 마지막으로 확인한 시각. 하루에 한 번만 묻는다.</summary>
+    public DateTime LastUpdateCheck { get; set; } = DateTime.MinValue;
+
     /// <summary>UI 언어. 비우면 첫 실행 때 시스템 언어로 정한다.</summary>
     public string Language { get; set; } = "";
 

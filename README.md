@@ -114,6 +114,10 @@ menu.
 Changes apply the moment you make them — there is no Save button. **AllReset**
 returns everything to defaults.
 
+The current version sits at the bottom. The app checks GitHub Releases once a day;
+when a newer release exists, a green dot appears and the link becomes **Download**,
+which opens the release page in your browser.
+
 Stored in `%APPDATA%\AiQuotaTray\settings.json`.
 
 On first run the app enables only the tools it can actually find, and picks your

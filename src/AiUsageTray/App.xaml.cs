@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Diagnostics;
 using System.Drawing;
+using System.Net.Http;
 using System.Windows.Threading;
 using AiUsageTray.Models;
 using AiUsageTray.Services;
@@ -22,6 +23,7 @@ public partial class App : Application
     private SettingsWindow? _settingsWindow;
     private AppSettings _settings = null!;
     private UsageMonitor _monitor = null!;
+    private UpdateChecker _updates = null!;
     private DispatcherTimer? _timer;
     private DispatcherTimer? _promotionProbe;
     private DispatcherTimer? _iconTimer;
@@ -58,6 +60,7 @@ public partial class App : Application
 
         Strings.Current = _settings.Language;
         _monitor = new UsageMonitor(_settings);
+        _updates = new UpdateChecker(new HttpClient { Timeout = TimeSpan.FromSeconds(15) }, _settings);
 
         // 이벤트는 백그라운드 스레드에서 올 수 있으므로 UI 스레드로 넘긴다.
         _monitor.Updated += usages => Dispatcher.Invoke(() => OnUsageUpdated(usages));
@@ -79,6 +82,9 @@ public partial class App : Application
         // --flyout: 트레이를 거치지 않고 바로 펼친다. 확인·디버깅용.
         bool showNow = e.Args.Any(a =>
             string.Equals(a, "--flyout", StringComparison.OrdinalIgnoreCase));
+
+        // 하루에 한 번만 새 버전을 묻는다. 실패해도 앱 동작에는 영향이 없다.
+        _ = _updates.CheckIfDueAsync();
 
         _ = _monitor.RefreshAsync().ContinueWith(_ =>
         {
@@ -409,7 +415,7 @@ public partial class App : Application
             return;
         }
 
-        var win = new SettingsWindow(_settings);
+        var win = new SettingsWindow(_settings, _updates);
         _settingsWindow = win;
 
         win.Closed += (_, _) => _settingsWindow = null;
@@ -434,11 +440,16 @@ public partial class App : Application
     }
 
     /// <summary>기본 브라우저로 이슈 페이지를 연다.</summary>
-    internal static void OpenIssues()
+    internal static void OpenIssues() => OpenUrl(AppInfo.IssuesUrl);
+
+    /// <summary>기본 브라우저로 주소를 연다.</summary>
+    internal static void OpenUrl(string url)
     {
+        if (string.IsNullOrWhiteSpace(url)) return;
+
         try
         {
-            Process.Start(new ProcessStartInfo(AppInfo.IssuesUrl) { UseShellExecute = true });
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
         }
         catch
         {

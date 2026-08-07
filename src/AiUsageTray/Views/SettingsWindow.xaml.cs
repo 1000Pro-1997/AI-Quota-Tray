@@ -32,9 +32,12 @@ public partial class SettingsWindow : Window
     /// <summary>고를 수 있는 새로고침 주기(초). 0은 자동 갱신 없음.</summary>
     private static readonly int[] Intervals = { 60, 300, 600, 1800, 0 };
 
-    public SettingsWindow(AppSettings settings)
+    private readonly UpdateChecker? _updates;
+
+    public SettingsWindow(AppSettings settings, UpdateChecker? updates = null)
     {
         _settings = settings;
+        _updates = updates;
         InitializeComponent();
         ApplyTheme();
         LoadFromSettings();
@@ -136,6 +139,7 @@ public partial class SettingsWindow : Window
         UpdateSwatches();
 
         VersionText.Text = $"{AppInfo.Name} {AppInfo.Version}";
+        ShowUpdateState(_updates?.Last);
 
         UpdatePathStatus();
 
@@ -144,6 +148,70 @@ public partial class SettingsWindow : Window
     }
 
     private void OnOpenIssues(object sender, RoutedEventArgs e) => App.OpenIssues();
+
+    /// <summary>
+    /// 새 버전이 있으면 릴리스 페이지를 열고, 아직 모르면 먼저 확인한다.
+    /// 다운로드는 브라우저에 맡긴다. 앱이 자기 자신을 덮어쓸 수 없기 때문이다.
+    /// </summary>
+    private async void OnUpdateClick(object sender, RoutedEventArgs e)
+    {
+        if (_updates is null) return;
+
+        // 이미 새 버전을 알고 있으면 바로 연다.
+        if (_updates.Last is { HasUpdate: true } known)
+        {
+            App.OpenUrl(known.PageUrl);
+            return;
+        }
+
+        UpdateButton.IsEnabled = false;
+        UpdateText.Text = Strings.Get("update.checking");
+        UpdateDot.Visibility = Visibility.Collapsed;
+
+        try
+        {
+            var info = await _updates.CheckAsync();
+            ShowUpdateState(info);
+        }
+        finally
+        {
+            UpdateButton.IsEnabled = true;
+        }
+    }
+
+    /// <summary>확인 결과를 버전 줄에 반영한다.</summary>
+    private void ShowUpdateState(UpdateInfo? info)
+    {
+        if (info is null)
+        {
+            // 아직 확인 전이다. 누르면 확인한다는 것만 알린다.
+            UpdateText.Text = "";
+            UpdateDot.Visibility = Visibility.Collapsed;
+            UpdateButton.Content = Strings.Get("update.check");
+            return;
+        }
+
+        if (info.Error is { } error)
+        {
+            UpdateText.Text = error;
+            UpdateDot.Visibility = Visibility.Collapsed;
+            UpdateButton.Content = Strings.Get("update.check");
+            return;
+        }
+
+        if (info.HasUpdate)
+        {
+            UpdateText.Text = Strings.Get("update.available", info.Latest?.ToString() ?? info.TagName);
+            UpdateDot.Visibility = Visibility.Visible;
+            UpdateButton.Content = Strings.Get("update.download");
+        }
+        else
+        {
+            UpdateText.Text = Strings.Get("update.latest");
+            UpdateDot.Visibility = Visibility.Collapsed;
+            UpdateButton.Content = Strings.Get("update.check");
+        }
+    }
 
     /// <summary>지원 언어를 각자의 표기로 나열한다.</summary>
     private void BuildLanguageList()
@@ -211,6 +279,7 @@ public partial class SettingsWindow : Window
 
         TestButton.Content = Strings.Get("settings.test");
         IssuesLink.Content = Strings.Get("settings.issues");
+        ShowUpdateState(_updates?.Last);
 
         RelabelIntervals();
 
