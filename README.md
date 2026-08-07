@@ -183,13 +183,19 @@ while a 429 backoff is active.
 
 The optional **Keep 5-hour windows aligned** setting sends one minimal, tool-free
 request just after a Claude or Codex 5-hour window resets. This starts the next
-5-hour window immediately instead of waiting for your next manual message. It is
-off by default because each request consumes a small amount of quota.
+5-hour window immediately instead of waiting for your next manual message. It also
+creates a Windows wake task for each enabled provider, so sleeping or hibernating
+PCs can wake at the scheduled time. It is off by default because each request
+consumes a small amount of quota.
 
 Weekly limits are not primed: Claude's weekly reset is fixed for the account and
 does not depend on when you first use it. If the PC sleeps through a scheduled
 time, the app skips that request rather than shifting the window late, then waits
 for the next point on the original 5-hour schedule.
+
+Wake timers must be allowed by Windows power settings and supported by the PC
+firmware. A fully shut-down PC cannot be woken. Turning the option off removes the
+scheduled wake tasks.
 
 ## Service status
 

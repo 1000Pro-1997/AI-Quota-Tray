@@ -41,6 +41,16 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        // 작업 스케줄러가 절전 해제 후 띄운 프로세스는 UI와 단일 실행 검사를 건너뛴다.
+        if (e.Args.Length == 3 &&
+            string.Equals(e.Args[0], "--prime-window", StringComparison.OrdinalIgnoreCase) &&
+            long.TryParse(e.Args[2], out long scheduledTicks))
+        {
+            WindowPrimer.RunScheduledAsync(e.Args[1], scheduledTicks).GetAwaiter().GetResult();
+            Shutdown();
+            return;
+        }
+
         _singleInstance = new Mutex(initiallyOwned: true, "AiQuotaTray.SingleInstance", out bool isFirst);
         if (!isFirst)
         {
