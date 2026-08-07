@@ -19,11 +19,19 @@ when they reset.
 
 ## Download
 
-Get the latest `AiQuotaTray.exe` from
-[Releases](https://github.com/1000Pro-1997/AI-Quota-Tray/releases).
+Grab a build from
+[Releases](https://github.com/1000Pro-1997/AI-Quota-Tray/releases). Two flavors:
 
-Single file, no installer. Needs the
-[.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0).
+| File | Size | Requires |
+|---|---|---|
+| `AiQuotaTray-standalone.exe` | 73 MB | Nothing — just run it |
+| `AiQuotaTray.exe` | 550 KB | [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) |
+
+If you are unsure, take the standalone one — it carries its own runtime and works on
+a clean Windows install. The small one starts faster and uses about half the memory,
+but needs .NET installed.
+
+Neither needs an installer.
 
 ## What it shows
 

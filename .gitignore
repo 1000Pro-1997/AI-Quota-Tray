@@ -21,3 +21,4 @@ Thumbs.db
 
 # 릴리스에 첨부할 배포본 (저장소에는 넣지 않는다)
 /AiQuotaTray.exe
+/AiQuotaTray-standalone.exe
