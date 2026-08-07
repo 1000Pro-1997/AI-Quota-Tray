@@ -20,16 +20,23 @@ when they reset.
 ## Download
 
 Grab a build from
-[Releases](https://github.com/1000Pro-1997/AI-Quota-Tray/releases). Two flavors:
+[Releases](https://github.com/1000Pro-1997/AI-Quota-Tray/releases). For most users,
+download the automatic installer/launcher:
 
 | File | Size | Requires |
 |---|---|---|
-| `AiQuotaTray-standalone.exe` | 73 MB | Nothing — just run it |
+| `AI-Quota-Tray-Setup.exe` | About 2 MB | Nothing — installs and keeps itself updated |
+| `AiQuotaTray-standalone.exe` | About 157 MB | Nothing — just run it |
 | `AiQuotaTray.exe` | 550 KB | [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) |
 
-If you are unsure, take the standalone one — it carries its own runtime and works on
-a clean Windows install. The small one starts faster and uses about half the memory,
-but needs .NET installed.
+The launcher installs the standalone app under `%LOCALAPPDATA%\AI Quota Tray`, so
+it works on a clean Windows PC without installing .NET. On each launch it applies
+an update already downloaded, starts the app immediately, then checks GitHub for
+the next release in the background. A newly downloaded version is applied on the
+next launch. If the network is unavailable, the installed version still starts.
+
+The two direct app downloads remain available for portable/manual use. The small
+one needs .NET installed.
 
 Neither needs an installer.
 
@@ -122,9 +129,9 @@ menu.
 Changes apply the moment you make them — there is no Save button. **AllReset**
 returns everything to defaults.
 
-The current version sits at the bottom. The app checks GitHub Releases once a day;
-when a newer release exists, a green dot appears and the link becomes **Download**,
-which opens the release page in your browser.
+The current version sits at the bottom. The app checks GitHub Releases once a day.
+Installations made through `AI-Quota-Tray-Setup.exe` are updated automatically by
+the launcher; portable/manual installations still link to the release page.
 
 Stored in `%APPDATA%\AiQuotaTray\settings.json`.
 
@@ -200,6 +207,7 @@ usage still shows.
 
 - Windows 11 (works on Windows 10, but taskbar pinning is Win11-only)
 - [.NET 10 SDK](https://dotnet.microsoft.com/download) to build
+- Rust toolchain to build the native launcher
 - Signed in to Claude Code or Codex CLI
 
 ## Build and run
@@ -213,6 +221,12 @@ Single-file build:
 
 ```
 dotnet publish -c Release
+```
+
+Build all three release files:
+
+```powershell
+.\build-release.ps1
 ```
 
 ### Command-line flags

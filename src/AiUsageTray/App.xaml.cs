@@ -51,6 +51,9 @@ public partial class App : Application
 
         _settings = AppSettings.Load();
 
+        // Claude Code가 설치돼 있고 기존 statusLine이 비어 있을 때만 자동 연결한다.
+        ClaudeStatusLineBridge.EnsureInstalled();
+
         // 첫 실행이면 Windows 표시 언어를 따르고, 설치된 도구만 켠다.
         if (string.IsNullOrEmpty(_settings.Language))
             _settings.Language = Strings.DetectSystemLanguage();

@@ -37,7 +37,10 @@ public sealed class ClaudeProvider : IUsageProvider
     {
         string path = _credentialsPath();
         if (!File.Exists(path))
+        {
+            if (ClaudeStatusLineBridge.TryReadFresh("") is { } cached) return cached;
             return ProviderUsage.Unavailable(Name, Strings.Get("error.notLoggedIn"));
+        }
 
         string token, plan;
         try
@@ -46,8 +49,14 @@ public sealed class ClaudeProvider : IUsageProvider
         }
         catch (Exception ex)
         {
+            if (ClaudeStatusLineBridge.TryReadFresh("") is { } cached) return cached;
             return ProviderUsage.Unavailable(Name, Strings.Get("error.credentialsUnreadable", ex.Message));
         }
+
+        // Claude Code가 방금 실제 응답에서 받은 값이 가장 최신이다.
+        // 없거나 오래됐으면 아래의 기존 OAuth usage 조회를 그대로 사용한다.
+        if (ClaudeStatusLineBridge.TryReadFresh(plan) is { } bridged)
+            return bridged;
 
         if (string.IsNullOrEmpty(token))
             return ProviderUsage.Unavailable(Name, Strings.Get("error.noToken"));

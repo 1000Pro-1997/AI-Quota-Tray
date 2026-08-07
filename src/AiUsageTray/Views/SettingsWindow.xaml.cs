@@ -688,7 +688,11 @@ public partial class SettingsWindow : Window
 
             if (enable)
             {
-                string exe = Environment.ProcessPath ?? "";
+                // 런처로 설치된 환경은 Windows 시작 때 런처가 업데이트를 먼저
+                // 적용한 뒤 앱을 연다. 개발/수동 실행 환경만 현재 exe를 등록한다.
+                string exe = File.Exists(AppSettings.LauncherPath)
+                    ? AppSettings.LauncherPath
+                    : Environment.ProcessPath ?? "";
                 if (!string.IsNullOrEmpty(exe))
                     key.SetValue(RunValueName, $"\"{exe}\"");
             }

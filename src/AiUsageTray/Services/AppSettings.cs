@@ -96,6 +96,11 @@ public sealed class AppSettings
     public static string DefaultCodexPath =>
         Path.Combine(Home, ".codex", "sessions");
 
+    /// <summary>자동 업데이트 런처의 표준 설치 위치.</summary>
+    public static string LauncherPath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "AI Quota Tray", "Launcher.exe");
+
     private static string Home =>
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
 
