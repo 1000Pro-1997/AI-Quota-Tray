@@ -179,6 +179,18 @@ The Claude usage endpoint is rate limited. To stay under it:
 Only the **Refresh** button bypasses the 60-second cache — and even it stays quiet
 while a 429 backoff is active.
 
+### Keep 5-hour windows aligned
+
+The optional **Keep 5-hour windows aligned** setting sends one minimal, tool-free
+request just after a Claude or Codex 5-hour window resets. This starts the next
+5-hour window immediately instead of waiting for your next manual message. It is
+off by default because each request consumes a small amount of quota.
+
+Weekly limits are not primed: Claude's weekly reset is fixed for the account and
+does not depend on when you first use it. If the PC sleeps through a scheduled
+time, the app skips that request rather than shifting the window late, then waits
+for the next point on the original 5-hour schedule.
+
 ## Service status
 
 Each tool's name carries a dot and a word from its public status page.

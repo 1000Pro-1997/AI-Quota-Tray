@@ -23,6 +23,7 @@ public partial class App : Application
     private SettingsWindow? _settingsWindow;
     private AppSettings _settings = null!;
     private UsageMonitor _monitor = null!;
+    private WindowPrimer _primer = null!;
     private UpdateChecker _updates = null!;
     private DispatcherTimer? _timer;
     private DispatcherTimer? _promotionProbe;
@@ -63,6 +64,7 @@ public partial class App : Application
 
         Strings.Current = _settings.Language;
         _monitor = new UsageMonitor(_settings);
+        _primer = new WindowPrimer(_settings);
         _updates = new UpdateChecker(new HttpClient { Timeout = TimeSpan.FromSeconds(15) }, _settings);
 
         // 이벤트는 백그라운드 스레드에서 올 수 있으므로 UI 스레드로 넘긴다.
@@ -293,6 +295,7 @@ public partial class App : Application
 
     private void OnUsageUpdated(IReadOnlyList<ProviderUsage> usages)
     {
+        _primer.Observe(usages);
         if (_flyout.IsVisible)
             _flyout.Render(usages);
 
@@ -428,6 +431,8 @@ public partial class App : Application
             ApplyDisplaySettings();
             SyncWidgetBar();
             RestartTimer();
+            _primer.SettingsChanged();
+            _primer.Observe(_monitor.Latest);
 
             // 켜고 끈 것을 화면에 바로 반영한다. 조회를 기다리지 않는다.
             _monitor.ApplyEnabledChange();
@@ -473,6 +478,7 @@ public partial class App : Application
         _promotionProbe?.Stop();
         _iconTimer?.Stop();
         _monitor?.Dispose();
+        _primer?.Dispose();
 
         if (_tray is not null)
         {

@@ -45,6 +45,9 @@ public sealed class AppSettings
 
     public bool StartWithWindows { get; set; } = true;
 
+    /// <summary>5시간 한도 초기화 직후 최소 요청을 보내 다음 창을 같은 시각에 시작한다.</summary>
+    public bool KeepFiveHourWindowsAligned { get; set; }
+
     /// <summary>트레이 아이콘을 숨김 영역에서 꺼내 작업표시줄에 항상 보이게 한다.</summary>
     public bool ShowInTaskbar { get; set; } = true;
 
@@ -101,6 +104,8 @@ public sealed class AppSettings
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "AI Quota Tray", "Launcher.exe");
 
+    public static string PrimerWorkingDirectory => Path.Combine(SettingsDirectory, "primer-workspace");
+
     private static string Home =>
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
 
@@ -146,6 +151,7 @@ public sealed class AppSettings
         CodexSessionsPath = fresh.CodexSessionsPath;
         RefreshIntervalSeconds = fresh.RefreshIntervalSeconds;
         StartWithWindows = fresh.StartWithWindows;
+        KeepFiveHourWindowsAligned = fresh.KeepFiveHourWindowsAligned;
         ShowInTaskbar = fresh.ShowInTaskbar;
         ShowWidgetBar = fresh.ShowWidgetBar;
         DisplayMode = fresh.DisplayMode;

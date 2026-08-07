@@ -110,6 +110,7 @@ public partial class SettingsWindow : Window
         CodexPath.Text = _settings.EffectiveCodexPath;
 
         StartWithWindows.IsChecked = _settings.StartWithWindows;
+        WindowPrimerEnabled.IsChecked = _settings.KeepFiveHourWindowsAligned;
 
         // 실제 레지스트리 상태를 우선한다. 사용자가 Windows 설정에서
         // 직접 바꿨을 수 있으므로 저장된 값보다 현재 상태가 정확하다.
@@ -276,6 +277,8 @@ public partial class SettingsWindow : Window
         LblInterval.Text = Strings.Get("settings.interval");
         LblIntervalHint.Text = Strings.Get("settings.intervalHint");
         LblStartup.Text = Strings.Get("settings.startWithWindows");
+        LblWindowPrimer.Text = Strings.Get("settings.windowPrimer");
+        LblWindowPrimerHint.Text = Strings.Get("settings.windowPrimerHint");
 
         TestButton.Content = Strings.Get("settings.test");
         IssuesLink.Content = Strings.Get("settings.issues");
@@ -421,6 +424,7 @@ public partial class SettingsWindow : Window
 
         bool autoStart = StartWithWindows.IsChecked == true;
         _settings.StartWithWindows = autoStart;
+        _settings.KeepFiveHourWindowsAligned = WindowPrimerEnabled.IsChecked == true;
         ApplyAutoStart(autoStart);
 
         bool pin = PinToTaskbar.IsChecked == true;
@@ -473,6 +477,7 @@ public partial class SettingsWindow : Window
         ClaudePath.Text = _settings.EffectiveClaudePath;
         CodexPath.Text = _settings.EffectiveCodexPath;
         StartWithWindows.IsChecked = _settings.StartWithWindows;
+        WindowPrimerEnabled.IsChecked = _settings.KeepFiveHourWindowsAligned;
         PinToTaskbar.IsChecked = _settings.ShowInTaskbar;
         ShowWidgetBar.IsChecked = _settings.ShowWidgetBar;
 

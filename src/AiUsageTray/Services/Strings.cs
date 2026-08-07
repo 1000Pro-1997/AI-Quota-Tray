@@ -224,6 +224,8 @@ public static class Strings
             ["settings.intervalHint"] = "Opening the popup always fetches the latest values",
             ["settings.intervalManual"] = "Manual",
             ["settings.startWithWindows"] = "Start with Windows",
+            ["settings.windowPrimer"] = "Keep 5-hour windows aligned",
+            ["settings.windowPrimerHint"] = "Send one minimal request just after each reset",
 
             // 설정 - 버튼
             ["settings.test"] = "Test connection",
@@ -351,6 +353,8 @@ public static class Strings
             ["settings.intervalHint"] = "팝업을 열 때는 주기와 무관하게 항상 최신 값을 가져옵니다",
             ["settings.intervalManual"] = "수동",
             ["settings.startWithWindows"] = "Windows 시작 시 자동 실행",
+            ["settings.windowPrimer"] = "5시간 구간 시각 유지",
+            ["settings.windowPrimerHint"] = "초기화 직후 최소 요청을 한 번 보냅니다",
 
             ["settings.test"] = "연결 테스트",
             ["update.check"] = "업데이트 확인",
@@ -475,6 +479,8 @@ public static class Strings
             ["settings.intervalHint"] = "ポップアップを開くと常に最新の値を取得します",
             ["settings.intervalManual"] = "手動",
             ["settings.startWithWindows"] = "Windows 起動時に自動実行",
+            ["settings.windowPrimer"] = "5時間枠の時刻を維持",
+            ["settings.windowPrimerHint"] = "リセット直後に最小リクエストを1回送信します",
 
             ["settings.test"] = "接続テスト",
             ["update.check"] = "更新を確認",
@@ -599,6 +605,8 @@ public static class Strings
             ["settings.intervalHint"] = "打开弹窗时始终获取最新数值",
             ["settings.intervalManual"] = "手动",
             ["settings.startWithWindows"] = "开机自动启动",
+            ["settings.windowPrimer"] = "保持 5 小时周期时间",
+            ["settings.windowPrimerHint"] = "每次重置后发送一次最小请求",
 
             ["settings.test"] = "测试连接",
             ["update.check"] = "检查更新",
@@ -723,6 +731,8 @@ public static class Strings
             ["settings.intervalHint"] = "開啟彈出視窗時一律取得最新數值",
             ["settings.intervalManual"] = "手動",
             ["settings.startWithWindows"] = "開機時自動執行",
+            ["settings.windowPrimer"] = "維持 5 小時週期時間",
+            ["settings.windowPrimerHint"] = "每次重設後傳送一次最小請求",
 
             ["settings.test"] = "測試連線",
             ["update.check"] = "檢查更新",
@@ -847,6 +857,8 @@ public static class Strings
             ["settings.intervalHint"] = "Al abrir la ventana siempre se obtienen los valores más recientes",
             ["settings.intervalManual"] = "Manual",
             ["settings.startWithWindows"] = "Iniciar con Windows",
+            ["settings.windowPrimer"] = "Mantener alineadas las ventanas de 5 horas",
+            ["settings.windowPrimerHint"] = "Envía una solicitud mínima después de cada reinicio",
 
             ["settings.test"] = "Probar conexión",
             ["update.check"] = "Buscar actualizaciones",
@@ -971,6 +983,8 @@ public static class Strings
             ["settings.intervalHint"] = "Abrir a janela sempre busca os valores mais recentes",
             ["settings.intervalManual"] = "Manual",
             ["settings.startWithWindows"] = "Iniciar com o Windows",
+            ["settings.windowPrimer"] = "Manter alinhadas as janelas de 5 horas",
+            ["settings.windowPrimerHint"] = "Envia uma solicitação mínima após cada reinício",
 
             ["settings.test"] = "Testar conexão",
             ["update.check"] = "Procurar atualizações",
@@ -1095,6 +1109,8 @@ public static class Strings
             ["settings.intervalHint"] = "Beim Öffnen des Fensters werden immer aktuelle Werte geholt",
             ["settings.intervalManual"] = "Manuell",
             ["settings.startWithWindows"] = "Mit Windows starten",
+            ["settings.windowPrimer"] = "5-Stunden-Fenster zeitlich beibehalten",
+            ["settings.windowPrimerHint"] = "Sendet nach jedem Reset eine minimale Anfrage",
 
             ["settings.test"] = "Verbindung testen",
             ["update.check"] = "Nach Updates suchen",
@@ -1219,6 +1235,8 @@ public static class Strings
             ["settings.intervalHint"] = "L'ouverture de la fenêtre récupère toujours les valeurs les plus récentes",
             ["settings.intervalManual"] = "Manuel",
             ["settings.startWithWindows"] = "Démarrer avec Windows",
+            ["settings.windowPrimer"] = "Conserver l’horaire des fenêtres de 5 heures",
+            ["settings.windowPrimerHint"] = "Envoie une requête minimale après chaque réinitialisation",
 
             ["settings.test"] = "Tester la connexion",
             ["update.check"] = "Rechercher des mises à jour",
@@ -1343,6 +1361,8 @@ public static class Strings
             ["settings.intervalHint"] = "При открытии окна всегда загружаются свежие значения",
             ["settings.intervalManual"] = "Вручную",
             ["settings.startWithWindows"] = "Запускать вместе с Windows",
+            ["settings.windowPrimer"] = "Сохранять расписание 5-часовых окон",
+            ["settings.windowPrimerHint"] = "Отправляет один минимальный запрос после каждого сброса",
 
             ["settings.test"] = "Проверить подключение",
             ["update.check"] = "Проверить обновления",
