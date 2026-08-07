@@ -92,8 +92,13 @@ public partial class SettingsWindow : Window
 
     // ---- 불러오기 / 저장 ----
 
+    /// <summary>화면을 채우는 중에는 저장을 부르지 않는다.</summary>
+    private bool _loading;
+
     private void LoadFromSettings()
     {
+        _loading = true;
+
         ClaudeEnabled.IsChecked = _settings.ClaudeEnabled;
         CodexEnabled.IsChecked = _settings.CodexEnabled;
 
@@ -133,6 +138,9 @@ public partial class SettingsWindow : Window
         VersionText.Text = $"{AppInfo.Name} {AppInfo.Version}";
 
         UpdatePathStatus();
+
+        // 화면을 다 채웠으니 이제부터의 변경은 사용자 조작이다.
+        _loading = false;
     }
 
     private void OnOpenIssues(object sender, RoutedEventArgs e) => App.OpenIssues();
@@ -166,6 +174,7 @@ public partial class SettingsWindow : Window
         Strings.Current = Strings.Languages[i].Code;
         Retranslate();
         UpdatePathStatus();
+        ApplyNow();
     }
 
     /// <summary>현재 언어로 모든 문구를 다시 채운다.</summary>
@@ -195,17 +204,12 @@ public partial class SettingsWindow : Window
         LblWidgetBarHint.Text = Strings.Get("settings.widgetBarHint");
         LblPinTaskbar.Text = Strings.Get("settings.pinTaskbar");
 
-        LblBarColors.Text = Strings.Get("settings.barColors");
-        LblBarColorsHint.Text = Strings.Get("settings.barColorsHint");
-        ResetColors.Content = Strings.Get("settings.resetColors");
 
         LblInterval.Text = Strings.Get("settings.interval");
         LblIntervalHint.Text = Strings.Get("settings.intervalHint");
         LblStartup.Text = Strings.Get("settings.startWithWindows");
 
         TestButton.Content = Strings.Get("settings.test");
-        CancelButton.Content = Strings.Get("settings.cancel");
-        SaveButton.Content = Strings.Get("settings.save");
         IssuesLink.Content = Strings.Get("settings.issues");
 
         RelabelIntervals();
@@ -244,6 +248,7 @@ public partial class SettingsWindow : Window
                 IsChecked = seconds == _settings.RefreshIntervalSeconds,
             };
 
+            chip.Checked += OnSettingChanged;
             IntervalGroup.Children.Add(chip);
         }
 
@@ -304,12 +309,29 @@ public partial class SettingsWindow : Window
     private static Brush StatusDot(bool ready) => new SolidColorBrush(
         ready ? Color.FromRgb(0x3F, 0xB9, 0x50) : Color.FromRgb(0x9A, 0x9A, 0x9A));
 
-    private void OnSave(object sender, RoutedEventArgs e)
+    /// <summary>
+    /// 컨트롤이 바뀔 때마다 바로 저장하고 앱에 반영한다.
+    /// 저장 버튼이 없으므로 사용자가 따로 확정할 필요가 없다.
+    /// </summary>
+    private void OnSettingChanged(object sender, RoutedEventArgs e) => ApplyNow();
+
+    /// <summary>경로는 다 입력한 뒤에 반영한다. 글자마다 저장할 이유가 없다.</summary>
+    private void OnPathChanged(object sender, RoutedEventArgs e)
     {
+        UpdatePathStatus();
+        ApplyNow();
+    }
+
+    /// <summary>화면의 값을 설정에 담고 파일에 쓴 뒤 앱에 알린다.</summary>
+    private void ApplyNow()
+    {
+        // 화면을 채우는 중에 들어온 이벤트는 무시한다. 아직 사용자 조작이 아니다.
+        if (_loading) return;
+
         _settings.ClaudeEnabled = ClaudeEnabled.IsChecked == true;
         _settings.CodexEnabled = CodexEnabled.IsChecked == true;
 
-        // 기본 경로와 같으면 빈 값으로 저장한다. 그래야 나중에 기본이 바뀌어도 따라간다.
+        // 기본 경로와 같으면 빈 값으로 둔다. 나중에 기본이 바뀌어도 따라간다.
         _settings.ClaudeCredentialsPath =
             PathEquals(ClaudePath.Text, AppSettings.DefaultClaudePath) ? "" : ClaudePath.Text.Trim();
         _settings.CodexSessionsPath =
@@ -336,30 +358,25 @@ public partial class SettingsWindow : Window
         _settings.ShowInTaskbar = pin;
         _settings.ShowWidgetBar = ShowWidgetBar.IsChecked == true;
 
-        if (TaskbarPromotion.IsSupported && TaskbarPromotion.SetPromoted(pin) is { } pinError)
-        {
-            MessageBox.Show(this,
-                Strings.Get("dialog.pinFailed", Environment.NewLine, pinError),
-                Strings.Get("dialog.notice"), MessageBoxButton.OK, MessageBoxImage.Information);
-        }
+        if (TaskbarPromotion.IsSupported) TaskbarPromotion.SetPromoted(pin);
 
         _settings.SetupCompleted = true;
 
+        // 저장 실패는 조용히 넘기지 않는다. 다만 창을 막지는 않는다.
         if (_settings.Save() is { } error)
         {
             MessageBox.Show(this,
                 Strings.Get("dialog.saveFailed", Environment.NewLine, error),
                 Strings.Get("dialog.saveFailedTitle"), MessageBoxButton.OK, MessageBoxImage.Warning);
-            return; // 창을 닫지 않아 사용자가 다시 시도할 수 있게 한다.
+            return;
         }
 
         Saved?.Invoke();
-        Close();
     }
 
     /// <summary>
     /// 모든 설정을 기본값으로 되돌린다. 되돌릴 수 없으므로 먼저 확인을 받는다.
-    /// 화면만 바꾸고 파일에는 쓰지 않는다. 저장을 눌러야 확정된다.
+    /// 즉시 적용 방식이라 확인을 누르면 바로 저장된다.
     /// </summary>
     private void OnResetAll(object sender, RoutedEventArgs e)
     {
@@ -372,14 +389,16 @@ public partial class SettingsWindow : Window
 
         _settings.ResetAll();
 
-        // 바뀐 값으로 화면을 다시 채운다.
         Strings.Current = _settings.Language;
         ReloadFromSettings();
+        ApplyNow();
     }
 
-    /// <summary>저장된 값으로 화면을 다시 그린다.</summary>
+    /// <summary>설정에 담긴 값으로 화면을 다시 그린다.</summary>
     private void ReloadFromSettings()
     {
+        _loading = true;
+
         ClaudeEnabled.IsChecked = _settings.ClaudeEnabled;
         CodexEnabled.IsChecked = _settings.CodexEnabled;
         ClaudePath.Text = _settings.EffectiveClaudePath;
@@ -398,22 +417,16 @@ public partial class SettingsWindow : Window
         _codexColor = _settings.CodexColor;
         UpdateSwatches();
 
-        _loadingLanguages = true;
         int idx = Array.FindIndex(Strings.Languages,
             l => string.Equals(l.Code, _settings.Language, StringComparison.OrdinalIgnoreCase));
         LanguageBox.SelectedIndex = idx >= 0 ? idx : 0;
-        _loadingLanguages = false;
 
         Retranslate();
         UpdatePathStatus();
+
+        _loading = false;
     }
 
-    private void OnCancel(object sender, RoutedEventArgs e)
-    {
-        // 미리보기로 바꿔둔 언어를 저장된 값으로 되돌린다.
-        Strings.Current = _settings.Language;
-        Close();
-    }
 
     private async void OnTest(object sender, RoutedEventArgs e)
     {
@@ -462,42 +475,41 @@ public partial class SettingsWindow : Window
 
     private void OnPickClaudeColor(object sender, RoutedEventArgs e)
     {
-        if (PickColor(_claudeColor) is { } picked)
+        if (PickColor(ClaudeSwatch, "Claude", _claudeColor,
+                      AppSettings.DefaultClaudeColor) is { } picked)
         {
             _claudeColor = picked;
             UpdateSwatches();
+            ApplyNow();
         }
     }
 
     private void OnPickCodexColor(object sender, RoutedEventArgs e)
     {
-        if (PickColor(_codexColor) is { } picked)
+        if (PickColor(CodexSwatch, "Codex", _codexColor,
+                      AppSettings.DefaultCodexColor) is { } picked)
         {
             _codexColor = picked;
             UpdateSwatches();
+            ApplyNow();
         }
     }
 
-    private void OnResetColors(object sender, RoutedEventArgs e)
+    /// <summary>견본 아래에 팔레트를 띄운다. 고르지 않고 닫으면 null.</summary>
+    private string? PickColor(FrameworkElement anchor, string toolName,
+                              string current, string fallback)
     {
-        _claudeColor = AppSettings.DefaultClaudeColor;
-        _codexColor = AppSettings.DefaultCodexColor;
-        UpdateSwatches();
-    }
+        var picker = new ColorPickerWindow(
+            Strings.Get("color.title", toolName), current, fallback);
 
-    /// <summary>Windows 기본 색 선택 대화상자. 취소하면 null.</summary>
-    private static string? PickColor(string current)
-    {
-        using var dlg = new System.Windows.Forms.ColorDialog
-        {
-            FullOpen = true,
-            Color = ToDrawingColor(current),
-        };
+        picker.ShowUnder(anchor, this);
 
-        if (dlg.ShowDialog() != System.Windows.Forms.DialogResult.OK) return null;
+        // ShowUnder는 모달이 아니므로 닫힐 때까지 기다린다.
+        var frame = new System.Windows.Threading.DispatcherFrame();
+        picker.Closed += (_, _) => frame.Continue = false;
+        System.Windows.Threading.Dispatcher.PushFrame(frame);
 
-        var c = dlg.Color;
-        return $"#{c.R:X2}{c.G:X2}{c.B:X2}";
+        return picker.Selected;
     }
 
     private void UpdateSwatches()

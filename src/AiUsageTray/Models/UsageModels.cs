@@ -23,11 +23,25 @@ public enum WindowKind
 /// <summary>한도 창(window) 하나의 사용 현황.</summary>
 public sealed class UsageWindow
 {
-    /// <summary>사용자에게 보여줄 이름. 예: "5시간", "주간".</summary>
-    public string Label { get; init; } = "";
-
     /// <summary>어느 칸에 놓을지 정하는 분류.</summary>
     public WindowKind Kind { get; init; } = WindowKind.Other;
+
+    /// <summary>
+    /// 분류에 맞지 않는 창의 이름. Kind가 Other일 때만 쓴다.
+    /// 번역할 수 없는 값이라 서버가 준 말을 그대로 둔다.
+    /// </summary>
+    public string RawLabel { get; init; } = "";
+
+    /// <summary>
+    /// 화면에 보여줄 이름. 저장해두지 않고 그때그때 현재 언어로 만든다.
+    /// 캐시에 번역된 문자열을 넣으면 언어를 바꿔도 옛 말이 남는다.
+    /// </summary>
+    public string Label => Kind switch
+    {
+        WindowKind.Session => Strings.Get("window.session"),
+        WindowKind.Weekly => Strings.Get("window.weekly"),
+        _ => string.IsNullOrEmpty(RawLabel) ? Strings.Get("window.usage") : RawLabel,
+    };
 
     /// <summary>0~100 사용률.</summary>
     public double Percent { get; init; }

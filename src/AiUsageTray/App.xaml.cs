@@ -418,9 +418,14 @@ public partial class App : Application
             ApplyDisplaySettings();
             SyncWidgetBar();
             RestartTimer();
-            _ = _monitor.RefreshAsync();
 
-            // 이미 열려 있다면 새 설정으로 다시 그린다.
+            // 켜고 끈 것을 화면에 바로 반영한다. 조회를 기다리지 않는다.
+            _monitor.ApplyEnabledChange();
+
+            // 그다음 실제 값을 다시 가져온다. 서버가 막혀 있어도 위에서
+            // 되살린 캐시가 남아 있어 화면이 비지 않는다.
+            _ = _monitor.RefreshAsync(force: true);
+
             if (_flyout.IsVisible) _flyout.Render(_monitor.Latest);
         };
 

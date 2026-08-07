@@ -182,6 +182,38 @@ public sealed class UsageMonitor : IDisposable
     }
 
     /// <summary>
+    /// 설정이 바뀌면 화면을 곧바로 맞춘다.
+    ///
+    /// 꺼진 도구는 화면에서 빼고, 켜진 도구는 마지막으로 성공한 값을 되살린다.
+    /// 캐시는 지우지 않는다. 지워버리면 다시 켰을 때 서버가 막혀 있는 동안
+    /// (429 등) 보여줄 것이 없어진다.
+    /// </summary>
+    public void ApplyEnabledChange()
+    {
+        var shown = new List<ProviderUsage>();
+
+        foreach (string name in new[] { "Claude", "Codex" })
+        {
+            bool enabled = name switch
+            {
+                "Claude" => _settings.ClaudeEnabled,
+                "Codex" => _settings.CodexEnabled,
+                _ => true,
+            };
+
+            if (!enabled) continue;
+
+            // 이미 보이던 값이 있으면 그대로 쓰고, 없으면 캐시에서 되살린다.
+            var current = Latest.FirstOrDefault(u => u.Provider == name);
+            if (current is not null) shown.Add(current);
+            else if (_lastGood.TryGetValue(name, out var cached)) shown.Add(cached);
+        }
+
+        Latest = shown;
+        Updated?.Invoke(Latest);
+    }
+
+    /// <summary>
     /// 프로바이더는 한 번만 만들어 재사용한다. 매번 새로 만들면
     /// 429 백오프 같은 내부 상태가 사라져 제한을 계속 두드리게 된다.
     /// 활성화 여부만 매 호출 시점의 설정을 따른다.

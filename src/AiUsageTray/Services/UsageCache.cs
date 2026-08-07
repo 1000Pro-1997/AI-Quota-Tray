@@ -76,7 +76,8 @@ public static class UsageCache
                 {
                     windows.Add(new UsageWindow
                     {
-                        Label = w.Label,
+                        Kind = w.Kind,
+                        RawLabel = w.RawLabel,
                         Percent = w.Percent,
                         ResetsAt = w.ResetsAt,
                     });
@@ -102,7 +103,7 @@ public static class UsageCache
     private static IEnumerable<WindowEntry> ToEntries(IReadOnlyList<UsageWindow> windows)
     {
         foreach (var w in windows)
-            yield return new WindowEntry { Label = w.Label, Percent = w.Percent, ResetsAt = w.ResetsAt };
+            yield return new WindowEntry { Kind = w.Kind, RawLabel = w.RawLabel, Percent = w.Percent, ResetsAt = w.ResetsAt };
     }
 
     // 직렬화 전용 형태. 도메인 모델은 init 전용이라 그대로 쓰기 어렵다.
@@ -116,7 +117,9 @@ public static class UsageCache
 
     private sealed class WindowEntry
     {
-        public string Label { get; set; } = "";
+        /// <summary>번역된 이름 대신 분류를 저장한다. 언어가 바뀌어도 따라온다.</summary>
+        public WindowKind Kind { get; set; }
+        public string RawLabel { get; set; } = "";
         public double Percent { get; set; }
         public DateTime? ResetsAt { get; set; }
     }

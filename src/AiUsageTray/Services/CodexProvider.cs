@@ -160,8 +160,8 @@ public sealed class CodexProvider : IUsageProvider
 
         into.Add(new UsageWindow
         {
-            Label = DescribeWindow(minutes),
             Kind = KindFor(minutes),
+            RawLabel = DescribeWindow(minutes),
             Percent = pct,
             ResetsAt = reset,
         });

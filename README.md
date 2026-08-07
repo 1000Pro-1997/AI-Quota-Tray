@@ -1,209 +1,224 @@
 # AI Quota Tray
 
-Windows 트레이에서 Claude Code와 Codex의 **남은 사용량 한도**를 한눈에 보여주는 앱.
+See how much of your Claude Code and Codex quota is left — right from the Windows tray.
 
 ![.NET](https://img.shields.io/badge/.NET-10.0-512BD4)
 ![Platform](https://img.shields.io/badge/platform-Windows%2011-0078D4)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-토큰을 세어 비용을 추정하는 도구가 아니다. **서버가 알려주는 실제 한도**와
-언제 초기화되는지를 보여준다.
+This is not a token counter. It shows the **actual limits the servers report** and
+when they reset.
 
-## 무엇을 보여주나
+<p align="center">
+  <img src="docs/images/popup.png" alt="Popup showing Claude and Codex quota" width="340">
+</p>
 
-- **Claude** — 5시간 세션 한도, 주간 한도, 각각의 초기화 시각
-- **Codex** — 주간 한도와 초기화 시각, 요금제
+<p align="center">
+  <img src="docs/images/widgetbar.png" alt="Widget bar next to the notification area" width="600">
+</p>
 
-수치는 모두 **서버가 내려준 실제 값**이다. 토큰을 세어 추정하지 않는다.
+## Download
 
-기본은 남은 양(`18% 남음`)으로 보여준다. 설정에서 쓴 양(`82% 사용`)으로 바꿀 수
-있다. 진행률 바 색은 도구를 구분하는 용도다(Claude 주황, Codex 파랑, 설정에서
-변경 가능).
+Get the latest `AiQuotaTray.exe` from
+[Releases](https://github.com/1000Pro-1997/AI-Quota-Tray/releases).
 
-## 데이터를 어디서 가져오나
+Single file, no installer. Needs the
+[.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0).
 
-| 도구 | 방식 | 네트워크 |
+## What it shows
+
+| Tool | Limits |
+|---|---|
+| **Claude** | 5-hour session limit, weekly limit, and when each resets |
+| **Codex** | Weekly limit, reset time, and plan |
+
+Numbers default to what is **left** (`18% left`). Switch to what was **used**
+(`82% used`) in Settings. Bar colors tell the tools apart — orange for Claude,
+blue for Codex, both changeable.
+
+## Where the data comes from
+
+| Tool | Method | Network |
 |---|---|---|
-| Claude | `~/.claude/.credentials.json`의 OAuth 토큰으로 공식 usage 엔드포인트 조회 | 필요 |
-| Codex | `~/.codex/sessions/**/*.jsonl`에 기록된 `rate_limits` 파싱 | 불필요 |
+| Claude | Reads the OAuth token from `~/.claude/.credentials.json`, then calls the official usage endpoint | Yes |
+| Codex | Parses `rate_limits` already recorded in `~/.codex/sessions/**/*.jsonl` | No |
 
-**API 키를 입력할 필요가 없다.** 두 CLI에 이미 로그인되어 있으면 자동으로 인식한다.
+**No API key needed.** If you are signed in to either CLI, the app finds it.
 
-### 토큰을 다루는 방식
+### How tokens are handled
 
-Claude 자격증명 파일은 **읽기만 하고 절대 수정하지 않는다.** 액세스 토큰은 수 시간 만에
-만료되지만 Claude Code가 알아서 갱신해 파일에 다시 쓰므로, 이 앱은 그것을 다시 읽을
-뿐이다. 따라서 이 앱 때문에 로그아웃될 일이 없다.
+The Claude credentials file is **read, never written**. Access tokens expire after
+a few hours, but Claude Code refreshes them and writes them back — this app just
+reads the file again. So it can never log you out.
 
-Claude Code를 오래 쓰지 않아 토큰이 만료된 상태라면 "토큰 갱신 대기 중"으로 표시된다.
-Claude Code를 한 번 실행하면 해결된다.
+If you have not run Claude Code in a while and the token has expired, you will see
+"Waiting for token refresh". Running Claude Code once fixes it.
 
-사용량 조회는 읽기 전용이라 **사용량을 늘리지 않는다.**
+Usage lookups are read-only, so **they do not consume any of your quota**.
 
-### 개인정보
+### Privacy
 
-- 대화 내용이나 프롬프트는 **읽지 않는다.** Codex 세션 로그에서도 사용량 항목
-  (`token_count`)만 찾아 읽는다.
-- 수집·전송하는 곳이 없다. 조회는 각 서비스의 공식 엔드포인트로만 나간다.
-- 토큰은 메모리에만 두고 어디에도 기록하지 않는다.
-- 저장하는 것은 설정과 마지막 사용량 수치뿐이며,
-  `%APPDATA%\AiQuotaTray\`에만 남는다.
+- **Never reads your conversations or prompts.** In Codex session logs it looks
+  only for usage entries (`token_count`).
+- Nothing is collected or sent anywhere. Requests go only to each service's own
+  official endpoint.
+- Tokens stay in memory and are never written down.
+- The only things stored are your settings and the last known numbers, kept in
+  `%APPDATA%\AiQuotaTray\`.
 
-## 요구사항
+## Where it appears
 
-- Windows 11 (Windows 10에서도 동작하지만 작업표시줄 고정은 Win11 전용)
-- [.NET 10 SDK](https://dotnet.microsoft.com/download) (빌드 시)
-- Claude Code 또는 Codex CLI에 로그인되어 있을 것
+### Tray icon
 
-## 빌드와 실행
+A colored square with a number — orange for Claude, blue for Codex. The number
+follows your display setting (remaining by default).
+
+With both tools enabled it alternates every 4 seconds. With one, it stays put.
+
+Windows draws tray icons in a fixed 16×16 square, so it cannot be made wider.
+Use the widget bar below for more room.
+
+### Widget bar
+
+An overlay that sits next to the notification area, one row per limit:
+
+```
+[====38%====     3h 39m ]   <- Claude 5-hour (orange)
+[==18%==         8h 29m ]   <- Claude weekly
+                             [=18%=   21h 41m ]   <- Codex weekly (blue)
+```
+
+Rows have fixed slots — session on top, weekly below. If a tool has no session
+limit, that slot stays empty, so weekly always lines up.
+
+The filled width matches the number: showing what is left fills by what is left.
+Click the bar to open the popup. Hover to see which tool and which limit.
+
+Remaining time recalculates every 30 seconds, independent of the refresh interval.
+
+### Popup
+
+Click the tray icon or the widget bar. Shows every limit in detail, along with each
+service's status.
+
+Click again to close, or click anywhere else. Refresh sits next to the title,
+Settings is the gear at the top right. Quit lives in the tray icon's right-click
+menu.
+
+## Settings
+
+<p align="center">
+  <img src="docs/images/settings.png" alt="Settings window" width="440">
+</p>
+
+Changes apply the moment you make them — there is no Save button. **AllReset**
+returns everything to defaults.
+
+Stored in `%APPDATA%\AiQuotaTray\settings.json`.
+
+On first run the app enables only the tools it can actually find, and picks your
+Windows display language.
+
+## Language
+
+Ten languages, switchable at any time (applies instantly):
+
+English · 한국어 · 日本語 · 简体中文 · 繁體中文 · Español · Português ·
+Deutsch · Français · Русский
+
+To fix a translation or add a language, edit the table in `Services/Strings.cs`.
+Missing entries fall back to English, so partial translations are fine.
+
+## Always show on the taskbar
+
+Windows 11 tucks new tray icons into the hidden overflow (`^`). Turn on
+**Always show on taskbar** in Settings to pull it out. It is on by default.
+
+It works by finding this app's entry under `HKCU\Control Panel\NotifyIconSettings`
+and setting `IsPromoted` to 1. The key name is a hash of the executable path, so
+the app matches on `ExecutablePath` instead — which means it works no matter where
+you install it.
+
+Windows creates that entry only after Explorer has seen the tray icon, and it
+decides when. So the app watches for it and applies the setting once it appears
+(every 2 seconds for the first 30, then every minute).
+
+Settings reflects the actual registry state, not a saved value.
+
+## Refresh and rate limits
+
+The Claude usage endpoint is rate limited. To stay under it:
+
+- If the last check was under 60 seconds ago, no new request is made — opening the
+  popup repeatedly is safe
+- On a 429 it backs off for as long as the server asks (2 minutes if unspecified)
+- When a lookup fails it keeps showing the last good numbers and notes why it could
+  not refresh
+- Good values are saved to `last-usage.json`, so numbers survive a restart even if
+  the server is unreachable (up to 12 hours)
+
+Only the **Refresh** button bypasses the 60-second cache — and even it stays quiet
+while a 429 backoff is active.
+
+## Service status
+
+Each tool's name carries a dot and a word from its public status page.
+
+| Shown | Meaning | Color |
+|---|---|---|
+| Operational | No problems | Green |
+| Degraded | Working but slow or unstable | Orange |
+| Partial outage | Some features down | Dark orange |
+| Outage | Down | Red |
+| Maintenance | Planned work | Blue |
+
+- Claude: https://status.claude.com (Claude Code, Claude API components)
+- Codex: https://status.openai.com (Codex in ChatGPT Desktop, Responses, API)
+
+It watches only the components this app actually depends on, and reports the worst
+of them.
+
+In the widget bar, trouble turns the usage number red (the time stays normal).
+Degraded blinks instead of holding red, since the service still works.
+
+Status is checked every 5 minutes, separately from usage. If it cannot be read,
+usage still shows.
+
+## Requirements
+
+- Windows 11 (works on Windows 10, but taskbar pinning is Win11-only)
+- [.NET 10 SDK](https://dotnet.microsoft.com/download) to build
+- Signed in to Claude Code or Codex CLI
+
+## Build and run
 
 ```
 cd src/AiUsageTray
 dotnet run
 ```
 
-배포용 단일 실행 파일:
+Single-file build:
 
 ```
 dotnet publish -c Release
 ```
 
-### 명령줄 인자
+### Command-line flags
 
-- `--flyout` — 트레이를 거치지 않고 팝업을 바로 띄운다. 확인·디버깅용.
+- `--flyout` — open the popup right away, skipping the tray. Handy for debugging.
 
-## 사용법
+## Notes
 
-- 트레이 아이콘 또는 위젯바 **좌클릭** — 팝업 열기/닫기
-- 트레이 아이콘 **우클릭** — 메뉴 (열기, 새로고침, 설정, 종료)
-- 팝업 바깥을 클릭하거나 `Esc` — 닫기
+Gemini CLI is not supported. Its session logs record neither token usage nor
+limits, so there is nothing to show.
 
-팝업 안에는 제목 옆 새로고침 아이콘과 오른쪽 위 설정(톱니바퀴) 아이콘이 있다.
-새로고침 아이콘은 조회하는 동안 돌고, 끝나면 돌던 바퀴를 채우고 멈춘다.
-종료는 트레이 아이콘 우클릭 메뉴에 있다.
+## Contributing
 
-## 트레이 아이콘
+Bug reports and ideas are welcome in
+[Issues](https://github.com/1000Pro-1997/AI-Quota-Tray/issues). You can also open
+it straight from the app — the button at the bottom of Settings, or the tray
+icon's right-click menu.
 
-도구 색 배경에 숫자를 얹어 보여준다(Claude 주황, Codex 파랑). 숫자는 표기
-설정을 따른다 - 기본은 남은 양이다.
-
-두 도구를 모두 켜두면 4초 간격으로 번갈아 보여주고, 하나만 켜두면 그것만
-계속 보여준다.
-
-Windows 트레이는 아이콘을 16x16 정사각형에 그리므로 가로로 늘릴 수 없다.
-넓게 보고 싶으면 아래 위젯바를 쓴다.
-
-## 위젯바
-
-작업표시줄 알림 영역 왼쪽에 붙는 오버레이. 도구마다 한도별로 한 줄씩,
-값과 남은 시간을 함께 보여준다.
-
-    [====34%====      11m ]   <- Claude 5시간 (주황)
-    [==25%==       10h 1m ]   <- Claude 주간
-                              [=18%=    23h 14m ]   <- Codex 주간 (파랑)
-
-도구 이름은 쓰지 않고 색으로 구분한다. 줄의 자리는 고정이라 위는 세션(5시간),
-아래는 주간이다. 한쪽이 없으면 그 자리를 비워두므로, 나중에 Codex에 5시간
-한도가 생겨도 주간은 계속 아래에 온다.
-
-색이 칠해진 넓이는 숫자와 같은 것을 가리킨다 - 남은 양으로 보고 있으면 바도
-남은 만큼 차고, 쓴 양으로 바꾸면 쓴 만큼 찬다.
-
-막대를 누르면 팝업이 열리고, 마우스를 올리면 어느 도구의 무슨 한도인지 나온다.
-설정에서 끌 수 있고 기본값은 켜짐이다.
-
-남은 시간은 30초마다 다시 계산하므로, 사용량 조회 주기와 무관하게 계속 줄어든다.
-
-Windows 11에는 작업표시줄에 직접 무언가를 넣는 공식 방법이 없어서, 항상 위에
-뜨는 작은 창을 알림 영역 옆에 겹쳐 놓는 방식으로 구현했다. 작업표시줄이 위/아래/
-좌/우 어디에 있든 그 안쪽에 자리잡는다.
-
-## 작업표시줄에 항상 표시
-
-Windows 11은 새 트레이 아이콘을 숨김 영역(^) 안에 넣는다. 설정의
-**작업표시줄에 항상 표시**를 켜면 밖으로 꺼낸다. 기본값은 켜짐이라 보통은
-따로 만질 필요가 없다.
-
-동작 방식은 알림 아이콘 레지스트리에서 이 앱의 항목을 찾아 IsPromoted를 1로
-두는 것이다. 항목의 키 이름은 실행 파일 경로에서 만들어지는 해시라 미리 알 수
-없어서, ExecutablePath 값을 비교해 자기 항목을 찾는다. 덕분에 설치 위치나 PC가
-달라도 그대로 동작한다.
-
-항목은 Explorer가 트레이 아이콘을 처음 본 뒤에야 생기고, 그 시점은 Explorer가
-정한다. 그래서 앱은 항목이 나타날 때까지 지켜보다가 적용한다(처음 30초는 2초
-간격, 이후 1분 간격).
-
-설정 창은 저장된 값이 아니라 실제 레지스트리 상태를 보여준다. Windows에서 이
-아이콘을 직접 숨기거나 꺼낸 적이 있다면 그 상태가 그대로 반영된다.
-
-## 서비스 장애 상태
-
-각 서비스의 공개 상태 페이지에서 장애 여부를 읽어 도구 이름 옆에 점과 말로
-보여준다.
-
-| 표시 | 뜻 | 색 |
-|---|---|---|
-| 정상 | 문제 없음 | 초록 |
-| 성능 저하 | 동작하지만 느리거나 불안정 | 주황 |
-| 일부 장애 | 일부 기능 중단 | 진한 주황 |
-| 장애 | 전면 중단 | 빨강 |
-| 점검 중 | 예정된 점검 | 파랑 |
-
-- Claude: https://status.claude.com (Claude Code, Claude API 컴포넌트)
-- Codex: https://status.openai.com (Codex in ChatGPT Desktop, Responses, API)
-
-전체 상태 대신 이 도구가 실제로 쓰는 컴포넌트만 본다. 여러 개 중 가장 나쁜
-것을 그 서비스의 상태로 삼는다.
-
-위젯바에서는 문제가 있을 때 사용량 숫자가 빨갛게 바뀐다(남은 시간은 그대로).
-성능 저하는 아직 쓸 수 있는 상태라 빨강으로 고정하지 않고 깜빡여서 알린다.
-
-상태 조회는 5분 간격이고 사용량과 별개로 동작한다. 상태를 못 가져와도 사용량
-표시에는 영향이 없다.
-
-## 새로고침과 요청 제한
-
-Claude 사용량 엔드포인트에는 호출 빈도 제한이 있다. 이를 넘기지 않도록:
-
-- 마지막 조회가 60초 이내면 서버를 다시 부르지 않는다 (팝업을 연달아 열어도 안전)
-- 429를 받으면 서버가 알려준 시간만큼(없으면 2분) 호출을 멈춘다
-- 조회에 실패해도 마지막으로 성공한 수치를 계속 보여주고, 왜 갱신하지 못했는지
-  아래에 덧붙인다
-- 성공한 값은 last-usage.json에 남겨, 앱을 다시 켰을 때 서버가 응답하지 않아도
-  직전 수치를 볼 수 있다 (12시간까지)
-
-**새로고침** 버튼만 60초 캐시를 무시한다. 다만 429로 막힌 동안에는 이것도
-서버를 두드리지 않는다.
-
-## 설정
-
-`%APPDATA%\AiQuotaTray\settings.json`에 저장된다.
-
-경로는 자동 탐지되지만 설정 창에서 직접 지정할 수도 있다. **연결 테스트** 버튼으로
-저장 전에 실제로 값을 읽어올 수 있는지 확인할 수 있다.
-
-## 참고
-
-Gemini CLI는 지원하지 않는다. 세션 로그에 토큰 사용량이나 한도 정보가
-기록되지 않아 표시할 데이터가 없다.
-
-## 언어
-
-10개 언어를 지원한다. 처음 실행할 때 Windows 표시 언어를 따라 자동으로 정해지고,
-설정에서 언제든 바꿀 수 있다(바로 적용된다).
-
-English · 한국어 · 日本語 · 简体中文 · 繁體中文 · Español · Português ·
-Deutsch · Français · Русский
-
-번역을 고치거나 언어를 추가하려면 `Services/Strings.cs`의 표에 항목을 넣으면 된다.
-빠진 항목은 영어로 대체되므로 부분 번역도 괜찮다.
-
-## 문의
-
-버그나 제안은 [Issues](https://github.com/1000Pro-1997/AI-Quota-Tray/issues)에
-남겨주세요. 앱 안에서도 설정 창 하단이나 트레이 아이콘 우클릭 메뉴의
-**문의 · 버그 신고**로 바로 열 수 있습니다.
-
-## 라이선스
+## License
 
 MIT

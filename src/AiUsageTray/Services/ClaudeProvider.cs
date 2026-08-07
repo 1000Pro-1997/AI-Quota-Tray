@@ -151,8 +151,8 @@ public sealed class ClaudeProvider : IUsageProvider
 
                 windows.Add(new UsageWindow
                 {
-                    Label = LabelFor(kind, lim),
                     Kind = KindFor(kind),
+                    RawLabel = LabelFor(kind, lim),
                     Percent = pct,
                     ResetsAt = reset,
                 });
@@ -162,8 +162,8 @@ public sealed class ClaudeProvider : IUsageProvider
         // limits가 비어 있으면 최상위 필드로 대체한다.
         if (windows.Count == 0)
         {
-            AddLegacy(root, "five_hour", Strings.Get("window.session"), WindowKind.Session, windows);
-            AddLegacy(root, "seven_day", Strings.Get("window.weekly"), WindowKind.Weekly, windows);
+            AddLegacy(root, "five_hour", WindowKind.Session, windows);
+            AddLegacy(root, "seven_day", WindowKind.Weekly, windows);
         }
 
         return new ProviderUsage
@@ -175,7 +175,7 @@ public sealed class ClaudeProvider : IUsageProvider
         };
     }
 
-    private static void AddLegacy(JsonElement root, string prop, string label,
+    private static void AddLegacy(JsonElement root, string prop,
         WindowKind kind, List<UsageWindow> into)
     {
         if (!root.TryGetProperty(prop, out var el) || el.ValueKind != JsonValueKind.Object) return;
@@ -185,7 +185,7 @@ public sealed class ClaudeProvider : IUsageProvider
         // 위와 같은 이유로, 리셋 시각이 없는 창은 쓰지 않는다.
         if (reset is null) return;
 
-        into.Add(new UsageWindow { Label = label, Kind = kind, Percent = pct, ResetsAt = reset });
+        into.Add(new UsageWindow { Kind = kind, Percent = pct, ResetsAt = reset });
     }
 
     /// <summary>서버가 준 kind를 화면 배치용 분류로 옮긴다.</summary>
