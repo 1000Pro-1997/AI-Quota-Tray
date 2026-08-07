@@ -22,3 +22,9 @@ Thumbs.db
 # 릴리스에 첨부할 배포본 (저장소에는 넣지 않는다)
 /AiQuotaTray.exe
 /AiQuotaTray-standalone.exe
+
+# 배포본을 모아두는 곳. 릴리스에 올릴 exe를 여기서 꺼내 쓴다.
+/dist/
+
+# 작업용 메모. 저장소에는 올리지 않는다.
+/CLAUDE.md

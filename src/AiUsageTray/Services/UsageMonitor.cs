@@ -23,6 +23,14 @@ public sealed class UsageMonitor : IDisposable
     private DateTime _lastFetch = DateTime.MinValue;
 
     /// <summary>
+    /// 마지막으로 새로고침을 실제로 시도한 시각. 조회가 실패해도 갱신된다.
+    /// 화면의 "몇 분 전 새로고침"은 수치의 나이가 아니라 이 시각을 쓴다.
+    /// 사용자가 버튼을 눌렀으면 눌렀다고 보여주는 게 맞다.
+    /// 아직 한 번도 돌지 않았으면 null.
+    /// </summary>
+    public DateTime? LastRefreshAt { get; private set; }
+
+    /// <summary>
     /// 이 시간 안에 다시 요청하면 캐시를 쓴다. 팝업을 연달아 열어도
     /// 서버를 두드리지 않게 해 429를 막는다.
     /// </summary>
@@ -135,6 +143,10 @@ public sealed class UsageMonitor : IDisposable
                 _lastFetch = DateTime.Now;
                 UsageCache.Save(_lastGood.Values);
             }
+
+            // 새로고침 시각은 결과와 무관하게 남긴다. 실패했더라도
+            // 사용자가 보기엔 방금 새로고침한 것이 맞다.
+            LastRefreshAt = DateTime.Now;
 
             Latest = results;
             Updated?.Invoke(results);

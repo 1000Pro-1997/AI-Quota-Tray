@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Threading;
 using AiUsageTray.Models;
 using AiUsageTray.Services;
 
@@ -36,12 +37,30 @@ public partial class FlyoutWindow : Window
         ApplyTheme();
         Retranslate();
         Deactivated += (_, _) => Hide();
+
+        // 창이 떠 있는 동안에만 "몇 초 전"을 세어 준다. 닫혀 있으면 셀 이유가 없다.
+        _ageTicker = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+        _ageTicker.Tick += (_, _) => UpdateRefreshedText();
+
         IsVisibleChanged += (_, e) =>
         {
-            if (!(bool)e.NewValue) HiddenAt = DateTime.Now;
+            bool shown = (bool)e.NewValue;
+            if (!shown) HiddenAt = DateTime.Now;
+
+            if (shown)
+            {
+                UpdateRefreshedText();
+                _ageTicker.Start();
+            }
+            else
+            {
+                _ageTicker.Stop();
+            }
         };
         PreviewKeyDown += (_, e) => { if (e.Key == Key.Escape) Hide(); };
     }
+
+    private readonly DispatcherTimer _ageTicker;
 
     // ---- 테마 ----
 
@@ -135,6 +154,34 @@ public partial class FlyoutWindow : Window
 
         if (busy) StartSpin();
         else StopSpin();
+
+        // 조회가 끝나면 "방금 전"으로 바로 바뀌어야 한다.
+        if (!busy) UpdateRefreshedText();
+    }
+
+    // ---- 새로고침 시각 ----
+
+    /// <summary>마지막으로 새로고침한 시각을 준다. 아직 없으면 null.</summary>
+    public Func<DateTime?>? RefreshedAtResolver { get; set; }
+
+    /// <summary>
+    /// "몇 분 전 새로고침"을 다시 그린다.
+    ///
+    /// 창이 떠 있는 동안에도 시간은 흐르므로 타이머로 계속 고쳐 쓴다.
+    /// 조회 중에는 숨긴다. 옆에서 스피너가 도는데 시각까지 있으면 시끄럽다.
+    /// </summary>
+    private void UpdateRefreshedText()
+    {
+        var at = RefreshedAtResolver?.Invoke();
+
+        if (at is null || _spinning)
+        {
+            RefreshedText.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        RefreshedText.Text = Strings.Get("popup.refreshed", FormatAge(DateTime.Now - at.Value));
+        RefreshedText.Visibility = Visibility.Visible;
     }
 
     /// <summary>
@@ -299,22 +346,6 @@ public partial class FlyoutWindow : Window
             });
         }
 
-        // 마지막 확인 시각이 오래됐으면 알려준다.
-        if (u.LastUpdated is { } lu)
-        {
-            var age = DateTime.Now - lu;
-            if (age.TotalMinutes >= 10)
-            {
-                panel.Children.Add(new TextBlock
-                {
-                    Text = Strings.Get("popup.lastRecord", FormatAge(age)),
-                    FontSize = 10.5,
-                    Margin = new Thickness(0, 4, 0, 0),
-                    Foreground = (Brush)Resources["SubtleBrush"],
-                });
-            }
-        }
-
         return panel;
     }
 
@@ -408,10 +439,19 @@ public partial class FlyoutWindow : Window
     private static Brush ToBrush(System.Drawing.Color c) =>
         new SolidColorBrush(Color.FromRgb(c.R, c.G, c.B));
 
-    private static string FormatAge(TimeSpan age) =>
-        age.TotalDays >= 1 ? Strings.Get("age.days", (int)age.TotalDays) :
-        age.TotalHours >= 1 ? Strings.Get("age.hours", (int)age.TotalHours) :
-        Strings.Get("age.minutes", (int)age.TotalMinutes);
+    /// <summary>
+    /// 경과 시간을 가장 큰 단위 하나로만 적는다. 1분이 안 됐으면 초 단위로.
+    /// 시계가 뒤로 갔거나 하는 이유로 음수가 나오면 0초로 본다.
+    /// </summary>
+    private static string FormatAge(TimeSpan age)
+    {
+        if (age < TimeSpan.Zero) age = TimeSpan.Zero;
+
+        return age.TotalDays >= 1 ? Strings.Get("age.days", (int)age.TotalDays) :
+               age.TotalHours >= 1 ? Strings.Get("age.hours", (int)age.TotalHours) :
+               age.TotalMinutes >= 1 ? Strings.Get("age.minutes", (int)age.TotalMinutes) :
+               Strings.Get("age.seconds", (int)age.TotalSeconds);
+    }
 
     // ---- 위치 계산 ----
 

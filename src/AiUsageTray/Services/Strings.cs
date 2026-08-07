@@ -135,7 +135,7 @@ public static class Strings
             // 팝업
             ["popup.checking"] = "Checking…",
             ["popup.nothing"] = "Nothing to show. Enable a tool in Settings.",
-            ["popup.lastRecord"] = "Last record: {0} ago",
+            ["popup.refreshed"] = "Refreshed {0} ago",
             ["tip.refresh"] = "Refresh",
             ["tip.settings"] = "Settings",
 
@@ -157,6 +157,7 @@ public static class Strings
             ["age.days"] = "{0}d",
             ["age.hours"] = "{0}h",
             ["age.minutes"] = "{0}m",
+            ["age.seconds"] = "{0}s",
 
             // 서비스 상태
             ["status.operational"] = "Operational",
@@ -201,8 +202,8 @@ public static class Strings
             // 설정 - 표시
             ["settings.numberFormat"] = "Number format",
             ["settings.numberFormatHint"] = "Show what is left or what was used",
-            ["settings.modeRemaining"] = "Remaining",
-            ["settings.modeUsed"] = "Used",
+            ["settings.modeRemaining"] = "Remaining rate",
+            ["settings.modeUsed"] = "Usage rate",
             ["settings.widgetBar"] = "Widget bar",
             ["settings.widgetBarHint"] = "Show a horizontal bar next to the taskbar",
             ["settings.pinTaskbar"] = "Always show on taskbar",
@@ -269,7 +270,7 @@ public static class Strings
 
             ["popup.checking"] = "확인 중…",
             ["popup.nothing"] = "표시할 항목이 없습니다. 설정에서 활성화하세요.",
-            ["popup.lastRecord"] = "마지막 기록: {0} 전",
+            ["popup.refreshed"] = "{0} 전에 새로고침됨",
             ["tip.refresh"] = "새로고침",
             ["tip.settings"] = "설정",
 
@@ -289,6 +290,7 @@ public static class Strings
             ["age.days"] = "{0}일",
             ["age.hours"] = "{0}시간",
             ["age.minutes"] = "{0}분",
+            ["age.seconds"] = "{0}초",
 
             ["status.operational"] = "정상",
             ["status.degraded"] = "성능 저하",
@@ -328,8 +330,8 @@ public static class Strings
 
             ["settings.numberFormat"] = "숫자 표기",
             ["settings.numberFormatHint"] = "남은 양과 쓴 양 중 무엇을 보여줄지",
-            ["settings.modeRemaining"] = "남은 양",
-            ["settings.modeUsed"] = "쓴 양",
+            ["settings.modeRemaining"] = "잔여율",
+            ["settings.modeUsed"] = "사용률",
             ["settings.widgetBar"] = "위젯바",
             ["settings.widgetBarHint"] = "작업표시줄 옆에 가로 막대로 표시",
             ["settings.pinTaskbar"] = "작업표시줄에 항상 표시",
@@ -392,7 +394,7 @@ public static class Strings
 
             ["popup.checking"] = "確認中…",
             ["popup.nothing"] = "表示する項目がありません。設定で有効にしてください。",
-            ["popup.lastRecord"] = "最終記録: {0}前",
+            ["popup.refreshed"] = "{0}前に更新",
             ["tip.refresh"] = "更新",
             ["tip.settings"] = "設定",
 
@@ -412,6 +414,7 @@ public static class Strings
             ["age.days"] = "{0}日",
             ["age.hours"] = "{0}時間",
             ["age.minutes"] = "{0}分",
+            ["age.seconds"] = "{0}秒",
 
             ["status.operational"] = "正常",
             ["status.degraded"] = "性能低下",
@@ -451,8 +454,8 @@ public static class Strings
 
             ["settings.numberFormat"] = "数値の表示",
             ["settings.numberFormatHint"] = "残量と使用量のどちらを表示するか",
-            ["settings.modeRemaining"] = "残量",
-            ["settings.modeUsed"] = "使用量",
+            ["settings.modeRemaining"] = "残量率",
+            ["settings.modeUsed"] = "使用率",
             ["settings.widgetBar"] = "ウィジェットバー",
             ["settings.widgetBarHint"] = "タスクバーの横に横棒で表示",
             ["settings.pinTaskbar"] = "タスクバーに常に表示",
@@ -515,7 +518,7 @@ public static class Strings
 
             ["popup.checking"] = "正在检查…",
             ["popup.nothing"] = "没有可显示的项目。请在设置中启用。",
-            ["popup.lastRecord"] = "最后记录：{0}前",
+            ["popup.refreshed"] = "{0}前刷新",
             ["tip.refresh"] = "刷新",
             ["tip.settings"] = "设置",
 
@@ -535,6 +538,7 @@ public static class Strings
             ["age.days"] = "{0}天",
             ["age.hours"] = "{0}小时",
             ["age.minutes"] = "{0}分钟",
+            ["age.seconds"] = "{0}秒",
 
             ["status.operational"] = "正常",
             ["status.degraded"] = "性能下降",
@@ -574,8 +578,8 @@ public static class Strings
 
             ["settings.numberFormat"] = "数值显示",
             ["settings.numberFormatHint"] = "显示剩余量还是已用量",
-            ["settings.modeRemaining"] = "剩余",
-            ["settings.modeUsed"] = "已用",
+            ["settings.modeRemaining"] = "剩余率",
+            ["settings.modeUsed"] = "使用率",
             ["settings.widgetBar"] = "小组件栏",
             ["settings.widgetBarHint"] = "在任务栏旁以横条显示",
             ["settings.pinTaskbar"] = "始终显示在任务栏",
@@ -638,7 +642,7 @@ public static class Strings
 
             ["popup.checking"] = "檢查中…",
             ["popup.nothing"] = "沒有可顯示的項目。請在設定中啟用。",
-            ["popup.lastRecord"] = "最後紀錄：{0}前",
+            ["popup.refreshed"] = "{0}前重新整理",
             ["tip.refresh"] = "重新整理",
             ["tip.settings"] = "設定",
 
@@ -658,6 +662,7 @@ public static class Strings
             ["age.days"] = "{0}天",
             ["age.hours"] = "{0}小時",
             ["age.minutes"] = "{0}分鐘",
+            ["age.seconds"] = "{0}秒",
 
             ["status.operational"] = "正常",
             ["status.degraded"] = "效能下降",
@@ -697,8 +702,8 @@ public static class Strings
 
             ["settings.numberFormat"] = "數值顯示",
             ["settings.numberFormatHint"] = "顯示剩餘量或已用量",
-            ["settings.modeRemaining"] = "剩餘",
-            ["settings.modeUsed"] = "已用",
+            ["settings.modeRemaining"] = "剩餘率",
+            ["settings.modeUsed"] = "使用率",
             ["settings.widgetBar"] = "小工具列",
             ["settings.widgetBarHint"] = "在工作列旁以橫條顯示",
             ["settings.pinTaskbar"] = "永遠顯示在工作列",
@@ -761,7 +766,7 @@ public static class Strings
 
             ["popup.checking"] = "Comprobando…",
             ["popup.nothing"] = "Nada que mostrar. Activa una herramienta en Configuración.",
-            ["popup.lastRecord"] = "Último registro: hace {0}",
+            ["popup.refreshed"] = "Actualizado hace {0}",
             ["tip.refresh"] = "Actualizar",
             ["tip.settings"] = "Configuración",
 
@@ -781,6 +786,7 @@ public static class Strings
             ["age.days"] = "{0}d",
             ["age.hours"] = "{0}h",
             ["age.minutes"] = "{0}min",
+            ["age.seconds"] = "{0}s",
 
             ["status.operational"] = "Operativo",
             ["status.degraded"] = "Rendimiento degradado",
@@ -820,8 +826,8 @@ public static class Strings
 
             ["settings.numberFormat"] = "Formato numérico",
             ["settings.numberFormatHint"] = "Mostrar lo que queda o lo que se ha usado",
-            ["settings.modeRemaining"] = "Restante",
-            ["settings.modeUsed"] = "Usado",
+            ["settings.modeRemaining"] = "Tasa restante",
+            ["settings.modeUsed"] = "Tasa de uso",
             ["settings.widgetBar"] = "Barra de widget",
             ["settings.widgetBarHint"] = "Mostrar una barra horizontal junto a la barra de tareas",
             ["settings.pinTaskbar"] = "Mostrar siempre en la barra de tareas",
@@ -884,7 +890,7 @@ public static class Strings
 
             ["popup.checking"] = "Verificando…",
             ["popup.nothing"] = "Nada a exibir. Ative uma ferramenta nas Configurações.",
-            ["popup.lastRecord"] = "Último registro: há {0}",
+            ["popup.refreshed"] = "Atualizado há {0}",
             ["tip.refresh"] = "Atualizar",
             ["tip.settings"] = "Configurações",
 
@@ -904,6 +910,7 @@ public static class Strings
             ["age.days"] = "{0}d",
             ["age.hours"] = "{0}h",
             ["age.minutes"] = "{0}min",
+            ["age.seconds"] = "{0}s",
 
             ["status.operational"] = "Operacional",
             ["status.degraded"] = "Desempenho degradado",
@@ -943,8 +950,8 @@ public static class Strings
 
             ["settings.numberFormat"] = "Formato numérico",
             ["settings.numberFormatHint"] = "Mostrar o que resta ou o que foi usado",
-            ["settings.modeRemaining"] = "Restante",
-            ["settings.modeUsed"] = "Usado",
+            ["settings.modeRemaining"] = "Taxa restante",
+            ["settings.modeUsed"] = "Taxa de uso",
             ["settings.widgetBar"] = "Barra de widget",
             ["settings.widgetBarHint"] = "Mostrar uma barra horizontal ao lado da barra de tarefas",
             ["settings.pinTaskbar"] = "Sempre mostrar na barra de tarefas",
@@ -1007,7 +1014,7 @@ public static class Strings
 
             ["popup.checking"] = "Wird geprüft…",
             ["popup.nothing"] = "Nichts anzuzeigen. Aktiviere ein Werkzeug in den Einstellungen.",
-            ["popup.lastRecord"] = "Letzter Eintrag: vor {0}",
+            ["popup.refreshed"] = "Aktualisiert vor {0}",
             ["tip.refresh"] = "Aktualisieren",
             ["tip.settings"] = "Einstellungen",
 
@@ -1027,6 +1034,7 @@ public static class Strings
             ["age.days"] = "{0}T",
             ["age.hours"] = "{0}Std",
             ["age.minutes"] = "{0}Min",
+            ["age.seconds"] = "{0}Sek",
 
             ["status.operational"] = "Betriebsbereit",
             ["status.degraded"] = "Beeinträchtigt",
@@ -1066,8 +1074,8 @@ public static class Strings
 
             ["settings.numberFormat"] = "Zahlenformat",
             ["settings.numberFormatHint"] = "Zeigen, was übrig ist oder was genutzt wurde",
-            ["settings.modeRemaining"] = "Übrig",
-            ["settings.modeUsed"] = "Genutzt",
+            ["settings.modeRemaining"] = "Restanteil",
+            ["settings.modeUsed"] = "Nutzungsanteil",
             ["settings.widgetBar"] = "Widget-Leiste",
             ["settings.widgetBarHint"] = "Waagerechte Leiste neben der Taskleiste anzeigen",
             ["settings.pinTaskbar"] = "Immer in der Taskleiste anzeigen",
@@ -1130,7 +1138,7 @@ public static class Strings
 
             ["popup.checking"] = "Vérification…",
             ["popup.nothing"] = "Rien à afficher. Activez un outil dans les Paramètres.",
-            ["popup.lastRecord"] = "Dernier relevé : il y a {0}",
+            ["popup.refreshed"] = "Actualisé il y a {0}",
             ["tip.refresh"] = "Actualiser",
             ["tip.settings"] = "Paramètres",
 
@@ -1150,6 +1158,7 @@ public static class Strings
             ["age.days"] = "{0}j",
             ["age.hours"] = "{0}h",
             ["age.minutes"] = "{0}min",
+            ["age.seconds"] = "{0}s",
 
             ["status.operational"] = "Opérationnel",
             ["status.degraded"] = "Performances dégradées",
@@ -1189,8 +1198,8 @@ public static class Strings
 
             ["settings.numberFormat"] = "Format des nombres",
             ["settings.numberFormatHint"] = "Afficher ce qui reste ou ce qui a été utilisé",
-            ["settings.modeRemaining"] = "Restant",
-            ["settings.modeUsed"] = "Utilisé",
+            ["settings.modeRemaining"] = "Taux restant",
+            ["settings.modeUsed"] = "Taux d'utilisation",
             ["settings.widgetBar"] = "Barre widget",
             ["settings.widgetBarHint"] = "Afficher une barre horizontale près de la barre des tâches",
             ["settings.pinTaskbar"] = "Toujours afficher dans la barre des tâches",
@@ -1253,7 +1262,7 @@ public static class Strings
 
             ["popup.checking"] = "Проверка…",
             ["popup.nothing"] = "Нечего показать. Включите инструмент в настройках.",
-            ["popup.lastRecord"] = "Последняя запись: {0} назад",
+            ["popup.refreshed"] = "Обновлено {0} назад",
             ["tip.refresh"] = "Обновить",
             ["tip.settings"] = "Настройки",
 
@@ -1273,6 +1282,7 @@ public static class Strings
             ["age.days"] = "{0}д",
             ["age.hours"] = "{0}ч",
             ["age.minutes"] = "{0}мин",
+            ["age.seconds"] = "{0}сек",
 
             ["status.operational"] = "Работает",
             ["status.degraded"] = "Снижена производительность",
@@ -1312,8 +1322,8 @@ public static class Strings
 
             ["settings.numberFormat"] = "Формат чисел",
             ["settings.numberFormatHint"] = "Показывать остаток или израсходованное",
-            ["settings.modeRemaining"] = "Остаток",
-            ["settings.modeUsed"] = "Израсходовано",
+            ["settings.modeRemaining"] = "Остаток, %",
+            ["settings.modeUsed"] = "Использовано, %",
             ["settings.widgetBar"] = "Виджет-панель",
             ["settings.widgetBarHint"] = "Показывать горизонтальную полосу рядом с панелью задач",
             ["settings.pinTaskbar"] = "Всегда показывать на панели задач",

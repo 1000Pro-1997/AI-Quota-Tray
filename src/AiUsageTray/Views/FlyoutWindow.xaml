@@ -146,6 +146,11 @@
             <!-- 공급자 카드들이 여기에 채워진다 -->
             <ItemsControl x:Name="ProviderList"/>
 
+            <!-- 마지막으로 새로고침한 시각. 조회 실패와 무관하게 눌린 시점을 말한다. -->
+            <TextBlock x:Name="RefreshedText" Margin="2,9,2,0"
+                       FontSize="10.5" HorizontalAlignment="Right"
+                       Foreground="{DynamicResource SubtleBrush}"
+                       Visibility="Collapsed"/>
 
         </StackPanel>
     </Border>

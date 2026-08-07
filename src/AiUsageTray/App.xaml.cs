@@ -108,6 +108,7 @@ public partial class App : Application
         _flyout.DisplayMode = _settings.DisplayMode;
         _flyout.ColorResolver = _settings.ColorFor;
         _flyout.StatusResolver = _monitor.Status.For;
+        _flyout.RefreshedAtResolver = () => _monitor.LastRefreshAt;
     }
 
     /// <summary>위젯바를 만든다. 설정이 꺼져 있으면 만들지 않는다.</summary>
