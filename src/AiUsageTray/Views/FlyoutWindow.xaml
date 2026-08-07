@@ -1,0 +1,152 @@
+<Window x:Class="AiUsageTray.Views.FlyoutWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="AI Quota Tray"
+        Width="340" SizeToContent="Height"
+        WindowStyle="None" ResizeMode="NoResize"
+        ShowInTaskbar="False" Topmost="True"
+        AllowsTransparency="True" Background="Transparent"
+        UseLayoutRounding="True" SnapsToDevicePixels="True">
+
+    <Window.Resources>
+        <!-- 진행률 바. 값에 따라 색이 바뀐다. -->
+        <Style x:Key="UsageBar" TargetType="ProgressBar">
+            <Setter Property="Height" Value="6"/>
+            <Setter Property="Minimum" Value="0"/>
+            <Setter Property="Maximum" Value="100"/>
+            <Setter Property="Background" Value="{DynamicResource TrackBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ProgressBar">
+                        <Grid>
+                            <Border Background="{TemplateBinding Background}" CornerRadius="3"/>
+                            <Border x:Name="PART_Track"/>
+                            <Border x:Name="PART_Indicator"
+                                    Background="{TemplateBinding Foreground}"
+                                    CornerRadius="3"
+                                    HorizontalAlignment="Left"/>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 아이콘만 있는 작은 버튼. 마우스를 올리면 배경이 생긴다. -->
+        <Style x:Key="IconButton" TargetType="Button">
+            <Setter Property="Width" Value="22"/>
+            <Setter Property="Height" Value="22"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="{DynamicResource SubtleBrush}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                CornerRadius="4">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background"
+                                        Value="{DynamicResource HoverBrush}"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="LinkButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="{DynamicResource SubtleBrush}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                CornerRadius="5" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background"
+                                        Value="{DynamicResource HoverBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <!-- 그림자를 위해 여백을 두고 그 안에 판을 그린다. 도구 카드는 이 위에 얹힌다. -->
+    <Border Margin="12" CornerRadius="10"
+            Background="{DynamicResource WindowBrush}"
+            BorderBrush="{DynamicResource BorderBrush2}" BorderThickness="1">
+        <Border.Effect>
+            <DropShadowEffect BlurRadius="20" ShadowDepth="4" Direction="270" Opacity="0.30" Color="Black"/>
+        </Border.Effect>
+
+        <StackPanel Margin="14,13,14,14">
+
+            <!-- 헤더: 제목 + 새로고침 | 상태 + 설정 -->
+            <Grid Margin="2,0,2,11">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="AI Quota Tray" FontSize="13.5" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextBrush}" VerticalAlignment="Center"/>
+                    <Button x:Name="RefreshButton" Style="{StaticResource IconButton}"
+                            Margin="6,0,0,0" Click="OnRefreshClick" ToolTip="새로고침">
+                        <!-- 마주보는 두 반원 화살표. 새로고침 중에는 돈다. -->
+                        <Canvas x:Name="RefreshGlyph" Width="16" Height="16"
+                                RenderTransformOrigin="0.5,0.5">
+                            <Canvas.RenderTransform>
+                                <RotateTransform x:Name="RefreshSpin" Angle="0"/>
+                            </Canvas.RenderTransform>
+                            <Path Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  Data="M 2.4,7 A 5.6,5.6 0 0 1 13,5.6"/>
+                            <Path Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  Data="M 13.9,2.6 L 14.6,6.6 L 10.7,5.6 Z"/>
+                            <Path Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                  Data="M 13.6,9 A 5.6,5.6 0 0 1 3,10.4"/>
+                            <Path Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  Data="M 2.1,13.4 L 1.4,9.4 L 5.3,10.4 Z"/>
+                        </Canvas>
+                    </Button>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <TextBlock x:Name="StatusText" VerticalAlignment="Center"
+                               FontSize="11" Foreground="{DynamicResource SubtleBrush}"/>
+                    <Button x:Name="SettingsButton" Style="{StaticResource IconButton}"
+                            Margin="6,0,0,0" Click="OnSettingsClick" ToolTip="설정">
+                        <!-- 6개 돌기가 있는 톱니바퀴. 가운데는 뚫린 링. -->
+                        <Canvas Width="16" Height="16">
+                            <Path Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  StrokeThickness="1.5" StrokeLineJoin="Round"
+                                  Data="M 6.6,1.6 L 9.4,1.6 L 9.9,3.9 L 11.4,4.5 L 13.4,3.3 L 14.8,5.7
+                                        L 13.1,7.3 L 13.1,8.7 L 14.8,10.3 L 13.4,12.7 L 11.4,11.5
+                                        L 9.9,12.1 L 9.4,14.4 L 6.6,14.4 L 6.1,12.1 L 4.6,11.5
+                                        L 2.6,12.7 L 1.2,10.3 L 2.9,8.7 L 2.9,7.3 L 1.2,5.7
+                                        L 2.6,3.3 L 4.6,4.5 L 6.1,3.9 Z"/>
+                            <Path Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  StrokeThickness="1.5"
+                                  Data="M 5.6,8 A 2.4,2.4 0 1 1 10.4,8 A 2.4,2.4 0 1 1 5.6,8 Z"/>
+                        </Canvas>
+                    </Button>
+                </StackPanel>
+            </Grid>
+
+            <!-- 공급자 카드들이 여기에 채워진다 -->
+            <ItemsControl x:Name="ProviderList"/>
+
+
+        </StackPanel>
+    </Border>
+</Window>
