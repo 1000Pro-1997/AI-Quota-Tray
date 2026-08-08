@@ -76,16 +76,25 @@ fn run() -> Result<(), String> {
         install_launcher(&current, &installed)?;
     }
 
-    let Some(_mutex) = LauncherMutex::acquire() else {
-        // 다른 런처가 이미 같은 일을 하고 있다. 겹쳐 받을 이유가 없다.
-        log_line("another launcher is running; nothing to do");
-        return Ok(());
-    };
+    // 다른 런처가 배경에서 내려받는 중일 수 있다. 그때도 앱은 띄워야 한다.
+    // 겹쳐서 곤란한 것은 내려받기뿐이지 앱 실행이 아니다.
+    let mutex = LauncherMutex::acquire();
+    if mutex.is_none() {
+        log_line("another launcher is downloading; will only start the app");
+    }
 
-    apply_pending_update()?;
+    // 받아 둔 새 버전이 있으면 먼저 갈아끼운다. 앱이 떠 있으면 다음 기회로 미룬다.
+    if mutex.is_some() && !app_is_running() {
+        apply_pending_update()?;
+    }
 
     // 앱이 아직 없으면 첫 설치다. 진행 창을 보이며 받고, 끝나면 띄운다.
     if !app_path().exists() {
+        if mutex.is_none() {
+            // 받는 중인 런처가 곧 띄운다. 여기서 또 받을 이유가 없다.
+            return Ok(());
+        }
+
         download_first_install()?;
 
         if should_launch_app() {
@@ -94,16 +103,17 @@ fn run() -> Result<(), String> {
         return Ok(());
     }
 
-    // 두 번째부터는 앱을 띄우는 것이 본 일이다.
-    // 이미 떠 있으면 두 번 띄우지 않는다. 로그인 직후 시작 프로그램이
-    // 두 번 발화하거나 사용자가 손으로 실행한 경우에 걸린다.
+    // 설치가 끝난 뒤로는 앱을 띄우는 것이 본 일이다. 부팅이든 사용자가
+    // Setup.exe를 다시 누른 것이든 같다. 이미 떠 있으면 두 번 띄우지 않는다.
     if should_launch_app() && !app_is_running() {
         start_hidden(&app_path(), &[])?;
     }
 
-    // 앱은 이미 띄웠다. 다음 판 확인과 내려받기는 뒤이어 조용히 한다.
-    if let Err(error) = stage_latest_update() {
-        log_line(&format!("background update skipped: {error}"));
+    // 앱은 띄웠다. 다음 판 확인과 내려받기는 뒤이어 조용히 한다.
+    if mutex.is_some() {
+        if let Err(error) = stage_latest_update() {
+            log_line(&format!("background update skipped: {error}"));
+        }
     }
 
     Ok(())
