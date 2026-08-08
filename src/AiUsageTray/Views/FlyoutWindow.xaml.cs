@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -19,6 +20,7 @@ public partial class FlyoutWindow : Window
     /// <summary>남은 양으로 볼지, 쓴 양으로 볼지. 설정에서 바뀐다.</summary>
     public DisplayMode DisplayMode { get; set; } = DisplayMode.Remaining;
     public Func<UsageWindow, string>? TimeFormatter { get; set; }
+    public Func<UsageWindow, bool>? SecondDisplayResolver { get; set; }
 
     /// <summary>공급자 이름 → 진행률 바 색(#RRGGBB)을 돌려준다.</summary>
     public Func<string, string>? ColorResolver { get; set; }
@@ -48,7 +50,11 @@ public partial class FlyoutWindow : Window
 
         // 창이 떠 있는 동안에만 "몇 초 전"을 세어 준다. 닫혀 있으면 셀 이유가 없다.
         _ageTicker = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
-        _ageTicker.Tick += (_, _) => UpdateRefreshedText();
+        _ageTicker.Tick += (_, _) =>
+        {
+            UpdateRefreshedText();
+            UpdateCountdowns();
+        };
 
         IsVisibleChanged += (_, e) =>
         {
@@ -69,6 +75,8 @@ public partial class FlyoutWindow : Window
     }
 
     private readonly DispatcherTimer _ageTicker;
+    private readonly List<(TextBlock Label, UsageWindow Window)> _timeLabels = new();
+    private DateTime _lastCountdownUpdate = DateTime.MinValue;
 
     // ---- 테마 ----
 
@@ -125,6 +133,7 @@ public partial class FlyoutWindow : Window
     public void Render(IReadOnlyList<ProviderUsage> usages)
     {
         ProviderList.Items.Clear();
+        _timeLabels.Clear();
 
         if (usages.Count == 0)
         {
@@ -409,16 +418,27 @@ public partial class FlyoutWindow : Window
         string resetText = TimeFormatter?.Invoke(w) ?? w.ResetText;
         if (!string.IsNullOrEmpty(resetText))
         {
-            wrap.Children.Add(new TextBlock
+            var timeLabel = new TextBlock
             {
                 Text = resetText,
                 FontSize = 10.5,
                 Margin = new Thickness(0, 5, 0, 0),
                 Foreground = (Brush)Resources["SubtleBrush"],
-            });
+            };
+            _timeLabels.Add((timeLabel, w));
+            wrap.Children.Add(timeLabel);
         }
 
         return wrap;
+    }
+
+    private void UpdateCountdowns()
+    {
+        bool showsSeconds = _timeLabels.Any(x => SecondDisplayResolver?.Invoke(x.Window) == true);
+        if (!showsSeconds && DateTime.Now - _lastCountdownUpdate < TimeSpan.FromSeconds(30)) return;
+        _lastCountdownUpdate = DateTime.Now;
+        foreach (var (label, window) in _timeLabels)
+            label.Text = TimeFormatter?.Invoke(window) ?? window.ResetText;
     }
 
     /// <summary>설정에서 받은 #RRGGBB를 브러시로. 잘못된 값이면 기본 회색.</summary>

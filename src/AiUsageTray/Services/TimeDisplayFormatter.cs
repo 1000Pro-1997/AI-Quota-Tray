@@ -23,6 +23,27 @@ public static partial class TimeDisplayFormatter
         return Format(window.ResetsAt, pattern, maxParts, mode, DateTime.Now);
     }
 
+    public static bool ShowsSeconds(UsageWindow window, AppSettings settings, bool overlay = false)
+    {
+        if (window.ResetsAt is null) return false;
+        bool weekly = window.Kind == WindowKind.Weekly;
+        string pattern = weekly ? settings.WeeklyTimeFormat : settings.SessionTimeFormat;
+        int maxParts = Math.Clamp(weekly
+            ? (overlay ? settings.WeeklyOverlayTimeMaxParts : settings.WeeklyTimeMaxParts)
+            : (overlay ? settings.SessionOverlayTimeMaxParts : settings.SessionTimeMaxParts), 1, 5);
+        var mode = weekly ? settings.WeeklyTimeDisplayMode : settings.SessionTimeDisplayMode;
+        var parts = Parse(pattern);
+        if (parts.Count == 0) return false;
+        DateTime now = DateTime.Now;
+        var values = mode == TimeDisplayMode.ResetAt
+            ? AbsoluteValues(window.ResetsAt.Value, now)
+            : RemainingValues(window.ResetsAt.Value - now, parts.Any(p => p.Token == "MM"));
+        int start = window.ResetsAt.Value <= now
+            ? Math.Max(0, parts.Count - maxParts)
+            : FindStart(parts, values, mode, window.ResetsAt.Value, now);
+        return parts.Skip(start).Take(maxParts).Any(p => p.Token == "ss");
+    }
+
     public static string Format(DateTime? resetAt, string pattern, int maxParts,
         TimeDisplayMode mode, DateTime now)
     {

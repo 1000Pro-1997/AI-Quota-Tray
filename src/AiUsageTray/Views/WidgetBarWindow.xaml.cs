@@ -59,6 +59,7 @@ public partial class WidgetBarWindow : Window
     public bool ShowPercent { get; set; } = true;
     public bool ShowResetTime { get; set; } = true;
     public Func<UsageWindow, string>? TimeFormatter { get; set; }
+    public Func<UsageWindow, bool>? SecondDisplayResolver { get; set; }
 
     /// <summary>설정에서 고른 모니터 장치 이름. 없거나 사라졌으면 주 모니터를 쓴다.</summary>
     public string MonitorDeviceName { get; set; } = "";
@@ -95,11 +96,12 @@ public partial class WidgetBarWindow : Window
     /// <summary>남은 시간이 줄어드는 것을 보여주려면 조회와 무관하게 다시 그려야 한다.</summary>
     private readonly System.Windows.Threading.DispatcherTimer _tick = new()
     {
-        Interval = TimeSpan.FromSeconds(30),
+        Interval = TimeSpan.FromSeconds(1),
     };
 
     /// <summary>마지막으로 그린 값. 시간만 갱신할 때 다시 쓴다.</summary>
     private IReadOnlyList<ProviderUsage> _shown = Array.Empty<ProviderUsage>();
+    private readonly List<(TextBlock Label, UsageWindow Window)> _timeLabels = new();
 
     public WidgetBarWindow()
     {
@@ -115,7 +117,7 @@ public partial class WidgetBarWindow : Window
         _keepOnTop.Tick += (_, _) => BringToTop();
 
         // 사용량은 그대로여도 남은 시간은 계속 줄어든다.
-        _tick.Tick += (_, _) => { if (_shown.Count > 0) Render(_shown); };
+        _tick.Tick += (_, _) => UpdateCountdowns();
 
         IsVisibleChanged += (_, e) =>
         {
@@ -210,6 +212,7 @@ public partial class WidgetBarWindow : Window
         Items.Children.Clear();
         Items.ColumnDefinitions.Clear();
         Items.RowDefinitions.Clear();
+        _timeLabels.Clear();
 
         int column = 0;
         foreach (var u in usages)
@@ -361,6 +364,7 @@ public partial class WidgetBarWindow : Window
             HorizontalAlignment = HorizontalAlignment.Right,
             Margin = new Thickness(10, 0, 0, 0),
         };
+        _timeLabels.Add((time, w));
         Grid.SetColumn(time, 1);
         text.Children.Add(time);
 
@@ -375,6 +379,15 @@ public partial class WidgetBarWindow : Window
         track.Children.Add(text);
 
         return track;
+    }
+
+    private void UpdateCountdowns()
+    {
+        if (!ShowResetTime) return;
+        bool showsSeconds = _timeLabels.Any(x => SecondDisplayResolver?.Invoke(x.Window) == true);
+        _tick.Interval = showsSeconds ? TimeSpan.FromSeconds(1) : TimeSpan.FromSeconds(30);
+        foreach (var (label, window) in _timeLabels)
+            label.Text = TimeFormatter?.Invoke(window) ?? window.ResetShort;
     }
 
     /// <summary>경고에 쓰는 빨강.</summary>

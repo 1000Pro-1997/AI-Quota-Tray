@@ -184,6 +184,7 @@ public partial class App : Application
     {
         _flyout.DisplayMode = _settings.DisplayMode;
         _flyout.TimeFormatter = w => TimeDisplayFormatter.Format(w, _settings, overlay: true);
+        _flyout.SecondDisplayResolver = w => TimeDisplayFormatter.ShowsSeconds(w, _settings, overlay: true);
         _flyout.ColorResolver = _settings.ColorFor;
         _flyout.StatusResolver = _monitor.Status.For;
         _flyout.RefreshedAtResolver = () => _monitor.LastRefreshAt;
@@ -237,6 +238,7 @@ public partial class App : Application
         _widgetBar.ShowPercent = _settings.WidgetShowPercent;
         _widgetBar.ShowResetTime = _settings.WidgetShowResetTime;
         _widgetBar.TimeFormatter = w => TimeDisplayFormatter.Format(w, _settings);
+        _widgetBar.SecondDisplayResolver = w => TimeDisplayFormatter.ShowsSeconds(w, _settings);
         _widgetBar.MonitorDeviceName = _settings.WidgetMonitorDeviceName;
         _widgetBar.AutoOffset = _settings.WidgetAutoOffset;
         _widgetBar.OffsetX = _settings.WidgetOffsetX;
