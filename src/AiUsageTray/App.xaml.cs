@@ -183,7 +183,7 @@ public partial class App : Application
     private void ApplyDisplaySettings()
     {
         _flyout.DisplayMode = _settings.DisplayMode;
-        _flyout.TimeFormatter = w => TimeDisplayFormatter.Format(w, _settings);
+        _flyout.TimeFormatter = w => TimeDisplayFormatter.Format(w, _settings, overlay: true);
         _flyout.ColorResolver = _settings.ColorFor;
         _flyout.StatusResolver = _monitor.Status.For;
         _flyout.RefreshedAtResolver = () => _monitor.LastRefreshAt;

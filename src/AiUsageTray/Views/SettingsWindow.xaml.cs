@@ -273,6 +273,8 @@ public partial class SettingsWindow : Window
         WeeklyTimeFormat.Text = _settings.WeeklyTimeFormat;
         SessionTimeMaxParts.Text = _settings.SessionTimeMaxParts.ToString();
         WeeklyTimeMaxParts.Text = _settings.WeeklyTimeMaxParts.ToString();
+        SessionOverlayTimeMaxParts.Text = _settings.SessionOverlayTimeMaxParts.ToString();
+        WeeklyOverlayTimeMaxParts.Text = _settings.WeeklyOverlayTimeMaxParts.ToString();
     }
 
     private void RelabelTimeModes()
@@ -638,6 +640,8 @@ public partial class SettingsWindow : Window
         LblTimeDisplayHint.Text = Strings.Get("settings.timeDisplayHint");
         LblSessionTime.Text = Strings.Get("settings.sessionTime");
         LblWeeklyTime.Text = Strings.Get("settings.weeklyTime");
+        LblWidgetPartCount.Text = Strings.Get("settings.widgetPartCount");
+        LblOverlayPartCount.Text = Strings.Get("settings.overlayPartCount");
         RelabelTimeModes();
 
         LblWidgetBar.Text = Strings.Get("settings.widgetBar");
@@ -862,6 +866,8 @@ public partial class SettingsWindow : Window
         _settings.WeeklyTimeFormat = WeeklyTimeFormat.Text.Trim();
         _settings.SessionTimeMaxParts = ParseWidgetDimension(SessionTimeMaxParts.Text, 2, 1, 4);
         _settings.WeeklyTimeMaxParts = ParseWidgetDimension(WeeklyTimeMaxParts.Text, 2, 1, 4);
+        _settings.SessionOverlayTimeMaxParts = ParseWidgetDimension(SessionOverlayTimeMaxParts.Text, 4, 1, 5);
+        _settings.WeeklyOverlayTimeMaxParts = ParseWidgetDimension(WeeklyOverlayTimeMaxParts.Text, 4, 1, 5);
         int monitorIdx = WidgetMonitorBox.SelectedIndex;
         _settings.WidgetMonitorDeviceName = monitorIdx >= 0 && monitorIdx < _widgetScreens.Length
             ? _widgetScreens[monitorIdx].DeviceName

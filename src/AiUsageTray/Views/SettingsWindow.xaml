@@ -501,6 +501,60 @@
             </Style.Triggers>
         </Style>
 
+        <!-- 한 줄 안에 나란히 놓이는 시간 형식 입력은 모두 같은 높이로 맞춘다. -->
+        <Style x:Key="InlineField" TargetType="TextBox" BasedOn="{StaticResource PathBox}">
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="Padding" Value="7,3"/>
+            <Setter Property="FontSize" Value="10.5"/>
+        </Style>
+
+        <Style x:Key="InlineCountBox" TargetType="TextBox" BasedOn="{StaticResource InlineField}">
+            <Setter Property="Width" Value="36"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="2,3"/>
+        </Style>
+
+        <Style x:Key="TimeSettingRow" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource TrackOffBrush}"/>
+            <Setter Property="CornerRadius" Value="7"/>
+            <Setter Property="Padding" Value="7,5"/>
+            <Setter Property="Margin" Value="0,0,0,5"/>
+        </Style>
+
+        <!-- 모델 이름 옆의 펼침 버튼. 본 토글보다 조용한 보조 동작으로 보인다. -->
+        <Style x:Key="ModelDisclosureButton" TargetType="ToggleButton">
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="Padding" Value="8,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="Shell" CornerRadius="13" Padding="{TemplateBinding Padding}"
+                                Background="{DynamicResource TrackOffBrush}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{TemplateBinding Content}" FontSize="10.5"
+                                           Foreground="{DynamicResource SubtleBrush}" VerticalAlignment="Center"/>
+                                <Path x:Name="Arrow" Data="M 0,0 L 4,4 L 8,0" Margin="7,1,0,0"
+                                      Stroke="{DynamicResource SubtleBrush}" StrokeThickness="1.3"
+                                      VerticalAlignment="Center" RenderTransformOrigin="0.5,0.5">
+                                    <Path.RenderTransform><RotateTransform Angle="0"/></Path.RenderTransform>
+                                </Path>
+                            </StackPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Shell" Property="Background" Value="{DynamicResource HoverStrongBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Arrow" Property="RenderTransform"><Setter.Value><RotateTransform Angle="180"/></Setter.Value></Setter>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- 접기/펴기 -->
         <Style x:Key="DisclosureButton" TargetType="ToggleButton">
             <Setter Property="Cursor" Value="Hand"/>
@@ -664,7 +718,7 @@
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
                                     VerticalAlignment="Center">
                             <ToggleButton x:Name="ClaudeDetailsToggle"
-                                          Style="{StaticResource DisclosureButton}"
+                                          Style="{StaticResource ModelDisclosureButton}"
                                           Margin="0,0,12,0"
                                           Checked="OnDetailsToggle" Unchecked="OnDetailsToggle"/>
                             <Button x:Name="ClaudeSwatch" Style="{StaticResource Swatch}"
@@ -719,7 +773,7 @@
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
                                     VerticalAlignment="Center">
                             <ToggleButton x:Name="CodexDetailsToggle"
-                                          Style="{StaticResource DisclosureButton}"
+                                          Style="{StaticResource ModelDisclosureButton}"
                                           Margin="0,0,12,0"
                                           Checked="OnDetailsToggle" Unchecked="OnDetailsToggle"/>
                             <Button x:Name="CodexSwatch" Style="{StaticResource Swatch}"
@@ -786,20 +840,31 @@
                     <StackPanel Margin="0,8,0,8">
                         <TextBlock x:Name="LblTimeDisplay" Style="{StaticResource RowTitle}"/>
                         <TextBlock x:Name="LblTimeDisplayHint" Style="{StaticResource RowHint}" Margin="0,2,0,7"/>
-                        <Grid Margin="0,2,0,4">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="62"/><ColumnDefinition Width="104"/><ColumnDefinition Width="*"/><ColumnDefinition Width="34"/></Grid.ColumnDefinitions>
-                            <TextBlock x:Name="LblSessionTime" Style="{StaticResource RowHint}" VerticalAlignment="Center"/>
-                            <ComboBox x:Name="SessionTimeModeBox" Grid.Column="1" Height="27" Style="{StaticResource SoftCombo}" SelectionChanged="OnTimeSettingChanged"/>
-                            <TextBox x:Name="SessionTimeFormat" Grid.Column="2" Style="{StaticResource PathBox}" Margin="6,0" FontSize="10.5" TextChanged="OnTimeSettingTextChanged"/>
-                            <TextBox x:Name="SessionTimeMaxParts" Grid.Column="3" Style="{StaticResource CompactNumberBox}" Width="34" TextAlignment="Right" TextChanged="OnTimeSettingTextChanged"/>
+                        <Grid Margin="7,0,7,3">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="54"/><ColumnDefinition Width="90"/><ColumnDefinition Width="*"/><ColumnDefinition Width="36"/><ColumnDefinition Width="36"/></Grid.ColumnDefinitions>
+                            <TextBlock x:Name="LblWidgetPartCount" Grid.Column="3" FontSize="9" TextAlignment="Center" Foreground="{DynamicResource SubtleBrush}"/>
+                            <TextBlock x:Name="LblOverlayPartCount" Grid.Column="4" FontSize="9" TextAlignment="Center" Foreground="{DynamicResource SubtleBrush}"/>
                         </Grid>
-                        <Grid Margin="0,2,0,0">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="62"/><ColumnDefinition Width="104"/><ColumnDefinition Width="*"/><ColumnDefinition Width="34"/></Grid.ColumnDefinitions>
-                            <TextBlock x:Name="LblWeeklyTime" Style="{StaticResource RowHint}" VerticalAlignment="Center"/>
-                            <ComboBox x:Name="WeeklyTimeModeBox" Grid.Column="1" Height="27" Style="{StaticResource SoftCombo}" SelectionChanged="OnTimeSettingChanged"/>
-                            <TextBox x:Name="WeeklyTimeFormat" Grid.Column="2" Style="{StaticResource PathBox}" Margin="6,0" FontSize="10.5" TextChanged="OnTimeSettingTextChanged"/>
-                            <TextBox x:Name="WeeklyTimeMaxParts" Grid.Column="3" Style="{StaticResource CompactNumberBox}" Width="34" TextAlignment="Right" TextChanged="OnTimeSettingTextChanged"/>
-                        </Grid>
+                        <Border Style="{StaticResource TimeSettingRow}">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="54"/><ColumnDefinition Width="90"/><ColumnDefinition Width="*"/><ColumnDefinition Width="36"/><ColumnDefinition Width="36"/></Grid.ColumnDefinitions>
+                                <TextBlock x:Name="LblSessionTime" Style="{StaticResource RowHint}" VerticalAlignment="Center" Margin="2,0,0,0"/>
+                                <ComboBox x:Name="SessionTimeModeBox" Grid.Column="1" Height="28" Style="{StaticResource SoftCombo}" SelectionChanged="OnTimeSettingChanged"/>
+                                <TextBox x:Name="SessionTimeFormat" Grid.Column="2" Style="{StaticResource InlineField}" Margin="6,0" TextChanged="OnTimeSettingTextChanged"/>
+                                <TextBox x:Name="SessionTimeMaxParts" Grid.Column="3" Style="{StaticResource InlineCountBox}" TextChanged="OnTimeSettingTextChanged"/>
+                                <TextBox x:Name="SessionOverlayTimeMaxParts" Grid.Column="4" Style="{StaticResource InlineCountBox}" Margin="3,0,0,0" TextChanged="OnTimeSettingTextChanged"/>
+                            </Grid>
+                        </Border>
+                        <Border Style="{StaticResource TimeSettingRow}" Margin="0">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="54"/><ColumnDefinition Width="90"/><ColumnDefinition Width="*"/><ColumnDefinition Width="36"/><ColumnDefinition Width="36"/></Grid.ColumnDefinitions>
+                                <TextBlock x:Name="LblWeeklyTime" Style="{StaticResource RowHint}" VerticalAlignment="Center" Margin="2,0,0,0"/>
+                                <ComboBox x:Name="WeeklyTimeModeBox" Grid.Column="1" Height="28" Style="{StaticResource SoftCombo}" SelectionChanged="OnTimeSettingChanged"/>
+                                <TextBox x:Name="WeeklyTimeFormat" Grid.Column="2" Style="{StaticResource InlineField}" Margin="6,0" TextChanged="OnTimeSettingTextChanged"/>
+                                <TextBox x:Name="WeeklyTimeMaxParts" Grid.Column="3" Style="{StaticResource InlineCountBox}" TextChanged="OnTimeSettingTextChanged"/>
+                                <TextBox x:Name="WeeklyOverlayTimeMaxParts" Grid.Column="4" Style="{StaticResource InlineCountBox}" Margin="3,0,0,0" TextChanged="OnTimeSettingTextChanged"/>
+                            </Grid>
+                        </Border>
                     </StackPanel>
 
                     <Border Style="{StaticResource RowDivider}"/>

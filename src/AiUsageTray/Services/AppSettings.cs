@@ -77,9 +77,11 @@ public sealed class AppSettings
     public TimeDisplayMode SessionTimeDisplayMode { get; set; } = TimeDisplayMode.Remaining;
     public string SessionTimeFormat { get; set; } = "hh\"h\" mm\"m\" ss\"s\"";
     public int SessionTimeMaxParts { get; set; } = 2;
+    public int SessionOverlayTimeMaxParts { get; set; } = 4;
     public TimeDisplayMode WeeklyTimeDisplayMode { get; set; } = TimeDisplayMode.Remaining;
     public string WeeklyTimeFormat { get; set; } = "dd\"D\" hh\"h\" mm\"m\" ss\"s\"";
     public int WeeklyTimeMaxParts { get; set; } = 2;
+    public int WeeklyOverlayTimeMaxParts { get; set; } = 4;
 
     /// <summary>위젯바를 띄울 모니터의 Windows 장치 이름. 비우면 주 모니터.</summary>
     public string WidgetMonitorDeviceName { get; set; } = "";
@@ -215,9 +217,11 @@ public sealed class AppSettings
         SessionTimeDisplayMode = fresh.SessionTimeDisplayMode;
         SessionTimeFormat = fresh.SessionTimeFormat;
         SessionTimeMaxParts = fresh.SessionTimeMaxParts;
+        SessionOverlayTimeMaxParts = fresh.SessionOverlayTimeMaxParts;
         WeeklyTimeDisplayMode = fresh.WeeklyTimeDisplayMode;
         WeeklyTimeFormat = fresh.WeeklyTimeFormat;
         WeeklyTimeMaxParts = fresh.WeeklyTimeMaxParts;
+        WeeklyOverlayTimeMaxParts = fresh.WeeklyOverlayTimeMaxParts;
         WidgetMonitorDeviceName = fresh.WidgetMonitorDeviceName;
         WidgetAutoOffset = fresh.WidgetAutoOffset;
         WidgetOffsetX = fresh.WidgetOffsetX;
@@ -258,6 +262,8 @@ public sealed class AppSettings
                     loaded.WidgetHeight = Math.Clamp(loaded.WidgetHeight, 24, 600);
                     loaded.SessionTimeMaxParts = Math.Clamp(loaded.SessionTimeMaxParts, 1, 4);
                     loaded.WeeklyTimeMaxParts = Math.Clamp(loaded.WeeklyTimeMaxParts, 1, 4);
+                    loaded.SessionOverlayTimeMaxParts = Math.Clamp(loaded.SessionOverlayTimeMaxParts, 1, 5);
+                    loaded.WeeklyOverlayTimeMaxParts = Math.Clamp(loaded.WeeklyOverlayTimeMaxParts, 1, 5);
                     return loaded;
                 }
             }
