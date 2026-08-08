@@ -258,7 +258,7 @@ public partial class App : Application
     {
         var menu = new Forms.ContextMenuStrip();
         menu.Items.Add(Strings.Get("menu.open"), null, (_, _) => ToggleFlyout());
-        menu.Items.Add(Strings.Get("menu.refresh"), null, (_, _) => _ = _monitor.RefreshAsync(force: true));
+        menu.Items.Add(Strings.Get("menu.refresh"), null, (_, _) => RestartApp());
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add(Strings.Get("menu.settings"), null, (_, _) => OpenSettings());
         menu.Items.Add(Strings.Get("menu.issues"), null, (_, _) => OpenIssues());
@@ -506,6 +506,49 @@ public partial class App : Application
         {
             // 브라우저가 없거나 정책으로 막힌 환경. 알릴 만한 일은 아니다.
         }
+    }
+
+    /// <summary>
+    /// 앱을 껐다 켠다. 새로고침 메뉴가 이것을 부른다.
+    ///
+    /// 값만 다시 조회하는 것으로는 풀리지 않는 상태가 있다. 트레이 아이콘이
+    /// 유령으로 남거나 위젯바가 엉뚱한 자리에 붙는 식인데, 그때 사용자가
+    /// 손댈 수 있는 것이 이 메뉴뿐이다. 그래서 통째로 다시 시작한다.
+    ///
+    /// 단일 인스턴스 뮤텍스를 쥔 채로 새 프로세스를 띄우면 그쪽이 "이미
+    /// 실행 중"으로 판단해 조용히 죽는다. 먼저 놓고 나서 띄운다.
+    /// </summary>
+    private void RestartApp()
+    {
+        string? exe = Environment.ProcessPath;
+        if (string.IsNullOrEmpty(exe))
+        {
+            // 실행 파일 경로를 모르면 되살릴 방법이 없다. 끄기만 하는 것보다
+            // 값이라도 새로 읽어 주는 편이 낫다.
+            _ = _monitor.RefreshAsync(force: true);
+            return;
+        }
+
+        // 아이콘을 먼저 거둔다. 새 프로세스가 뜨는 사이 둘이 겹쳐 보인다.
+        _tray.Visible = false;
+
+        try
+        {
+            _singleInstance?.ReleaseMutex();
+            _singleInstance?.Dispose();
+            _singleInstance = null;
+
+            Process.Start(new ProcessStartInfo(exe) { UseShellExecute = false });
+        }
+        catch
+        {
+            // 새로 띄우지 못했다. 여기서 종료하면 앱이 통째로 사라진다.
+            _tray.Visible = true;
+            _ = _monitor.RefreshAsync(force: true);
+            return;
+        }
+
+        Shutdown();
     }
 
     private void QuitApp()

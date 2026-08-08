@@ -127,7 +127,7 @@ public static class Strings
 
             // 트레이 메뉴
             ["menu.open"] = "Open",
-            ["menu.refresh"] = "Refresh",
+            ["menu.refresh"] = "Restart",
             ["menu.settings"] = "Settings",
             ["menu.issues"] = "Report an issue",
             ["menu.quit"] = "Quit",
@@ -289,7 +289,7 @@ public static class Strings
             ["app.alreadyRunning"] = "AI Quota Tray가 이미 실행 중입니다. 트레이 아이콘을 확인하세요.",
 
             ["menu.open"] = "열기",
-            ["menu.refresh"] = "새로고침",
+            ["menu.refresh"] = "다시 시작",
             ["menu.settings"] = "설정",
             ["menu.issues"] = "문의 · 버그 신고",
             ["menu.quit"] = "종료",
@@ -439,7 +439,7 @@ public static class Strings
             ["app.alreadyRunning"] = "AI Quota Tray はすでに実行中です。トレイアイコンを確認してください。",
 
             ["menu.open"] = "開く",
-            ["menu.refresh"] = "更新",
+            ["menu.refresh"] = "再起動",
             ["menu.settings"] = "設定",
             ["menu.issues"] = "問題を報告",
             ["menu.quit"] = "終了",
@@ -589,7 +589,7 @@ public static class Strings
             ["app.alreadyRunning"] = "AI Quota Tray 已在运行。请查看托盘图标。",
 
             ["menu.open"] = "打开",
-            ["menu.refresh"] = "刷新",
+            ["menu.refresh"] = "重启",
             ["menu.settings"] = "设置",
             ["menu.issues"] = "反馈问题",
             ["menu.quit"] = "退出",
@@ -739,7 +739,7 @@ public static class Strings
             ["app.alreadyRunning"] = "AI Quota Tray 已在執行。請查看系統匣圖示。",
 
             ["menu.open"] = "開啟",
-            ["menu.refresh"] = "重新整理",
+            ["menu.refresh"] = "重新啟動",
             ["menu.settings"] = "設定",
             ["menu.issues"] = "回報問題",
             ["menu.quit"] = "結束",
@@ -889,7 +889,7 @@ public static class Strings
             ["app.alreadyRunning"] = "AI Quota Tray ya se está ejecutando. Consulta el icono de la bandeja.",
 
             ["menu.open"] = "Abrir",
-            ["menu.refresh"] = "Actualizar",
+            ["menu.refresh"] = "Reiniciar",
             ["menu.settings"] = "Configuración",
             ["menu.issues"] = "Informar de un problema",
             ["menu.quit"] = "Salir",
@@ -1039,7 +1039,7 @@ public static class Strings
             ["app.alreadyRunning"] = "O AI Quota Tray já está em execução. Verifique o ícone da bandeja.",
 
             ["menu.open"] = "Abrir",
-            ["menu.refresh"] = "Atualizar",
+            ["menu.refresh"] = "Reiniciar",
             ["menu.settings"] = "Configurações",
             ["menu.issues"] = "Relatar um problema",
             ["menu.quit"] = "Sair",
@@ -1189,7 +1189,7 @@ public static class Strings
             ["app.alreadyRunning"] = "AI Quota Tray läuft bereits. Sieh im Infobereich nach.",
 
             ["menu.open"] = "Öffnen",
-            ["menu.refresh"] = "Aktualisieren",
+            ["menu.refresh"] = "Neu starten",
             ["menu.settings"] = "Einstellungen",
             ["menu.issues"] = "Problem melden",
             ["menu.quit"] = "Beenden",
@@ -1339,7 +1339,7 @@ public static class Strings
             ["app.alreadyRunning"] = "AI Quota Tray est déjà en cours d'exécution. Vérifiez l'icône de la barre d'état.",
 
             ["menu.open"] = "Ouvrir",
-            ["menu.refresh"] = "Actualiser",
+            ["menu.refresh"] = "Redémarrer",
             ["menu.settings"] = "Paramètres",
             ["menu.issues"] = "Signaler un problème",
             ["menu.quit"] = "Quitter",
@@ -1489,7 +1489,7 @@ public static class Strings
             ["app.alreadyRunning"] = "AI Quota Tray уже запущен. Проверьте значок в области уведомлений.",
 
             ["menu.open"] = "Открыть",
-            ["menu.refresh"] = "Обновить",
+            ["menu.refresh"] = "Перезапустить",
             ["menu.settings"] = "Настройки",
             ["menu.issues"] = "Сообщить о проблеме",
             ["menu.quit"] = "Выход",
