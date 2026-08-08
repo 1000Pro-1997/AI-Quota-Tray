@@ -27,8 +27,12 @@ public sealed class WindowPrimer : IDisposable
     private readonly AppSettings _settings;
     private readonly Timer _timer;
     private int _running;
+    private IReadOnlyList<ProviderUsage> _observed = Array.Empty<ProviderUsage>();
+
+    public event Action? PredictedResetApplied;
 
     private static string StateFile => Path.Combine(AppSettings.SettingsDirectory, "window-primer.json");
+    private static string PredictionsFile => Path.Combine(AppSettings.SettingsDirectory, "window-primer-predictions.json");
     private static string ScheduleKey(string provider, WindowKind kind) => $"{provider}:{kind}";
     private static string TaskXmlFile(string provider, WindowKind kind) => Path.Combine(AppSettings.SettingsDirectory, $"window-primer-{provider.ToLowerInvariant()}-{kind.ToString().ToLowerInvariant()}.xml");
     private static string TaskName(string provider, WindowKind kind) => $"AI Quota Tray - Prime {provider} {kind}";
@@ -42,6 +46,8 @@ public sealed class WindowPrimer : IDisposable
 
     public void Observe(IReadOnlyList<ProviderUsage> usages)
     {
+        _observed = usages;
+        ApplyPredictedResets(usages);
         if (!AnyPrimerEnabled(_settings)) return;
         var schedules = new Dictionary<string, (string Provider, WindowKind Kind, DateTime At)>(StringComparer.OrdinalIgnoreCase);
         WithState(state =>
@@ -116,6 +122,7 @@ public sealed class WindowPrimer : IDisposable
                             PrimerEnabled(_settings, provider, kind))
                 .Select(p => { TryParseScheduleKey(p.Key, out string provider, out WindowKind kind); return (provider, kind, p.Value); }).ToList(), save: false);
             foreach (var item in due) await ClaimAndPrimeAsync(_settings, item.Provider, item.Kind, item.Scheduled).ConfigureAwait(false);
+            if (ApplyPredictedResets(_observed)) PredictedResetApplied?.Invoke();
         }
         finally { Interlocked.Exchange(ref _running, 0); }
     }
@@ -136,7 +143,11 @@ public sealed class WindowPrimer : IDisposable
         if (next == default) return;
         RegisterWakeTask(provider, kind, next);
         if (shouldPrime && PrimerEnabled(settings, provider, kind))
-            await PrimeAsync(provider).ConfigureAwait(false);
+        {
+            DateTime started = DateTime.Now;
+            if (await PrimeAsync(provider).ConfigureAwait(false))
+                SavePrediction(provider, kind, started + WindowLength(kind));
+        }
     }
 
     private static DateTime AdvanceToFuture(DateTime scheduled, DateTime now, TimeSpan length)
@@ -176,12 +187,12 @@ public sealed class WindowPrimer : IDisposable
                (kind == WindowKind.Session || kind == WindowKind.Weekly);
     }
 
-    private static async Task PrimeAsync(string provider)
+    private static async Task<bool> PrimeAsync(string provider)
     {
         try
         {
             string? executable = FindExecutable(provider == "Claude" ? "claude.exe" : "codex.exe");
-            if (executable is null) return;
+            if (executable is null) return false;
             Directory.CreateDirectory(AppSettings.PrimerWorkingDirectory);
             var start = new ProcessStartInfo
             {
@@ -194,14 +205,59 @@ public sealed class WindowPrimer : IDisposable
                 : new[] { "exec", "--ephemeral", "--ignore-user-config", "--skip-git-repo-check", "--sandbox", "read-only", "-c", "model_reasoning_effort=\"low\"", "Reply with OK only. Do not use tools." };
             foreach (string arg in args) start.ArgumentList.Add(arg);
             using var process = Process.Start(start);
-            if (process is null) return;
+            if (process is null) return false;
             Task stdout = process.StandardOutput.ReadToEndAsync();
             Task stderr = process.StandardError.ReadToEndAsync();
             using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(3));
             await process.WaitForExitAsync(timeout.Token).ConfigureAwait(false);
             await Task.WhenAll(stdout, stderr).ConfigureAwait(false);
+            return process.ExitCode == 0;
         }
-        catch { }
+        catch { return false; }
+    }
+
+    private static void SavePrediction(string provider, WindowKind kind, DateTime reset)
+    {
+        WithState(_ =>
+        {
+            var predictions = LoadDictionary(PredictionsFile);
+            predictions[ScheduleKey(provider, kind)] = reset;
+            SaveDictionary(PredictionsFile, predictions);
+        });
+    }
+
+    private static bool ApplyPredictedResets(IReadOnlyList<ProviderUsage> usages)
+    {
+        bool changed = false;
+        WithState(_ =>
+        {
+            var predictions = LoadDictionary(PredictionsFile);
+            foreach (var usage in usages)
+            foreach (var window in usage.Windows)
+            {
+                string key = ScheduleKey(usage.Provider, window.Kind);
+                if (!predictions.TryGetValue(key, out DateTime predicted)) continue;
+
+                if (predicted <= DateTime.Now)
+                {
+                    predictions.Remove(key);
+                    continue;
+                }
+
+                // 서버가 미래의 실제 시각을 주면 계산값은 더 이상 필요 없다.
+                if (window.ResetsAt is { } actual && actual > DateTime.Now &&
+                    Math.Abs((actual - predicted).TotalSeconds) > 1)
+                {
+                    predictions.Remove(key);
+                    continue;
+                }
+
+                window.ResetsAt = predicted;
+                changed = true;
+            }
+            SaveDictionary(PredictionsFile, predictions);
+        });
+        return changed;
     }
 
     private static void RegisterWakeTask(string provider, WindowKind kind, DateTime scheduled)
@@ -287,22 +343,28 @@ public sealed class WindowPrimer : IDisposable
     }
 
     private static Dictionary<string, DateTime> LoadState()
+        => LoadDictionary(StateFile);
+
+    private static Dictionary<string, DateTime> LoadDictionary(string file)
     {
         try
         {
-            if (!File.Exists(StateFile)) return new(StringComparer.OrdinalIgnoreCase);
-            var state = JsonSerializer.Deserialize<Dictionary<string, DateTime>>(File.ReadAllText(StateFile));
+            if (!File.Exists(file)) return new(StringComparer.OrdinalIgnoreCase);
+            var state = JsonSerializer.Deserialize<Dictionary<string, DateTime>>(File.ReadAllText(file));
             return state is null ? new(StringComparer.OrdinalIgnoreCase) : new(state, StringComparer.OrdinalIgnoreCase);
         }
         catch { return new(StringComparer.OrdinalIgnoreCase); }
     }
 
     private static void SaveState(Dictionary<string, DateTime> state)
+        => SaveDictionary(StateFile, state);
+
+    private static void SaveDictionary(string file, Dictionary<string, DateTime> state)
     {
         Directory.CreateDirectory(AppSettings.SettingsDirectory);
-        string tmp = StateFile + ".tmp";
+        string tmp = file + ".tmp";
         File.WriteAllText(tmp, JsonSerializer.Serialize(state, JsonOptions));
-        File.Move(tmp, StateFile, overwrite: true);
+        File.Move(tmp, file, overwrite: true);
     }
 
     public void Dispose() => _timer.Dispose();

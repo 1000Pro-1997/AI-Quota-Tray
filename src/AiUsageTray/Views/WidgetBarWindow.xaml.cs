@@ -56,6 +56,9 @@ public partial class WidgetBarWindow : Window
     public int ManualWidth { get; set; } = 200;
     public int ManualHeight { get; set; } = 36;
     public bool ModelsHorizontal { get; set; } = true;
+    public bool ShowPercent { get; set; } = true;
+    public bool ShowResetTime { get; set; } = true;
+    public Func<UsageWindow, string>? TimeFormatter { get; set; }
 
     /// <summary>설정에서 고른 모니터 장치 이름. 없거나 사라졌으면 주 모니터를 쓴다.</summary>
     public string MonitorDeviceName { get; set; } = "";
@@ -329,7 +332,7 @@ public partial class WidgetBarWindow : Window
         // 어느 쪽에서도 읽히도록 옅은 외곽 그림자를 준다.
         var value = new TextBlock
         {
-            Text = $"{shown:F0}%",
+            Text = ShowPercent ? $"{shown:F0}%" : "",
             FontSize = 11,
             FontWeight = FontWeights.Bold,
             // 문제가 있을 때만 빨강. 남은 시간은 평소 색을 유지한다.
@@ -351,7 +354,7 @@ public partial class WidgetBarWindow : Window
 
         var time = new TextBlock
         {
-            Text = w.ResetShort,
+            Text = ShowResetTime ? (TimeFormatter?.Invoke(w) ?? w.ResetShort) : "",
             FontSize = 10,
             Foreground = (Brush)Resources["BarSubtleBrush"],
             VerticalAlignment = VerticalAlignment.Center,
@@ -445,8 +448,10 @@ public partial class WidgetBarWindow : Window
                 ? Strings.Get("value.remaining", $"{shown:F0}")
                 : Strings.Get("value.used", $"{shown:F0}");
 
-            lines.Add($"{w.Label}: {value}" +
-                      (string.IsNullOrEmpty(w.ResetText) ? "" : $" · {w.ResetText}"));
+            string time = ShowResetTime ? (TimeFormatter?.Invoke(w) ?? w.ResetText) : "";
+            string percent = ShowPercent ? value : "";
+            string details = string.Join(" · ", new[] { percent, time }.Where(s => !string.IsNullOrEmpty(s)));
+            lines.Add(w.Label + (details.Length == 0 ? "" : $": {details}"));
         }
 
         return string.Join(Environment.NewLine, lines);

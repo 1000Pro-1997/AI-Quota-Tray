@@ -71,6 +71,16 @@ public sealed class AppSettings
     /// <summary>도구 블록을 가로로 나열한다. 끄면 세로.</summary>
     public bool WidgetModelsHorizontal { get; set; } = true;
 
+    public bool WidgetShowPercent { get; set; } = true;
+    public bool WidgetShowResetTime { get; set; } = true;
+
+    public TimeDisplayMode SessionTimeDisplayMode { get; set; } = TimeDisplayMode.Remaining;
+    public string SessionTimeFormat { get; set; } = "hh\"h\" mm\"m\" ss\"s\"";
+    public int SessionTimeMaxParts { get; set; } = 2;
+    public TimeDisplayMode WeeklyTimeDisplayMode { get; set; } = TimeDisplayMode.Remaining;
+    public string WeeklyTimeFormat { get; set; } = "dd\"D\" hh\"h\" mm\"m\" ss\"s\"";
+    public int WeeklyTimeMaxParts { get; set; } = 2;
+
     /// <summary>위젯바를 띄울 모니터의 Windows 장치 이름. 비우면 주 모니터.</summary>
     public string WidgetMonitorDeviceName { get; set; } = "";
 
@@ -200,6 +210,14 @@ public sealed class AppSettings
         WidgetWidth = fresh.WidgetWidth;
         WidgetHeight = fresh.WidgetHeight;
         WidgetModelsHorizontal = fresh.WidgetModelsHorizontal;
+        WidgetShowPercent = fresh.WidgetShowPercent;
+        WidgetShowResetTime = fresh.WidgetShowResetTime;
+        SessionTimeDisplayMode = fresh.SessionTimeDisplayMode;
+        SessionTimeFormat = fresh.SessionTimeFormat;
+        SessionTimeMaxParts = fresh.SessionTimeMaxParts;
+        WeeklyTimeDisplayMode = fresh.WeeklyTimeDisplayMode;
+        WeeklyTimeFormat = fresh.WeeklyTimeFormat;
+        WeeklyTimeMaxParts = fresh.WeeklyTimeMaxParts;
         WidgetMonitorDeviceName = fresh.WidgetMonitorDeviceName;
         WidgetAutoOffset = fresh.WidgetAutoOffset;
         WidgetOffsetX = fresh.WidgetOffsetX;
@@ -238,6 +256,8 @@ public sealed class AppSettings
                     if (loaded.RefreshIntervalSeconds < 30) loaded.RefreshIntervalSeconds = 30;
                     loaded.WidgetWidth = Math.Clamp(loaded.WidgetWidth, 80, 1200);
                     loaded.WidgetHeight = Math.Clamp(loaded.WidgetHeight, 24, 600);
+                    loaded.SessionTimeMaxParts = Math.Clamp(loaded.SessionTimeMaxParts, 1, 4);
+                    loaded.WeeklyTimeMaxParts = Math.Clamp(loaded.WeeklyTimeMaxParts, 1, 4);
                     return loaded;
                 }
             }

@@ -47,7 +47,7 @@ public sealed class UsageWindow
     public double Percent { get; init; }
 
     /// <summary>한도가 초기화되는 시각(로컬). 알 수 없으면 null.</summary>
-    public DateTime? ResetsAt { get; init; }
+    public DateTime? ResetsAt { get; set; }
 
     /// <summary>
     /// 리셋까지 남은 시간을 아주 짧게. 위젯바처럼 폭이 좁은 곳에 쓴다.
@@ -60,7 +60,7 @@ public sealed class UsageWindow
             if (ResetsAt is null) return "";
 
             var span = ResetsAt.Value - DateTime.Now;
-            if (span <= TimeSpan.Zero) return Strings.Get("short.soon");
+            if (span <= TimeSpan.Zero) return ZeroTime;
 
             if (span.TotalDays >= 1)
                 return Strings.Get("age.days", (int)span.TotalDays) + " " +
@@ -81,12 +81,15 @@ public sealed class UsageWindow
         {
             if (ResetsAt is null) return "";
             var span = ResetsAt.Value - DateTime.Now;
-            if (span <= TimeSpan.Zero) return Strings.Get("reset.soon");
+            if (span <= TimeSpan.Zero) return ZeroTime;
             if (span.TotalDays >= 1) return Strings.Get("reset.days", (int)span.TotalDays, span.Hours);
             if (span.TotalHours >= 1) return Strings.Get("reset.hours", (int)span.TotalHours, span.Minutes);
             return Strings.Get("reset.minutes", span.Minutes);
         }
     }
+
+    private static string ZeroTime =>
+        Strings.Get("age.minutes", 0) + " " + Strings.Get("age.seconds", 0);
 }
 
 /// <summary>공급자 하나(Claude, Codex 등)의 전체 사용 현황.</summary>

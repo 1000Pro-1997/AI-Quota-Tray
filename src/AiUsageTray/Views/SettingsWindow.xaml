@@ -488,7 +488,7 @@
 
         <Style x:Key="CompactNumberBox" TargetType="TextBox"
                BasedOn="{StaticResource PathBox}">
-            <Setter Property="Width" Value="27"/>
+            <Setter Property="Width" Value="81"/>
             <Setter Property="Height" Value="22"/>
             <Setter Property="Padding" Value="3,2"/>
             <Setter Property="FontSize" Value="10"/>
@@ -706,8 +706,6 @@
                       </StackPanel>
                     </Border>
 
-                    <Border Style="{StaticResource RowDivider}"/>
-
                     <Grid Margin="0,7,0,7">
                         <StackPanel VerticalAlignment="Center" Margin="0,0,96,0">
                             <StackPanel Orientation="Horizontal">
@@ -785,6 +783,27 @@
 
                     <Border Style="{StaticResource RowDivider}"/>
 
+                    <StackPanel Margin="0,8,0,8">
+                        <TextBlock x:Name="LblTimeDisplay" Style="{StaticResource RowTitle}"/>
+                        <TextBlock x:Name="LblTimeDisplayHint" Style="{StaticResource RowHint}" Margin="0,2,0,7"/>
+                        <Grid Margin="0,2,0,4">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="62"/><ColumnDefinition Width="104"/><ColumnDefinition Width="*"/><ColumnDefinition Width="34"/></Grid.ColumnDefinitions>
+                            <TextBlock x:Name="LblSessionTime" Style="{StaticResource RowHint}" VerticalAlignment="Center"/>
+                            <ComboBox x:Name="SessionTimeModeBox" Grid.Column="1" Height="27" Style="{StaticResource SoftCombo}" SelectionChanged="OnTimeSettingChanged"/>
+                            <TextBox x:Name="SessionTimeFormat" Grid.Column="2" Style="{StaticResource PathBox}" Margin="6,0" FontSize="10.5" TextChanged="OnTimeSettingTextChanged"/>
+                            <TextBox x:Name="SessionTimeMaxParts" Grid.Column="3" Style="{StaticResource CompactNumberBox}" Width="34" TextAlignment="Right" TextChanged="OnTimeSettingTextChanged"/>
+                        </Grid>
+                        <Grid Margin="0,2,0,0">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="62"/><ColumnDefinition Width="104"/><ColumnDefinition Width="*"/><ColumnDefinition Width="34"/></Grid.ColumnDefinitions>
+                            <TextBlock x:Name="LblWeeklyTime" Style="{StaticResource RowHint}" VerticalAlignment="Center"/>
+                            <ComboBox x:Name="WeeklyTimeModeBox" Grid.Column="1" Height="27" Style="{StaticResource SoftCombo}" SelectionChanged="OnTimeSettingChanged"/>
+                            <TextBox x:Name="WeeklyTimeFormat" Grid.Column="2" Style="{StaticResource PathBox}" Margin="6,0" FontSize="10.5" TextChanged="OnTimeSettingTextChanged"/>
+                            <TextBox x:Name="WeeklyTimeMaxParts" Grid.Column="3" Style="{StaticResource CompactNumberBox}" Width="34" TextAlignment="Right" TextChanged="OnTimeSettingTextChanged"/>
+                        </Grid>
+                    </StackPanel>
+
+                    <Border Style="{StaticResource RowDivider}"/>
+
                     <Grid Margin="0,7,0,7">
                         <StackPanel VerticalAlignment="Center" Margin="0,0,190,0">
                             <TextBlock x:Name="LblNumberFormat" Style="{StaticResource RowTitle}"/>
@@ -826,6 +845,24 @@
                             <TextBlock x:Name="LblWidgetBarHint" Style="{StaticResource RowHint}"/>
                         </StackPanel>
                         <CheckBox x:Name="ShowWidgetBar" Style="{StaticResource Switch}"
+                                  Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
+                    </Grid>
+
+                    <Border Style="{StaticResource RowDivider}"/>
+                    <Grid Margin="0,7,0,7">
+                        <StackPanel VerticalAlignment="Center" Margin="0,0,96,0">
+                            <TextBlock x:Name="LblWidgetShowPercent" Style="{StaticResource RowTitle}"/>
+                        </StackPanel>
+                        <CheckBox x:Name="WidgetShowPercent" Style="{StaticResource Switch}"
+                                  Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
+                    </Grid>
+
+                    <Border Style="{StaticResource RowDivider}"/>
+                    <Grid Margin="0,7,0,7">
+                        <StackPanel VerticalAlignment="Center" Margin="0,0,96,0">
+                            <TextBlock x:Name="LblWidgetShowResetTime" Style="{StaticResource RowTitle}"/>
+                        </StackPanel>
+                        <CheckBox x:Name="WidgetShowResetTime" Style="{StaticResource Switch}"
                                   Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
                     </Grid>
 

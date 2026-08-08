@@ -76,6 +76,12 @@ public partial class App : Application
         Strings.Current = _settings.Language;
         _monitor = new UsageMonitor(_settings);
         _primer = new WindowPrimer(_settings);
+        _primer.PredictedResetApplied += () => Dispatcher.Invoke(() =>
+        {
+            if (_flyout.IsVisible) _flyout.Render(_monitor.Latest);
+            _widgetBar?.Render(_monitor.Latest);
+            UpdateTrayIcon(_monitor.Latest);
+        });
         _updates = new UpdateChecker(new HttpClient { Timeout = TimeSpan.FromSeconds(15) });
 
         // 이벤트는 백그라운드 스레드에서 올 수 있으므로 UI 스레드로 넘긴다.
@@ -177,6 +183,7 @@ public partial class App : Application
     private void ApplyDisplaySettings()
     {
         _flyout.DisplayMode = _settings.DisplayMode;
+        _flyout.TimeFormatter = w => TimeDisplayFormatter.Format(w, _settings);
         _flyout.ColorResolver = _settings.ColorFor;
         _flyout.StatusResolver = _monitor.Status.For;
         _flyout.RefreshedAtResolver = () => _monitor.LastRefreshAt;
@@ -227,6 +234,9 @@ public partial class App : Application
         _widgetBar.ManualWidth = _settings.WidgetWidth;
         _widgetBar.ManualHeight = _settings.WidgetHeight;
         _widgetBar.ModelsHorizontal = _settings.WidgetModelsHorizontal;
+        _widgetBar.ShowPercent = _settings.WidgetShowPercent;
+        _widgetBar.ShowResetTime = _settings.WidgetShowResetTime;
+        _widgetBar.TimeFormatter = w => TimeDisplayFormatter.Format(w, _settings);
         _widgetBar.MonitorDeviceName = _settings.WidgetMonitorDeviceName;
         _widgetBar.AutoOffset = _settings.WidgetAutoOffset;
         _widgetBar.OffsetX = _settings.WidgetOffsetX;

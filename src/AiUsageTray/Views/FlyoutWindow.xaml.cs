@@ -18,6 +18,7 @@ public partial class FlyoutWindow : Window
 
     /// <summary>남은 양으로 볼지, 쓴 양으로 볼지. 설정에서 바뀐다.</summary>
     public DisplayMode DisplayMode { get; set; } = DisplayMode.Remaining;
+    public Func<UsageWindow, string>? TimeFormatter { get; set; }
 
     /// <summary>공급자 이름 → 진행률 바 색(#RRGGBB)을 돌려준다.</summary>
     public Func<string, string>? ColorResolver { get; set; }
@@ -405,11 +406,12 @@ public partial class FlyoutWindow : Window
             Foreground = barBrush,
         });
 
-        if (!string.IsNullOrEmpty(w.ResetText))
+        string resetText = TimeFormatter?.Invoke(w) ?? w.ResetText;
+        if (!string.IsNullOrEmpty(resetText))
         {
             wrap.Children.Add(new TextBlock
             {
-                Text = w.ResetText,
+                Text = resetText,
                 FontSize = 10.5,
                 Margin = new Thickness(0, 5, 0, 0),
                 Foreground = (Brush)Resources["SubtleBrush"],

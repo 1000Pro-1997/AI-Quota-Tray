@@ -124,6 +124,8 @@ public partial class SettingsWindow : Window
         // 직접 바꿨을 수 있으므로 저장된 값보다 현재 상태가 정확하다.
         PinToTaskbar.IsChecked = TaskbarPromotion.IsPromoted() ?? _settings.ShowInTaskbar;
         ShowWidgetBar.IsChecked = _settings.ShowWidgetBar;
+        WidgetShowPercent.IsChecked = _settings.WidgetShowPercent;
+        WidgetShowResetTime.IsChecked = _settings.WidgetShowResetTime;
         WidgetAutoSize.IsChecked = _settings.WidgetAutoSize;
         WidgetWidth.Text = _settings.WidgetWidth.ToString();
         WidgetHeight.Text = _settings.WidgetHeight.ToString();
@@ -134,6 +136,7 @@ public partial class SettingsWindow : Window
         ShowOffsetRow();
         ShowWidgetSizeInputs();
         BuildWidgetMonitorList();
+        LoadTimeSettings();
 
         if (!TaskbarPromotion.IsSupported)
         {
@@ -257,6 +260,35 @@ public partial class SettingsWindow : Window
     }
 
     private void OnWidgetSizeTextChanged(object sender, TextChangedEventArgs e) => ApplyNow();
+
+    private void OnTimeSettingChanged(object sender, SelectionChangedEventArgs e) => ApplyNow();
+    private void OnTimeSettingTextChanged(object sender, TextChangedEventArgs e) => ApplyNow();
+
+    private void LoadTimeSettings()
+    {
+        RelabelTimeModes();
+        SessionTimeModeBox.SelectedIndex = (int)_settings.SessionTimeDisplayMode;
+        WeeklyTimeModeBox.SelectedIndex = (int)_settings.WeeklyTimeDisplayMode;
+        SessionTimeFormat.Text = _settings.SessionTimeFormat;
+        WeeklyTimeFormat.Text = _settings.WeeklyTimeFormat;
+        SessionTimeMaxParts.Text = _settings.SessionTimeMaxParts.ToString();
+        WeeklyTimeMaxParts.Text = _settings.WeeklyTimeMaxParts.ToString();
+    }
+
+    private void RelabelTimeModes()
+    {
+        int session = SessionTimeModeBox.SelectedIndex;
+        int weekly = WeeklyTimeModeBox.SelectedIndex;
+        SessionTimeModeBox.Items.Clear();
+        WeeklyTimeModeBox.Items.Clear();
+        foreach (string text in new[] { Strings.Get("settings.timeRemaining"), Strings.Get("settings.timeResetAt") })
+        {
+            SessionTimeModeBox.Items.Add(text);
+            WeeklyTimeModeBox.Items.Add(text);
+        }
+        SessionTimeModeBox.SelectedIndex = session >= 0 ? session : 0;
+        WeeklyTimeModeBox.SelectedIndex = weekly >= 0 ? weekly : 0;
+    }
 
     private void ShowWidgetSizeInputs()
     {
@@ -602,9 +634,16 @@ public partial class SettingsWindow : Window
         LblNumberFormatHint.Text = Strings.Get("settings.numberFormatHint");
         ModeRemaining.Content = Strings.Get("settings.modeRemaining");
         ModeUsed.Content = Strings.Get("settings.modeUsed");
+        LblTimeDisplay.Text = Strings.Get("settings.timeDisplay");
+        LblTimeDisplayHint.Text = Strings.Get("settings.timeDisplayHint");
+        LblSessionTime.Text = Strings.Get("settings.sessionTime");
+        LblWeeklyTime.Text = Strings.Get("settings.weeklyTime");
+        RelabelTimeModes();
 
         LblWidgetBar.Text = Strings.Get("settings.widgetBar");
         LblWidgetBarHint.Text = Strings.Get("settings.widgetBarHint");
+        LblWidgetShowPercent.Text = Strings.Get("settings.widgetShowPercent");
+        LblWidgetShowResetTime.Text = Strings.Get("settings.widgetShowResetTime");
         LblWidgetAutoSize.Text = Strings.Get("settings.widgetAutoSize");
         LblWidgetAutoSizeHint.Text = Strings.Get("settings.widgetAutoSizeHint");
         LblWidgetWidth.Text = Strings.Get("settings.widgetWidth");
@@ -811,10 +850,18 @@ public partial class SettingsWindow : Window
         bool pin = PinToTaskbar.IsChecked == true;
         _settings.ShowInTaskbar = pin;
         _settings.ShowWidgetBar = ShowWidgetBar.IsChecked == true;
+        _settings.WidgetShowPercent = WidgetShowPercent.IsChecked == true;
+        _settings.WidgetShowResetTime = WidgetShowResetTime.IsChecked == true;
         _settings.WidgetAutoSize = WidgetAutoSize.IsChecked == true;
         _settings.WidgetWidth = ParseWidgetDimension(WidgetWidth.Text, 200, 80, 1200);
         _settings.WidgetHeight = ParseWidgetDimension(WidgetHeight.Text, 36, 24, 600);
         _settings.WidgetModelsHorizontal = WidgetModelsHorizontal.IsChecked == true;
+        _settings.SessionTimeDisplayMode = SessionTimeModeBox.SelectedIndex == 1 ? TimeDisplayMode.ResetAt : TimeDisplayMode.Remaining;
+        _settings.WeeklyTimeDisplayMode = WeeklyTimeModeBox.SelectedIndex == 1 ? TimeDisplayMode.ResetAt : TimeDisplayMode.Remaining;
+        _settings.SessionTimeFormat = SessionTimeFormat.Text.Trim();
+        _settings.WeeklyTimeFormat = WeeklyTimeFormat.Text.Trim();
+        _settings.SessionTimeMaxParts = ParseWidgetDimension(SessionTimeMaxParts.Text, 2, 1, 4);
+        _settings.WeeklyTimeMaxParts = ParseWidgetDimension(WeeklyTimeMaxParts.Text, 2, 1, 4);
         int monitorIdx = WidgetMonitorBox.SelectedIndex;
         _settings.WidgetMonitorDeviceName = monitorIdx >= 0 && monitorIdx < _widgetScreens.Length
             ? _widgetScreens[monitorIdx].DeviceName
@@ -888,6 +935,8 @@ public partial class SettingsWindow : Window
         AutoUpdateEnabled.IsChecked = _settings.AutoUpdate;
         PinToTaskbar.IsChecked = _settings.ShowInTaskbar;
         ShowWidgetBar.IsChecked = _settings.ShowWidgetBar;
+        WidgetShowPercent.IsChecked = _settings.WidgetShowPercent;
+        WidgetShowResetTime.IsChecked = _settings.WidgetShowResetTime;
         WidgetAutoSize.IsChecked = _settings.WidgetAutoSize;
         WidgetWidth.Text = _settings.WidgetWidth.ToString();
         WidgetHeight.Text = _settings.WidgetHeight.ToString();
@@ -898,6 +947,7 @@ public partial class SettingsWindow : Window
         ShowOffsetRow();
         ShowWidgetSizeInputs();
         BuildWidgetMonitorList();
+        LoadTimeSettings();
 
         if (_settings.DisplayMode == DisplayMode.Used) ModeUsed.IsChecked = true;
         else ModeRemaining.IsChecked = true;
