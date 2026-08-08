@@ -46,10 +46,10 @@ public sealed class AppSettings
     public bool StartWithWindows { get; set; } = true;
 
     /// <summary>공급자별 한도 초기화 직후 최소 요청을 보내 다음 창을 시작한다.</summary>
-    public bool ClaudePrimeFiveHour { get; set; }
+    public bool ClaudePrimeFiveHour { get; set; } = true;
     public bool ClaudePrimeWeekly { get; set; }
     public bool CodexPrimeFiveHour { get; set; }
-    public bool CodexPrimeWeekly { get; set; }
+    public bool CodexPrimeWeekly { get; set; } = true;
 
     /// <summary>이전 버전 설정을 읽기 위한 호환 필드. 새 UI에서는 사용하지 않는다.</summary>
     [Obsolete("Use the provider-specific primer settings.")]
@@ -60,6 +60,16 @@ public sealed class AppSettings
 
     /// <summary>작업표시줄 옆에 가로 막대로 사용량을 항상 띄운다.</summary>
     public bool ShowWidgetBar { get; set; } = true;
+
+    /// <summary>내용에 맞춰 위젯 크기를 자동으로 정한다.</summary>
+    public bool WidgetAutoSize { get; set; } = true;
+
+    /// <summary>자동 크기를 껐을 때의 위젯 전체 크기(DIP).</summary>
+    public int WidgetWidth { get; set; } = 200;
+    public int WidgetHeight { get; set; } = 36;
+
+    /// <summary>도구 블록을 가로로 나열한다. 끄면 세로.</summary>
+    public bool WidgetModelsHorizontal { get; set; } = true;
 
     /// <summary>위젯바를 띄울 모니터의 Windows 장치 이름. 비우면 주 모니터.</summary>
     public string WidgetMonitorDeviceName { get; set; } = "";
@@ -186,6 +196,10 @@ public sealed class AppSettings
 #pragma warning restore CS0618
         ShowInTaskbar = fresh.ShowInTaskbar;
         ShowWidgetBar = fresh.ShowWidgetBar;
+        WidgetAutoSize = fresh.WidgetAutoSize;
+        WidgetWidth = fresh.WidgetWidth;
+        WidgetHeight = fresh.WidgetHeight;
+        WidgetModelsHorizontal = fresh.WidgetModelsHorizontal;
         WidgetMonitorDeviceName = fresh.WidgetMonitorDeviceName;
         WidgetAutoOffset = fresh.WidgetAutoOffset;
         WidgetOffsetX = fresh.WidgetOffsetX;
@@ -222,6 +236,8 @@ public sealed class AppSettings
 #pragma warning restore CS0618
                     // 너무 짧은 주기는 무의미한 부하만 만든다.
                     if (loaded.RefreshIntervalSeconds < 30) loaded.RefreshIntervalSeconds = 30;
+                    loaded.WidgetWidth = Math.Clamp(loaded.WidgetWidth, 80, 1200);
+                    loaded.WidgetHeight = Math.Clamp(loaded.WidgetHeight, 24, 600);
                     return loaded;
                 }
             }

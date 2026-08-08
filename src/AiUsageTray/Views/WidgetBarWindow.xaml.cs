@@ -52,6 +52,11 @@ public partial class WidgetBarWindow : Window
 
     public DisplayMode DisplayMode { get; set; } = DisplayMode.Remaining;
 
+    public bool AutoSize { get; set; } = true;
+    public int ManualWidth { get; set; } = 200;
+    public int ManualHeight { get; set; } = 36;
+    public bool ModelsHorizontal { get; set; } = true;
+
     /// <summary>설정에서 고른 모니터 장치 이름. 없거나 사라졌으면 주 모니터를 쓴다.</summary>
     public string MonitorDeviceName { get; set; } = "";
 
@@ -201,16 +206,21 @@ public partial class WidgetBarWindow : Window
         _shown = usages;
         Items.Children.Clear();
         Items.ColumnDefinitions.Clear();
+        Items.RowDefinitions.Clear();
 
         int column = 0;
         foreach (var u in usages)
         {
             if (!u.IsAvailable || u.Windows.Count == 0) continue;
 
-            Items.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            if (ModelsHorizontal)
+                Items.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            else
+                Items.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
             var block = BuildBlock(u, first: column == 0);
-            Grid.SetColumn(block, column);
+            if (ModelsHorizontal) Grid.SetColumn(block, column);
+            else Grid.SetRow(block, column);
             Items.Children.Add(block);
 
             column++;
@@ -222,9 +232,28 @@ public partial class WidgetBarWindow : Window
             return;
         }
 
-        // 내용이 바뀌면 폭이 달라지므로 위치를 다시 잡는다.
+        ApplySize();
+        // 내용이나 방향이 바뀌면 크기가 달라지므로 위치를 다시 잡는다.
         UpdateLayout();
         Reposition();
+    }
+
+    private void ApplySize()
+    {
+        if (AutoSize)
+        {
+            SizeToContent = SizeToContent.WidthAndHeight;
+            Width = double.NaN;
+            Height = double.NaN;
+            Sizer.Stretch = Stretch.None;
+        }
+        else
+        {
+            SizeToContent = SizeToContent.Manual;
+            Width = Math.Clamp(ManualWidth, 80, 1200);
+            Height = Math.Clamp(ManualHeight, 24, 600);
+            Sizer.Stretch = Stretch.Fill;
+        }
     }
 
     /// <summary>
@@ -264,7 +293,9 @@ public partial class WidgetBarWindow : Window
         return new Border
         {
             Background = Brushes.Transparent,
-            Margin = new Thickness(first ? 0 : 8, 0, 0, 0),
+            Margin = ModelsHorizontal
+                ? new Thickness(first ? 0 : 8, 0, 0, 0)
+                : new Thickness(0, first ? 0 : 5, 0, 0),
             Child = rows,
             ToolTip = BuildTooltip(u),
             VerticalAlignment = VerticalAlignment.Stretch,

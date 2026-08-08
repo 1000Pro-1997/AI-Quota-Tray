@@ -124,10 +124,15 @@ public partial class SettingsWindow : Window
         // 직접 바꿨을 수 있으므로 저장된 값보다 현재 상태가 정확하다.
         PinToTaskbar.IsChecked = TaskbarPromotion.IsPromoted() ?? _settings.ShowInTaskbar;
         ShowWidgetBar.IsChecked = _settings.ShowWidgetBar;
+        WidgetAutoSize.IsChecked = _settings.WidgetAutoSize;
+        WidgetWidth.Text = _settings.WidgetWidth.ToString();
+        WidgetHeight.Text = _settings.WidgetHeight.ToString();
+        WidgetModelsHorizontal.IsChecked = _settings.WidgetModelsHorizontal;
         WidgetAutoOffset.IsChecked = _settings.WidgetAutoOffset;
         WidgetOffsetX.Text = _settings.WidgetOffsetX.ToString();
         WidgetOffsetY.Text = _settings.WidgetOffsetY.ToString();
         ShowOffsetRow();
+        ShowWidgetSizeInputs();
         BuildWidgetMonitorList();
 
         if (!TaskbarPromotion.IsSupported)
@@ -239,22 +244,43 @@ public partial class SettingsWindow : Window
     /// <summary>자동을 끄면 수동 오프셋 칸을 연다. 켜면 다시 감춘다.</summary>
     private void OnAutoOffsetToggled(object sender, RoutedEventArgs e)
     {
+        if (WidgetAutoOffset.IsChecked == true)
+        {
+            WidgetOffsetX.Text = "0";
+            WidgetOffsetY.Text = "0";
+        }
         ShowOffsetRow();
         ApplyNow();
     }
 
     private void OnOffsetTextChanged(object sender, TextChangedEventArgs e) => ApplyNow();
 
-    /// <summary>수동 오프셋 칸은 자동을 꺼야 쓸모가 있다. 그때만 보인다.</summary>
+    private void OnAutoSizeToggled(object sender, RoutedEventArgs e)
+    {
+        ShowWidgetSizeInputs();
+        ApplyNow();
+    }
+
+    private void OnWidgetSizeTextChanged(object sender, TextChangedEventArgs e) => ApplyNow();
+
+    private void ShowWidgetSizeInputs() =>
+        WidgetSizeInputs.Visibility = WidgetAutoSize.IsChecked == true
+            ? Visibility.Collapsed : Visibility.Visible;
+
+    /// <summary>오프셋 칸은 늘 보이고, 자동 위치일 때만 편집을 막는다.</summary>
     private void ShowOffsetRow()
     {
         bool manual = WidgetAutoOffset.IsChecked != true;
-        WidgetOffsetRow.Visibility = manual ? Visibility.Visible : Visibility.Collapsed;
+        WidgetOffsetX.IsEnabled = manual;
+        WidgetOffsetY.IsEnabled = manual;
     }
 
     /// <summary>비어 있거나 숫자가 아니면 0으로 본다. 입력 중에도 튀지 않게.</summary>
     private static int ParseOffset(string text) =>
         int.TryParse(text.Trim(), out int value) ? Math.Clamp(value, -4000, 4000) : 0;
+
+    private static int ParseWidgetDimension(string text, int fallback, int min, int max) =>
+        int.TryParse(text.Trim(), out int value) ? Math.Clamp(value, min, max) : fallback;
 
     /// <summary>설치 위치와 런처가 제자리에 있는지 보여 준다.</summary>
     private void ShowInstallState()
@@ -560,9 +586,11 @@ public partial class SettingsWindow : Window
 
         LblSectionTools.Text = Strings.Get("settings.sectionTools");
         LblSectionDisplay.Text = Strings.Get("settings.sectionDisplay");
+        LblSectionWidget.Text = Strings.Get("settings.sectionWidget");
         LblSectionBehavior.Text = Strings.Get("settings.sectionBehavior");
 
-        PathToggle.Content = Strings.Get("settings.pathToggle");
+        ClaudeDetailsToggle.Content = Strings.Get("settings.details");
+        CodexDetailsToggle.Content = Strings.Get("settings.details");
         LblClaudeCred.Text = Strings.Get("settings.claudeCredential");
         LblCodexFolder.Text = Strings.Get("settings.codexFolder");
         BrowseClaude.Content = Strings.Get("settings.browse");
@@ -578,12 +606,16 @@ public partial class SettingsWindow : Window
 
         LblWidgetBar.Text = Strings.Get("settings.widgetBar");
         LblWidgetBarHint.Text = Strings.Get("settings.widgetBarHint");
+        LblWidgetAutoSize.Text = Strings.Get("settings.widgetAutoSize");
+        LblWidgetAutoSizeHint.Text = Strings.Get("settings.widgetAutoSizeHint");
+        LblWidgetWidth.Text = Strings.Get("settings.widgetWidth");
+        LblWidgetHeight.Text = Strings.Get("settings.widgetHeight");
+        LblWidgetOrientation.Text = Strings.Get("settings.widgetOrientation");
+        LblWidgetOrientationHint.Text = Strings.Get("settings.widgetOrientationHint");
         LblWidgetMonitor.Text = Strings.Get("settings.widgetMonitor");
         LblWidgetMonitorHint.Text = Strings.Get("settings.widgetMonitorHint");
         LblWidgetAutoOffset.Text = Strings.Get("settings.widgetAutoOffset");
         LblWidgetAutoOffsetHint.Text = Strings.Get("settings.widgetAutoOffsetHint");
-        LblWidgetOffset.Text = Strings.Get("settings.widgetOffset");
-        LblWidgetOffsetHint.Text = Strings.Get("settings.widgetOffsetHint");
         LblWidgetOffsetX.Text = Strings.Get("settings.widgetOffsetX");
         LblWidgetOffsetY.Text = Strings.Get("settings.widgetOffsetY");
         LblPinTaskbar.Text = Strings.Get("settings.pinTaskbar");
@@ -592,14 +624,10 @@ public partial class SettingsWindow : Window
         LblInterval.Text = Strings.Get("settings.interval");
         LblIntervalHint.Text = Strings.Get("settings.intervalHint");
         LblStartup.Text = Strings.Get("settings.startWithWindows");
-        LblClaudePrimeFive.Text = Strings.Get("settings.primeFive");
-        LblClaudePrimeFiveHint.Text = Strings.Get("settings.claudePrimeFiveHint");
-        LblClaudePrimeWeekly.Text = Strings.Get("settings.primeWeekly");
-        LblClaudePrimeWeeklyHint.Text = Strings.Get("settings.claudePrimeWeeklyHint");
-        LblCodexPrimeFive.Text = Strings.Get("settings.primeFive");
-        LblCodexPrimeFiveHint.Text = Strings.Get("settings.codexPrimeFiveHint");
-        LblCodexPrimeWeekly.Text = Strings.Get("settings.primeWeekly");
-        LblCodexPrimeWeeklyHint.Text = Strings.Get("settings.codexPrimeWeeklyHint");
+        LblClaudePrimeFive.Text = PrimerLabel("settings.primeFive", "settings.claudePrimeFiveHint");
+        LblClaudePrimeWeekly.Text = PrimerLabel("settings.primeWeekly", "settings.claudePrimeWeeklyHint");
+        LblCodexPrimeFive.Text = PrimerLabel("settings.primeFive", "settings.codexPrimeFiveHint");
+        LblCodexPrimeWeekly.Text = PrimerLabel("settings.primeWeekly", "settings.codexPrimeWeeklyHint");
 
         LblSectionSystem.Text = Strings.Get("settings.sectionSystem");
 
@@ -634,6 +662,9 @@ public partial class SettingsWindow : Window
                 ? Strings.Get("settings.pinPending")
                 : Strings.Get("settings.pinTaskbarHint");
     }
+
+    private static string PrimerLabel(string titleKey, string hintKey) =>
+        $"{Strings.Get(titleKey)}  ·  {Strings.Get(hintKey)}";
 
     /// <summary>주기 세그먼트의 글자를 현재 언어로.</summary>
     private void RelabelIntervals()
@@ -687,11 +718,16 @@ public partial class SettingsWindow : Window
         return -1;
     }
 
-    /// <summary>경로 입력을 펴고 접는다.</summary>
-    private void OnPathToggle(object sender, RoutedEventArgs e) =>
-        PathPanel.Visibility = PathToggle.IsChecked == true
-            ? Visibility.Visible
-            : Visibility.Collapsed;
+    /// <summary>각 도구의 자동 요청과 경로 설정을 따로 펴고 접는다.</summary>
+    private void OnDetailsToggle(object sender, RoutedEventArgs e)
+    {
+        if (sender == ClaudeDetailsToggle)
+            ClaudeDetailsPanel.Visibility = ClaudeDetailsToggle.IsChecked == true
+                ? Visibility.Visible : Visibility.Collapsed;
+        else if (sender == CodexDetailsToggle)
+            CodexDetailsPanel.Visibility = CodexDetailsToggle.IsChecked == true
+                ? Visibility.Visible : Visibility.Collapsed;
+    }
 
     /// <summary>경로가 실제로 존재하는지 즉시 알려준다. 저장 전에 확인할 수 있게.</summary>
     private void UpdatePathStatus()
@@ -776,6 +812,10 @@ public partial class SettingsWindow : Window
         bool pin = PinToTaskbar.IsChecked == true;
         _settings.ShowInTaskbar = pin;
         _settings.ShowWidgetBar = ShowWidgetBar.IsChecked == true;
+        _settings.WidgetAutoSize = WidgetAutoSize.IsChecked == true;
+        _settings.WidgetWidth = ParseWidgetDimension(WidgetWidth.Text, 200, 80, 1200);
+        _settings.WidgetHeight = ParseWidgetDimension(WidgetHeight.Text, 36, 24, 600);
+        _settings.WidgetModelsHorizontal = WidgetModelsHorizontal.IsChecked == true;
         int monitorIdx = WidgetMonitorBox.SelectedIndex;
         _settings.WidgetMonitorDeviceName = monitorIdx >= 0 && monitorIdx < _widgetScreens.Length
             ? _widgetScreens[monitorIdx].DeviceName
@@ -849,10 +889,15 @@ public partial class SettingsWindow : Window
         AutoUpdateEnabled.IsChecked = _settings.AutoUpdate;
         PinToTaskbar.IsChecked = _settings.ShowInTaskbar;
         ShowWidgetBar.IsChecked = _settings.ShowWidgetBar;
+        WidgetAutoSize.IsChecked = _settings.WidgetAutoSize;
+        WidgetWidth.Text = _settings.WidgetWidth.ToString();
+        WidgetHeight.Text = _settings.WidgetHeight.ToString();
+        WidgetModelsHorizontal.IsChecked = _settings.WidgetModelsHorizontal;
         WidgetAutoOffset.IsChecked = _settings.WidgetAutoOffset;
         WidgetOffsetX.Text = _settings.WidgetOffsetX.ToString();
         WidgetOffsetY.Text = _settings.WidgetOffsetY.ToString();
         ShowOffsetRow();
+        ShowWidgetSizeInputs();
         BuildWidgetMonitorList();
 
         if (_settings.DisplayMode == DisplayMode.Used) ModeUsed.IsChecked = true;

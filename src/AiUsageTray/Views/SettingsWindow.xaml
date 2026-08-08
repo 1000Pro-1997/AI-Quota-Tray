@@ -123,6 +123,33 @@
             </Setter>
         </Style>
 
+        <!-- 모델 아래에 붙는 자동 요청은 보조 설정이므로 본 토글보다 작게 보인다. -->
+        <Style x:Key="CompactSwitch" TargetType="CheckBox"
+               BasedOn="{StaticResource Switch}">
+            <Setter Property="LayoutTransform">
+                <Setter.Value>
+                    <ScaleTransform ScaleX="0.78" ScaleY="0.78"/>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ChildSettings" TargetType="Border">
+            <Setter Property="Margin" Value="17,1,0,9"/>
+            <Setter Property="Padding" Value="10,4,8,4"/>
+            <Setter Property="BorderThickness" Value="2,0,0,0"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush2}"/>
+            <Setter Property="Background" Value="{DynamicResource TrackOffBrush}"/>
+            <Setter Property="CornerRadius" Value="0,5,5,0"/>
+        </Style>
+
+        <Style x:Key="ChildSettingText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="10.5"/>
+            <Setter Property="Foreground" Value="{DynamicResource SubtleBrush}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextWrapping" Value="NoWrap"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+        </Style>
+
         <!-- ===== 세그먼트 토글 ===== -->
 
         <Style x:Key="Segment" TargetType="RadioButton">
@@ -621,6 +648,10 @@
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
                                     VerticalAlignment="Center">
+                            <ToggleButton x:Name="ClaudeDetailsToggle"
+                                          Style="{StaticResource DisclosureButton}"
+                                          Margin="0,0,12,0"
+                                          Checked="OnDetailsToggle" Unchecked="OnDetailsToggle"/>
                             <Button x:Name="ClaudeSwatch" Style="{StaticResource Swatch}"
                                     Margin="0,0,10,0" Click="OnPickClaudeColor"/>
                             <CheckBox x:Name="ClaudeEnabled" Style="{StaticResource Switch}"
@@ -628,24 +659,37 @@
                         </StackPanel>
                     </Grid>
 
-                    <StackPanel Margin="16,1,0,8">
-                        <Grid Margin="0,5,0,5">
-                            <StackPanel Margin="0,0,96,0">
-                                <TextBlock x:Name="LblClaudePrimeFive" Style="{StaticResource RowTitle}"/>
-                                <TextBlock x:Name="LblClaudePrimeFiveHint" Style="{StaticResource RowHint}"/>
-                            </StackPanel>
-                            <CheckBox x:Name="ClaudePrimeFive" Style="{StaticResource Switch}"
+                    <Border x:Name="ClaudeDetailsPanel" Style="{StaticResource ChildSettings}"
+                            Visibility="Collapsed">
+                      <StackPanel>
+                        <Grid Height="25">
+                            <TextBlock x:Name="LblClaudePrimeFive" Style="{StaticResource ChildSettingText}"
+                                       Margin="0,0,42,0"/>
+                            <CheckBox x:Name="ClaudePrimeFive" Style="{StaticResource CompactSwitch}"
                                       Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
                         </Grid>
-                        <Grid Margin="0,5,0,5">
-                            <StackPanel Margin="0,0,96,0">
-                                <TextBlock x:Name="LblClaudePrimeWeekly" Style="{StaticResource RowTitle}"/>
-                                <TextBlock x:Name="LblClaudePrimeWeeklyHint" Style="{StaticResource RowHint}"/>
-                            </StackPanel>
-                            <CheckBox x:Name="ClaudePrimeWeekly" Style="{StaticResource Switch}"
+                        <Grid Height="25">
+                            <TextBlock x:Name="LblClaudePrimeWeekly" Style="{StaticResource ChildSettingText}"
+                                       Margin="0,0,42,0"/>
+                            <CheckBox x:Name="ClaudePrimeWeekly" Style="{StaticResource CompactSwitch}"
                                       Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
                         </Grid>
-                    </StackPanel>
+                        <Border Style="{StaticResource RowDivider}" Margin="0,3,0,7"/>
+                        <TextBlock x:Name="LblClaudeCred" Style="{StaticResource ChildSettingText}"
+                                   Margin="0,0,0,5"/>
+                        <Grid Margin="0,0,0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="ClaudePath" Style="{StaticResource PathBox}"
+                                     FontSize="10.5" LostFocus="OnPathChanged"/>
+                            <Button x:Name="BrowseClaude" Grid.Column="1"
+                                    Style="{StaticResource GhostButton}" Padding="10,5"
+                                    Margin="6,0,0,0" Click="OnBrowseClaude"/>
+                        </Grid>
+                      </StackPanel>
+                    </Border>
 
                     <Border Style="{StaticResource RowDivider}"/>
 
@@ -661,6 +705,10 @@
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
                                     VerticalAlignment="Center">
+                            <ToggleButton x:Name="CodexDetailsToggle"
+                                          Style="{StaticResource DisclosureButton}"
+                                          Margin="0,0,12,0"
+                                          Checked="OnDetailsToggle" Unchecked="OnDetailsToggle"/>
                             <Button x:Name="CodexSwatch" Style="{StaticResource Swatch}"
                                     Margin="0,0,10,0" Click="OnPickCodexColor"/>
                             <CheckBox x:Name="CodexEnabled" Style="{StaticResource Switch}"
@@ -668,63 +716,37 @@
                         </StackPanel>
                     </Grid>
 
-                    <StackPanel Margin="16,1,0,8">
-                        <Grid Margin="0,5,0,5">
-                            <StackPanel Margin="0,0,96,0">
-                                <TextBlock x:Name="LblCodexPrimeFive" Style="{StaticResource RowTitle}"/>
-                                <TextBlock x:Name="LblCodexPrimeFiveHint" Style="{StaticResource RowHint}"/>
-                            </StackPanel>
-                            <CheckBox x:Name="CodexPrimeFive" Style="{StaticResource Switch}"
+                    <Border x:Name="CodexDetailsPanel" Style="{StaticResource ChildSettings}"
+                            Visibility="Collapsed">
+                      <StackPanel>
+                        <Grid Height="25">
+                            <TextBlock x:Name="LblCodexPrimeFive" Style="{StaticResource ChildSettingText}"
+                                       Margin="0,0,42,0"/>
+                            <CheckBox x:Name="CodexPrimeFive" Style="{StaticResource CompactSwitch}"
                                       Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
                         </Grid>
-                        <Grid Margin="0,5,0,5">
-                            <StackPanel Margin="0,0,96,0">
-                                <TextBlock x:Name="LblCodexPrimeWeekly" Style="{StaticResource RowTitle}"/>
-                                <TextBlock x:Name="LblCodexPrimeWeeklyHint" Style="{StaticResource RowHint}"/>
-                            </StackPanel>
-                            <CheckBox x:Name="CodexPrimeWeekly" Style="{StaticResource Switch}"
+                        <Grid Height="25">
+                            <TextBlock x:Name="LblCodexPrimeWeekly" Style="{StaticResource ChildSettingText}"
+                                       Margin="0,0,42,0"/>
+                            <CheckBox x:Name="CodexPrimeWeekly" Style="{StaticResource CompactSwitch}"
                                       Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
                         </Grid>
-                    </StackPanel>
-
-                    <Border Style="{StaticResource RowDivider}"/>
-
-                    <!-- 경로는 평소에 접어둔다. 대부분 자동 탐지로 충분하다. -->
-                    <StackPanel Margin="0,9,0,11">
-                        <ToggleButton x:Name="PathToggle"
-                                      Style="{StaticResource DisclosureButton}"
-                                      Checked="OnPathToggle" Unchecked="OnPathToggle"/>
-
-                        <StackPanel x:Name="PathPanel" Visibility="Collapsed" Margin="0,11,0,0">
-                            <TextBlock x:Name="LblClaudeCred" FontSize="10.5"
-                                       Foreground="{DynamicResource SubtleBrush}" Margin="0,0,0,4"/>
-                            <Grid Margin="0,0,0,10">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBox x:Name="ClaudePath" Style="{StaticResource PathBox}"
-                                         LostFocus="OnPathChanged"/>
-                                <Button x:Name="BrowseClaude" Grid.Column="1" 
-                                        Style="{StaticResource GhostButton}" Padding="12,6"
-                                        Margin="6,0,0,0" Click="OnBrowseClaude"/>
-                            </Grid>
-
-                            <TextBlock x:Name="LblCodexFolder" FontSize="10.5"
-                                       Foreground="{DynamicResource SubtleBrush}" Margin="0,0,0,4"/>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBox x:Name="CodexPath" Style="{StaticResource PathBox}"
-                                         LostFocus="OnPathChanged"/>
-                                <Button x:Name="BrowseCodex" Grid.Column="1" 
-                                        Style="{StaticResource GhostButton}" Padding="12,6"
-                                        Margin="6,0,0,0" Click="OnBrowseCodex"/>
-                            </Grid>
-                        </StackPanel>
-                    </StackPanel>
+                        <Border Style="{StaticResource RowDivider}" Margin="0,3,0,7"/>
+                        <TextBlock x:Name="LblCodexFolder" Style="{StaticResource ChildSettingText}"
+                                   Margin="0,0,0,5"/>
+                        <Grid Margin="0,0,0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="CodexPath" Style="{StaticResource PathBox}"
+                                     FontSize="10.5" LostFocus="OnPathChanged"/>
+                            <Button x:Name="BrowseCodex" Grid.Column="1"
+                                    Style="{StaticResource GhostButton}" Padding="10,5"
+                                    Margin="6,0,0,0" Click="OnBrowseCodex"/>
+                        </Grid>
+                      </StackPanel>
+                    </Border>
 
                 </StackPanel>
             </Border>
@@ -769,63 +791,6 @@
 
                     <Grid Margin="0,7,0,7">
                         <StackPanel VerticalAlignment="Center" Margin="0,0,96,0">
-                            <TextBlock x:Name="LblWidgetBar" Style="{StaticResource RowTitle}"/>
-                            <TextBlock x:Name="LblWidgetBarHint" Style="{StaticResource RowHint}"/>
-                        </StackPanel>
-                        <CheckBox x:Name="ShowWidgetBar" Style="{StaticResource Switch}"
-                                  Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
-                    </Grid>
-
-                    <Border x:Name="WidgetMonitorDivider" Style="{StaticResource RowDivider}"/>
-
-                    <Grid x:Name="WidgetMonitorRow" Margin="0,7,0,7">
-                        <StackPanel VerticalAlignment="Center" Margin="0,0,190,0">
-                            <TextBlock x:Name="LblWidgetMonitor" Style="{StaticResource RowTitle}"/>
-                            <TextBlock x:Name="LblWidgetMonitorHint" Style="{StaticResource RowHint}"/>
-                        </StackPanel>
-                        <ComboBox x:Name="WidgetMonitorBox" Width="176"
-                                  Style="{StaticResource SoftCombo}"
-                                  HorizontalAlignment="Right" VerticalAlignment="Center"
-                                  SelectionChanged="OnWidgetMonitorChanged"/>
-                    </Grid>
-
-                    <Border x:Name="WidgetAutoOffsetDivider" Style="{StaticResource RowDivider}"/>
-
-                    <Grid x:Name="WidgetAutoOffsetRow" Margin="0,7,0,7">
-                        <StackPanel VerticalAlignment="Center" Margin="0,0,96,0">
-                            <TextBlock x:Name="LblWidgetAutoOffset" Style="{StaticResource RowTitle}"/>
-                            <TextBlock x:Name="LblWidgetAutoOffsetHint" Style="{StaticResource RowHint}"/>
-                        </StackPanel>
-                        <CheckBox x:Name="WidgetAutoOffset" Style="{StaticResource Switch}"
-                                  Checked="OnAutoOffsetToggled" Unchecked="OnAutoOffsetToggled"/>
-                    </Grid>
-
-                    <Grid x:Name="WidgetOffsetRow" Margin="0,7,0,7">
-                        <StackPanel VerticalAlignment="Center" Margin="0,0,190,0">
-                            <TextBlock x:Name="LblWidgetOffset" Style="{StaticResource RowTitle}"/>
-                            <TextBlock x:Name="LblWidgetOffsetHint" Style="{StaticResource RowHint}"/>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
-                                    VerticalAlignment="Center">
-                            <TextBlock x:Name="LblWidgetOffsetX" Style="{StaticResource RowHint}"
-                                       VerticalAlignment="Center" Margin="0,0,6,0"/>
-                            <TextBox x:Name="WidgetOffsetX" Width="56"
-                                     Style="{StaticResource PathBox}"
-                                     TextAlignment="Right"
-                                     TextChanged="OnOffsetTextChanged"/>
-                            <TextBlock x:Name="LblWidgetOffsetY" Style="{StaticResource RowHint}"
-                                       VerticalAlignment="Center" Margin="12,0,6,0"/>
-                            <TextBox x:Name="WidgetOffsetY" Width="56"
-                                     Style="{StaticResource PathBox}"
-                                     TextAlignment="Right"
-                                     TextChanged="OnOffsetTextChanged"/>
-                        </StackPanel>
-                    </Grid>
-
-                    <Border Style="{StaticResource RowDivider}"/>
-
-                    <Grid Margin="0,7,0,7">
-                        <StackPanel VerticalAlignment="Center" Margin="0,0,96,0">
                             <TextBlock x:Name="LblPinTaskbar" Style="{StaticResource RowTitle}"/>
                             <TextBlock x:Name="TaskbarHint" Style="{StaticResource RowHint}"/>
                         </StackPanel>
@@ -833,6 +798,83 @@
                                   Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
                     </Grid>
 
+                </StackPanel>
+            </Border>
+
+            <!-- 위젯 -->
+            <TextBlock x:Name="LblSectionWidget" Style="{StaticResource SectionLabel}"/>
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <Grid Margin="0,7,0,7">
+                        <StackPanel VerticalAlignment="Center" Margin="0,0,96,0">
+                            <TextBlock x:Name="LblWidgetBar" Style="{StaticResource RowTitle}"/>
+                            <TextBlock x:Name="LblWidgetBarHint" Style="{StaticResource RowHint}"/>
+                        </StackPanel>
+                        <CheckBox x:Name="ShowWidgetBar" Style="{StaticResource Switch}"
+                                  Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
+                    </Grid>
+
+                    <Border Style="{StaticResource RowDivider}"/>
+                    <Grid Margin="0,7,0,7">
+                        <StackPanel VerticalAlignment="Center" Margin="0,0,96,0">
+                            <TextBlock x:Name="LblWidgetAutoSize" Style="{StaticResource RowTitle}"/>
+                            <TextBlock x:Name="LblWidgetAutoSizeHint" Style="{StaticResource RowHint}"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <StackPanel x:Name="WidgetSizeInputs" Orientation="Horizontal" Margin="0,0,10,0">
+                                <TextBlock x:Name="LblWidgetWidth" Style="{StaticResource RowHint}"
+                                           VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                <TextBox x:Name="WidgetWidth" Width="52" Style="{StaticResource PathBox}"
+                                         TextAlignment="Right" TextChanged="OnWidgetSizeTextChanged"/>
+                                <TextBlock x:Name="LblWidgetHeight" Style="{StaticResource RowHint}"
+                                           VerticalAlignment="Center" Margin="9,0,5,0"/>
+                                <TextBox x:Name="WidgetHeight" Width="52" Style="{StaticResource PathBox}"
+                                         TextAlignment="Right" TextChanged="OnWidgetSizeTextChanged"/>
+                            </StackPanel>
+                            <CheckBox x:Name="WidgetAutoSize" Style="{StaticResource Switch}"
+                                      Checked="OnAutoSizeToggled" Unchecked="OnAutoSizeToggled"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <Border Style="{StaticResource RowDivider}"/>
+                    <Grid Margin="0,7,0,7">
+                        <StackPanel VerticalAlignment="Center" Margin="0,0,96,0">
+                            <TextBlock x:Name="LblWidgetOrientation" Style="{StaticResource RowTitle}"/>
+                            <TextBlock x:Name="LblWidgetOrientationHint" Style="{StaticResource RowHint}"/>
+                        </StackPanel>
+                        <CheckBox x:Name="WidgetModelsHorizontal" Style="{StaticResource Switch}"
+                                  Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
+                    </Grid>
+
+                    <Border x:Name="WidgetMonitorDivider" Style="{StaticResource RowDivider}"/>
+                    <Grid x:Name="WidgetMonitorRow" Margin="0,7,0,7">
+                        <StackPanel VerticalAlignment="Center" Margin="0,0,190,0">
+                            <TextBlock x:Name="LblWidgetMonitor" Style="{StaticResource RowTitle}"/>
+                            <TextBlock x:Name="LblWidgetMonitorHint" Style="{StaticResource RowHint}"/>
+                        </StackPanel>
+                        <ComboBox x:Name="WidgetMonitorBox" Width="176" Style="{StaticResource SoftCombo}"
+                                  HorizontalAlignment="Right" VerticalAlignment="Center"
+                                  SelectionChanged="OnWidgetMonitorChanged"/>
+                    </Grid>
+
+                    <Border x:Name="WidgetAutoOffsetDivider" Style="{StaticResource RowDivider}"/>
+                    <Grid x:Name="WidgetAutoOffsetRow" Margin="0,7,0,7">
+                        <StackPanel VerticalAlignment="Center" Margin="0,0,96,0">
+                            <TextBlock x:Name="LblWidgetAutoOffset" Style="{StaticResource RowTitle}"/>
+                            <TextBlock x:Name="LblWidgetAutoOffsetHint" Style="{StaticResource RowHint}"/>
+                        </StackPanel>
+                        <StackPanel x:Name="WidgetOffsetRow" Orientation="Horizontal"
+                                    HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <TextBlock x:Name="LblWidgetOffsetX" Style="{StaticResource RowHint}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <TextBox x:Name="WidgetOffsetX" Width="44" Style="{StaticResource PathBox}"
+                                     TextAlignment="Right" TextChanged="OnOffsetTextChanged"/>
+                            <TextBlock x:Name="LblWidgetOffsetY" Style="{StaticResource RowHint}" VerticalAlignment="Center" Margin="8,0,6,0"/>
+                            <TextBox x:Name="WidgetOffsetY" Width="44" Style="{StaticResource PathBox}"
+                                     TextAlignment="Right" TextChanged="OnOffsetTextChanged"/>
+                            <CheckBox x:Name="WidgetAutoOffset" Style="{StaticResource Switch}" Margin="10,0,0,0"
+                                      Checked="OnAutoOffsetToggled" Unchecked="OnAutoOffsetToggled"/>
+                        </StackPanel>
+                    </Grid>
                 </StackPanel>
             </Border>
 

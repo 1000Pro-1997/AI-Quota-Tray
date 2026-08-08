@@ -223,6 +223,10 @@ public partial class App : Application
         if (_widgetBar is null) return;
 
         _widgetBar.DisplayMode = _settings.DisplayMode;
+        _widgetBar.AutoSize = _settings.WidgetAutoSize;
+        _widgetBar.ManualWidth = _settings.WidgetWidth;
+        _widgetBar.ManualHeight = _settings.WidgetHeight;
+        _widgetBar.ModelsHorizontal = _settings.WidgetModelsHorizontal;
         _widgetBar.MonitorDeviceName = _settings.WidgetMonitorDeviceName;
         _widgetBar.AutoOffset = _settings.WidgetAutoOffset;
         _widgetBar.OffsetX = _settings.WidgetOffsetX;
