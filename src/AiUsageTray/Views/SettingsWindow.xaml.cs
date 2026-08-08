@@ -121,6 +121,10 @@ public partial class SettingsWindow : Window
         // 직접 바꿨을 수 있으므로 저장된 값보다 현재 상태가 정확하다.
         PinToTaskbar.IsChecked = TaskbarPromotion.IsPromoted() ?? _settings.ShowInTaskbar;
         ShowWidgetBar.IsChecked = _settings.ShowWidgetBar;
+        WidgetAutoOffset.IsChecked = _settings.WidgetAutoOffset;
+        WidgetOffsetX.Text = _settings.WidgetOffsetX.ToString();
+        WidgetOffsetY.Text = _settings.WidgetOffsetY.ToString();
+        ShowOffsetRow();
         BuildWidgetMonitorList();
 
         if (!TaskbarPromotion.IsSupported)
@@ -213,7 +217,14 @@ public partial class SettingsWindow : Window
         int selected = Array.FindIndex(_widgetScreens, s => string.Equals(
             s.DeviceName, _settings.WidgetMonitorDeviceName, StringComparison.OrdinalIgnoreCase));
         if (selected < 0) selected = Array.FindIndex(_widgetScreens, s => s.Primary);
+
+        // 목록을 다시 세우는 것뿐인데 SelectionChanged가 ApplyNow를 부르면,
+        // 아직 값을 못 채운 다른 컨트롤이 그대로 설정에 저장돼 기본값으로
+        // 되돌아간 것처럼 보인다. 채우는 동안은 저장을 막는다.
+        bool wasLoading = _loading;
+        _loading = true;
         WidgetMonitorBox.SelectedIndex = selected >= 0 ? selected : 0;
+        _loading = wasLoading;
 
         bool multiple = _widgetScreens.Length > 1;
         WidgetMonitorRow.Visibility = multiple ? Visibility.Visible : Visibility.Collapsed;
@@ -221,6 +232,26 @@ public partial class SettingsWindow : Window
     }
 
     private void OnWidgetMonitorChanged(object sender, SelectionChangedEventArgs e) => ApplyNow();
+
+    /// <summary>자동을 끄면 수동 오프셋 칸을 연다. 켜면 다시 감춘다.</summary>
+    private void OnAutoOffsetToggled(object sender, RoutedEventArgs e)
+    {
+        ShowOffsetRow();
+        ApplyNow();
+    }
+
+    private void OnOffsetTextChanged(object sender, TextChangedEventArgs e) => ApplyNow();
+
+    /// <summary>수동 오프셋 칸은 자동을 꺼야 쓸모가 있다. 그때만 보인다.</summary>
+    private void ShowOffsetRow()
+    {
+        bool manual = WidgetAutoOffset.IsChecked != true;
+        WidgetOffsetRow.Visibility = manual ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>비어 있거나 숫자가 아니면 0으로 본다. 입력 중에도 튀지 않게.</summary>
+    private static int ParseOffset(string text) =>
+        int.TryParse(text.Trim(), out int value) ? Math.Clamp(value, -4000, 4000) : 0;
 
     /// <summary>설치 위치와 런처가 제자리에 있는지 보여 준다.</summary>
     private void ShowInstallState()
@@ -399,6 +430,13 @@ public partial class SettingsWindow : Window
 
             UpdateButton.Content = Strings.Get("update.restart");
         }
+        catch (OperationCanceledException)
+        {
+            // 앱이 내려가는 중이라 끊긴 것이지 실패한 것이 아니다. 여기서
+            // "실패"를 띄우면 다음 실행에 멀쩡히 업데이트된 것과 어긋난다.
+            SetProgress(0);
+            UpdateButton.Content = Strings.Get("update.download");
+        }
         catch (Exception ex)
         {
             SetProgress(0);
@@ -539,6 +577,12 @@ public partial class SettingsWindow : Window
         LblWidgetBarHint.Text = Strings.Get("settings.widgetBarHint");
         LblWidgetMonitor.Text = Strings.Get("settings.widgetMonitor");
         LblWidgetMonitorHint.Text = Strings.Get("settings.widgetMonitorHint");
+        LblWidgetAutoOffset.Text = Strings.Get("settings.widgetAutoOffset");
+        LblWidgetAutoOffsetHint.Text = Strings.Get("settings.widgetAutoOffsetHint");
+        LblWidgetOffset.Text = Strings.Get("settings.widgetOffset");
+        LblWidgetOffsetHint.Text = Strings.Get("settings.widgetOffsetHint");
+        LblWidgetOffsetX.Text = Strings.Get("settings.widgetOffsetX");
+        LblWidgetOffsetY.Text = Strings.Get("settings.widgetOffsetY");
         LblPinTaskbar.Text = Strings.Get("settings.pinTaskbar");
 
 
@@ -725,6 +769,10 @@ public partial class SettingsWindow : Window
             ? _widgetScreens[monitorIdx].DeviceName
             : "";
 
+        _settings.WidgetAutoOffset = WidgetAutoOffset.IsChecked == true;
+        _settings.WidgetOffsetX = ParseOffset(WidgetOffsetX.Text);
+        _settings.WidgetOffsetY = ParseOffset(WidgetOffsetY.Text);
+
         if (TaskbarPromotion.IsSupported) TaskbarPromotion.SetPromoted(pin);
 
         _settings.SetupCompleted = true;
@@ -775,6 +823,10 @@ public partial class SettingsWindow : Window
         AutoUpdateEnabled.IsChecked = _settings.AutoUpdate;
         PinToTaskbar.IsChecked = _settings.ShowInTaskbar;
         ShowWidgetBar.IsChecked = _settings.ShowWidgetBar;
+        WidgetAutoOffset.IsChecked = _settings.WidgetAutoOffset;
+        WidgetOffsetX.Text = _settings.WidgetOffsetX.ToString();
+        WidgetOffsetY.Text = _settings.WidgetOffsetY.ToString();
+        ShowOffsetRow();
         BuildWidgetMonitorList();
 
         if (_settings.DisplayMode == DisplayMode.Used) ModeUsed.IsChecked = true;

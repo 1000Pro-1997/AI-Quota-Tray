@@ -751,6 +751,39 @@
                                   SelectionChanged="OnWidgetMonitorChanged"/>
                     </Grid>
 
+                    <Border x:Name="WidgetAutoOffsetDivider" Style="{StaticResource RowDivider}"/>
+
+                    <Grid x:Name="WidgetAutoOffsetRow" Margin="0,7,0,7">
+                        <StackPanel VerticalAlignment="Center" Margin="0,0,96,0">
+                            <TextBlock x:Name="LblWidgetAutoOffset" Style="{StaticResource RowTitle}"/>
+                            <TextBlock x:Name="LblWidgetAutoOffsetHint" Style="{StaticResource RowHint}"/>
+                        </StackPanel>
+                        <CheckBox x:Name="WidgetAutoOffset" Style="{StaticResource Switch}"
+                                  Checked="OnAutoOffsetToggled" Unchecked="OnAutoOffsetToggled"/>
+                    </Grid>
+
+                    <Grid x:Name="WidgetOffsetRow" Margin="0,7,0,7">
+                        <StackPanel VerticalAlignment="Center" Margin="0,0,190,0">
+                            <TextBlock x:Name="LblWidgetOffset" Style="{StaticResource RowTitle}"/>
+                            <TextBlock x:Name="LblWidgetOffsetHint" Style="{StaticResource RowHint}"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                                    VerticalAlignment="Center">
+                            <TextBlock x:Name="LblWidgetOffsetX" Style="{StaticResource RowHint}"
+                                       VerticalAlignment="Center" Margin="0,0,6,0"/>
+                            <TextBox x:Name="WidgetOffsetX" Width="56"
+                                     Style="{StaticResource PathBox}"
+                                     TextAlignment="Right"
+                                     TextChanged="OnOffsetTextChanged"/>
+                            <TextBlock x:Name="LblWidgetOffsetY" Style="{StaticResource RowHint}"
+                                       VerticalAlignment="Center" Margin="12,0,6,0"/>
+                            <TextBox x:Name="WidgetOffsetY" Width="56"
+                                     Style="{StaticResource PathBox}"
+                                     TextAlignment="Right"
+                                     TextChanged="OnOffsetTextChanged"/>
+                        </StackPanel>
+                    </Grid>
+
                     <Border Style="{StaticResource RowDivider}"/>
 
                     <Grid Margin="0,7,0,7">

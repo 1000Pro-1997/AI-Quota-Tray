@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -56,6 +56,19 @@ public sealed class AppSettings
 
     /// <summary>위젯바를 띄울 모니터의 Windows 장치 이름. 비우면 주 모니터.</summary>
     public string WidgetMonitorDeviceName { get; set; } = "";
+
+    /// <summary>
+    /// 위젯바 위치를 알아서 잡을 것인가. 켜면 알림 영역을 피해 자동으로 붙는다.
+    /// 셸을 바꿔 쓰거나 작업표시줄에 다른 도구를 올려 둔 사람은 자동 계산이
+    /// 어긋나므로, 끄고 아래 두 값으로 직접 밀어 쓴다.
+    /// </summary>
+    public bool WidgetAutoOffset { get; set; } = true;
+
+    /// <summary>수동 오프셋. 자동 위치에서 가로로 민 픽셀. 양수면 왼쪽으로.</summary>
+    public int WidgetOffsetX { get; set; }
+
+    /// <summary>수동 오프셋. 자동 위치에서 세로로 민 픽셀. 양수면 위로.</summary>
+    public int WidgetOffsetY { get; set; }
 
     /// <summary>설정 마법사를 이미 완료했는지.</summary>
     public bool SetupCompleted { get; set; }
@@ -161,6 +174,9 @@ public sealed class AppSettings
         ShowInTaskbar = fresh.ShowInTaskbar;
         ShowWidgetBar = fresh.ShowWidgetBar;
         WidgetMonitorDeviceName = fresh.WidgetMonitorDeviceName;
+        WidgetAutoOffset = fresh.WidgetAutoOffset;
+        WidgetOffsetX = fresh.WidgetOffsetX;
+        WidgetOffsetY = fresh.WidgetOffsetY;
         DisplayMode = fresh.DisplayMode;
         ClaudeColor = fresh.ClaudeColor;
         CodexColor = fresh.CodexColor;

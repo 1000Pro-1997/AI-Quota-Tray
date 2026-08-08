@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -54,6 +54,15 @@ public partial class WidgetBarWindow : Window
 
     /// <summary>설정에서 고른 모니터 장치 이름. 없거나 사라졌으면 주 모니터를 쓴다.</summary>
     public string MonitorDeviceName { get; set; } = "";
+
+    /// <summary>위치를 알아서 잡을 것인가. 끄면 아래 두 값으로 직접 민다.</summary>
+    public bool AutoOffset { get; set; } = true;
+
+    /// <summary>수동 오프셋. 자동 위치에서 왼쪽으로 민 픽셀.</summary>
+    public int OffsetX { get; set; }
+
+    /// <summary>수동 오프셋. 자동 위치에서 위로 민 픽셀.</summary>
+    public int OffsetY { get; set; }
 
     /// <summary>한 줄의 크기. 두 도구의 줄이 나란히 보이도록 고정한다.</summary>
     private const double RowWidth = 96;
@@ -491,6 +500,14 @@ public partial class WidgetBarWindow : Window
         {
             x = work.Right - pw - 12 * scale;
             y = work.Bottom - ph - 4 * scale;
+        }
+
+        // 자동으로 잡은 자리를 기준 삼아 사용자가 민 만큼 옮긴다. 자동 계산이
+        // 어긋나는 환경에서도 처음부터 좌표를 잡게 하지 않으려는 것이다.
+        if (!AutoOffset)
+        {
+            x -= OffsetX * scale;
+            y -= OffsetY * scale;
         }
 
         // 화면 밖으로 나가지 않게 가둔다.

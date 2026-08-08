@@ -211,6 +211,9 @@ public partial class App : Application
 
         _widgetBar.DisplayMode = _settings.DisplayMode;
         _widgetBar.MonitorDeviceName = _settings.WidgetMonitorDeviceName;
+        _widgetBar.AutoOffset = _settings.WidgetAutoOffset;
+        _widgetBar.OffsetX = _settings.WidgetOffsetX;
+        _widgetBar.OffsetY = _settings.WidgetOffsetY;
         _widgetBar.ColorResolver = _settings.ColorFor;
         _widgetBar.StatusResolver = _monitor.Status.For;
         if (_widgetBar.IsVisible) _widgetBar.Reposition();
