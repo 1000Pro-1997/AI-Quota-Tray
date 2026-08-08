@@ -30,3 +30,6 @@ Thumbs.db
 
 # 작업용 메모. 저장소에는 올리지 않는다.
 /CLAUDE.md
+
+# Windows가 폴더에 남기는 파일
+desktop.ini

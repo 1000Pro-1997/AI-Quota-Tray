@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -151,17 +153,32 @@ public partial class SettingsWindow : Window
     private void OnOpenIssues(object sender, RoutedEventArgs e) => App.OpenIssues();
 
     /// <summary>
-    /// 새 버전이 있으면 릴리스 페이지를 열고, 아직 모르면 먼저 확인한다.
-    /// 다운로드는 브라우저에 맡긴다. 앱이 자기 자신을 덮어쓸 수 없기 때문이다.
+    /// 버튼 하나가 상태에 따라 세 가지 일을 한다.
+    /// 확인 → 내려받기 → 재시작. 사용자가 다음에 할 일만 보이게 하려는 것이다.
+    ///
+    /// 런처가 없으면 앱이 스스로를 교체할 수 없으므로 릴리스 페이지로 보낸다.
     /// </summary>
     private async void OnUpdateClick(object sender, RoutedEventArgs e)
     {
         if (_updates is null) return;
 
-        // 이미 새 버전을 알고 있으면 바로 연다.
+        // 이미 받아 둔 것이 있으면 남은 일은 재시작뿐이다.
+        if (UpdateDownloader.PendingReady && UpdateDownloader.LauncherInstalled)
+        {
+            ApplyAndRestart();
+            return;
+        }
+
         if (_updates.Last is { HasUpdate: true } known)
         {
-            App.OpenUrl(known.PageUrl);
+            // 런처가 없거나 릴리스에 파일이 없으면 손으로 받게 한다.
+            if (!known.CanDownload || !UpdateDownloader.LauncherInstalled)
+            {
+                App.OpenUrl(known.PageUrl);
+                return;
+            }
+
+            await DownloadAsync(known);
             return;
         }
 
@@ -179,6 +196,71 @@ public partial class SettingsWindow : Window
             UpdateButton.IsEnabled = true;
         }
     }
+
+    /// <summary>진행 막대를 보이며 내려받는다. 끝나면 재시작만 남는다.</summary>
+    private async Task DownloadAsync(UpdateInfo info)
+    {
+        UpdateButton.IsEnabled = false;
+        UpdateDot.Visibility = Visibility.Collapsed;
+        UpdateProgressTrack.Visibility = Visibility.Visible;
+        SetProgress(0);
+
+        var progress = new Progress<DownloadProgress>(p =>
+        {
+            UpdateText.Text = Strings.Get("update.downloading", (int)p.Percent);
+            SetProgress(p.Percent);
+        });
+
+        try
+        {
+            var downloader = new UpdateDownloader(new HttpClient
+            {
+                // 자립형 exe는 75MB쯤 된다. 기본 100초로는 느린 회선에서 끊긴다.
+                Timeout = TimeSpan.FromMinutes(10),
+            });
+
+            await downloader.DownloadAsync(info, progress);
+
+            UpdateProgressTrack.Visibility = Visibility.Collapsed;
+            UpdateText.Text = Strings.Get("update.available",
+                info.Latest?.ToString() ?? info.TagName);
+            UpdateDot.Visibility = Visibility.Visible;
+            UpdateButton.Content = Strings.Get("update.restart");
+        }
+        catch (Exception ex)
+        {
+            UpdateProgressTrack.Visibility = Visibility.Collapsed;
+            UpdateText.Text = ex is InvalidOperationException
+                ? ex.Message
+                : Strings.Get("update.downloadFailed");
+            UpdateButton.Content = Strings.Get("update.download");
+        }
+        finally
+        {
+            UpdateButton.IsEnabled = true;
+        }
+    }
+
+    /// <summary>런처에게 교체를 맡기고 앱을 끝낸다. 런처가 새 버전을 다시 띄운다.</summary>
+    private void ApplyAndRestart()
+    {
+        UpdateButton.IsEnabled = false;
+        UpdateText.Text = Strings.Get("update.restarting");
+
+        if (UpdateDownloader.RestartToApply())
+        {
+            Application.Current.Shutdown();
+            return;
+        }
+
+        // 런처를 못 띄웠다. 받아 둔 것은 다음 부팅에 적용되니 알리기만 한다.
+        UpdateText.Text = Strings.Get("update.noLauncher");
+        UpdateButton.IsEnabled = true;
+    }
+
+    /// <summary>0~100을 막대 너비로 옮긴다.</summary>
+    private void SetProgress(double percent) =>
+        UpdateProgressFill.Width = UpdateProgressTrack.Width * Math.Clamp(percent, 0, 100) / 100.0;
 
     /// <summary>확인 결과를 버전 줄에 반영한다.</summary>
     private void ShowUpdateState(UpdateInfo? info)
@@ -204,7 +286,9 @@ public partial class SettingsWindow : Window
         {
             UpdateText.Text = Strings.Get("update.available", info.Latest?.ToString() ?? info.TagName);
             UpdateDot.Visibility = Visibility.Visible;
-            UpdateButton.Content = Strings.Get("update.download");
+            UpdateButton.Content = UpdateDownloader.PendingReady
+                ? Strings.Get("update.restart")
+                : Strings.Get("update.download");
         }
         else
         {

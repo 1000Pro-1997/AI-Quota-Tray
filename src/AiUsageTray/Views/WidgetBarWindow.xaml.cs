@@ -371,12 +371,17 @@ public partial class WidgetBarWindow : Window
             Opacity = 0.85,
         };
 
-    /// <summary>비어 있는 칸. 다른 도구와 줄 위치를 맞추기 위해 자리만 차지한다.</summary>
-    private UIElement BuildPlaceholder() => new Grid
+    /// <summary>
+    /// 값이 없는 세션 칸. 주간 행의 위치를 맞추면서도 5시간 한도가 아직
+    /// 시작되지 않았거나 제공되지 않는 상태임을 빈 게이지로 보여준다.
+    /// </summary>
+    private UIElement BuildPlaceholder() => new Border
     {
         Width = RowWidth,
         Height = RowHeight,
         Margin = new Thickness(0, 1, 0, 1),
+        Background = (Brush)Resources["BarTrackBrush"],
+        CornerRadius = new CornerRadius(3),
     };
 
     /// <summary>블록에 마우스를 올리면 어느 도구의 무슨 한도인지 알려준다.</summary>

@@ -655,6 +655,15 @@
                     <TextBlock x:Name="UpdateText" FontSize="10.5"
                                VerticalAlignment="Center"
                                Foreground="{DynamicResource SubtleBrush}"/>
+                    <!-- 내려받는 동안에만 보이는 진행 막대 -->
+                    <Border x:Name="UpdateProgressTrack" Width="90" Height="4"
+                            CornerRadius="2" Margin="8,0,0,0"
+                            VerticalAlignment="Center" Visibility="Collapsed"
+                            Background="{DynamicResource TrackOffBrush}">
+                        <Border x:Name="UpdateProgressFill" Width="0" Height="4"
+                                CornerRadius="2" HorizontalAlignment="Left"
+                                Background="#3FB950"/>
+                    </Border>
                 </StackPanel>
                 <Button x:Name="UpdateButton" Style="{StaticResource LinkText}"
                         HorizontalAlignment="Right" VerticalAlignment="Center"

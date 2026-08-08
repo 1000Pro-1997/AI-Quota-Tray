@@ -12,12 +12,16 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Duration;
 use windows_sys::Win32::Foundation::{CloseHandle, ERROR_ALREADY_EXISTS, GetLastError, HANDLE};
-use windows_sys::Win32::System::Threading::CreateMutexW;
+use windows_sys::Win32::System::Threading::{CreateMutexW, OpenMutexW};
 use windows_sys::Win32::UI::WindowsAndMessaging::{MB_ICONERROR, MB_OK, MessageBoxW};
 
 const RELEASE_API: &str = "https://api.github.com/repos/1000Pro-1997/AI-Quota-Tray/releases/latest";
 const ASSET_NAME: &str = "AiQuotaTray-standalone.exe";
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+
+/// 뮤텍스를 "있는지만" 확인할 때 쓰는 최소 권한. windows-sys에서는
+/// 파일 시스템 쪽에 묶여 있어 피처가 늘어나므로 값을 직접 적는다.
+const SYNCHRONIZE: u32 = 0x0010_0000;
 
 #[derive(Deserialize)]
 struct Release {
@@ -53,6 +57,12 @@ fn main() {
 fn run() -> Result<(), String> {
     let installed = launcher_path();
     let current = env::current_exe().map_err(|e| e.to_string())?;
+
+    // 앱이 "받아뒀으니 지금 갈아끼워 달라"고 부른 경우.
+    // 앱은 이 호출 직후 스스로 종료하므로, 잠금이 풀릴 때까지 기다렸다 교체한다.
+    if env::args().skip(1).any(|a| a == "--apply-now") {
+        return apply_now();
+    }
 
     if !same_path(&current, &installed) {
         install_launcher(&current, &installed)?;
@@ -173,6 +183,57 @@ fn install_launcher(source: &Path, target: &Path) -> Result<(), String> {
         return Err("시작 프로그램을 등록하지 못했습니다.".into());
     }
     Ok(())
+}
+
+/// 실행 중인 앱이 끝나기를 기다렸다가 교체하고 다시 띄운다.
+///
+/// 실행 중인 exe는 Windows가 잠가서 rename이 실패한다. 앱이 완전히
+/// 사라지는 시점을 밖에서 알 수 없으니 짧은 간격으로 되풀이해 본다.
+fn apply_now() -> Result<(), String> {
+    fs::create_dir_all(install_dir()).map_err(|e| e.to_string())?;
+
+    if !pending_path().exists() {
+        return Err("받아 둔 업데이트가 없습니다.".into());
+    }
+
+    // 앱이 완전히 사라진 뒤에 띄워야 한다. 앱은 SingleInstance 뮤텍스를 쥐고 있어,
+    // 아직 살아 있는 동안 새 인스턴스를 띄우면 "이미 실행 중"으로 조용히 죽는다.
+    // 최대 30초. 이보다 오래 안 끝나면 앱이 멈춘 것이라 봐야 한다.
+    let mut exited = false;
+    for _ in 0..60 {
+        if !app_is_running() {
+            exited = true;
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(500));
+    }
+
+    if !exited {
+        log_line("app did not exit in time; applying anyway");
+    }
+
+    apply_pending_update()?;
+    let _ = start_hidden(&app_path(), &[]);
+    log_line("update applied on request");
+    Ok(())
+}
+
+/// 앱이 아직 살아 있는가. 앱이 쥐는 단일 인스턴스 뮤텍스를 열어 본다.
+///
+/// 이름이 App.xaml.cs의 것과 어긋나면 기다리지 않고 지나가므로 함께 고쳐야 한다.
+fn app_is_running() -> bool {
+    // 이름은 App.xaml.cs의 것과 같아야 한다. 환경변수는 시험용 우회로다.
+    let raw = env::var("AI_QUOTA_TRAY_MUTEX")
+        .unwrap_or_else(|_| "AiQuotaTray.SingleInstance".to_string());
+    let name = to_wide(&raw);
+    let handle = unsafe { OpenMutexW(SYNCHRONIZE, 0, name.as_ptr()) };
+    if handle.is_null() {
+        return false;
+    }
+    unsafe {
+        CloseHandle(handle);
+    }
+    true
 }
 
 fn apply_pending_update() -> Result<(), String> {

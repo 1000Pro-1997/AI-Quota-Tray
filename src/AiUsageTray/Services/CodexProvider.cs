@@ -158,9 +158,17 @@ public sealed class CodexProvider : IUsageProvider
         if (w.TryGetProperty("resets_at", out var ra) && ra.ValueKind == JsonValueKind.Number)
             reset = DateTimeOffset.FromUnixTimeSeconds(ra.GetInt64()).LocalDateTime;
 
+        var kind = KindFor(minutes);
+
+        // Codex가 5시간 한도를 적용하지 않거나 아직 창을 시작하지 않은 경우에는
+        // used_percent가 있어도 resets_at이 빠질 수 있다. 이 값을 실제 세션 한도로
+        // 그리면 (특히 잔여량 모드에서) 게이지가 찬 것처럼 보이므로 빈 칸으로 둔다.
+        if (kind == WindowKind.Session && reset is null)
+            return;
+
         into.Add(new UsageWindow
         {
-            Kind = KindFor(minutes),
+            Kind = kind,
             RawLabel = DescribeWindow(minutes),
             Percent = pct,
             ResetsAt = reset,

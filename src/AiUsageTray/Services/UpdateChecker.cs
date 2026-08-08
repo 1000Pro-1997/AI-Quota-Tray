@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
@@ -24,6 +25,19 @@ public sealed class UpdateInfo
     /// <summary>확인에 실패한 사유. 성공이면 null.</summary>
     public string? Error { get; init; }
 
+    /// <summary>자립형 exe의 내려받기 주소. 릴리스에 없으면 빈 문자열.</summary>
+    public string AssetUrl { get; init; } = "";
+
+    /// <summary>자립형 exe의 크기(바이트). 진행률 계산에 쓴다.</summary>
+    public long AssetSize { get; init; }
+
+    /// <summary>기대되는 SHA256. 검증에 쓴다. 못 구했으면 빈 문자열.</summary>
+    public string AssetSha256 { get; init; } = "";
+
+    /// <summary>앱 안에서 바로 받을 수 있는가. 주소와 해시가 모두 있어야 한다.</summary>
+    public bool CanDownload =>
+        HasUpdate && AssetUrl.Length > 0 && AssetSha256.Length == 64;
+
     public static UpdateInfo Failed(string reason) => new() { Error = reason };
 }
 
@@ -35,6 +49,9 @@ public sealed class UpdateInfo
 /// </summary>
 public sealed class UpdateChecker
 {
+    /// <summary>런처가 받아가는 것과 같은 파일. 이름이 어긋나면 자동 설치가 끊긴다.</summary>
+    public const string AssetName = "AiQuotaTray-standalone.exe";
+
     private const string LatestReleaseApi =
         "https://api.github.com/repos/1000Pro-1997/AI-Quota-Tray/releases/latest";
 
@@ -138,14 +155,70 @@ public sealed class UpdateChecker
         if (latest is null)
             return new UpdateInfo { TagName = tag, PageUrl = page, HasUpdate = false };
 
+        string body = root.TryGetProperty("body", out var b) ? b.GetString() ?? "" : "";
+        var (url, size, sha) = FindAsset(root, body);
+
         return new UpdateInfo
         {
             Latest = latest,
             TagName = tag,
             PageUrl = string.IsNullOrEmpty(page) ? AppInfo.Repository + "/releases" : page,
             HasUpdate = latest > Current,
+            AssetUrl = url,
+            AssetSize = size,
+            AssetSha256 = sha,
         };
     }
+
+    /// <summary>릴리스에서 자립형 exe와 그 SHA256을 찾는다. 런처가 쓰는 규칙과 같다.</summary>
+    private static (string Url, long Size, string Sha) FindAsset(JsonElement root, string body)
+    {
+        if (!root.TryGetProperty("assets", out var assets) || assets.ValueKind != JsonValueKind.Array)
+            return ("", 0, "");
+
+        foreach (var a in assets.EnumerateArray())
+        {
+            if (!a.TryGetProperty("name", out var n) || n.GetString() != AssetName) continue;
+
+            string url = a.TryGetProperty("browser_download_url", out var u) ? u.GetString() ?? "" : "";
+            long size = a.TryGetProperty("size", out var s) && s.ValueKind == JsonValueKind.Number
+                ? s.GetInt64() : 0;
+
+            // GitHub가 digest를 주면 그것을 쓰고, 없으면 릴리스 본문에서 찾는다.
+            string sha = "";
+            if (a.TryGetProperty("digest", out var d) && d.ValueKind == JsonValueKind.String &&
+                d.GetString() is { } raw && raw.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase))
+            {
+                string v = raw[7..];
+                if (IsSha256(v)) sha = v;
+            }
+
+            if (sha.Length == 0) sha = ShaFromBody(body);
+
+            return (url, size, sha);
+        }
+
+        return ("", 0, "");
+    }
+
+    /// <summary>릴리스 본문에서 자립형 exe 이름이 있는 줄의 64자리 16진수를 찾는다.</summary>
+    private static string ShaFromBody(string body)
+    {
+        foreach (string line in body.Split('\n'))
+        {
+            if (!line.Contains(AssetName, StringComparison.Ordinal)) continue;
+
+            foreach (string word in line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
+            {
+                string clean = word.Trim('`', '*', '|', '(', ')', '[', ']', ':', ',', '.');
+                if (IsSha256(clean)) return clean;
+            }
+        }
+        return "";
+    }
+
+    private static bool IsSha256(string v) =>
+        v.Length == 64 && v.All(char.IsAsciiHexDigit);
 
     /// <summary>"v1.2.0", "1.2", "1.2.0-beta" 같은 태그에서 숫자만 뽑는다.</summary>
     private static Version? ParseVersion(string tag)

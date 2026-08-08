@@ -130,8 +130,13 @@ Changes apply the moment you make them — there is no Save button. **AllReset**
 returns everything to defaults.
 
 The current version sits at the bottom. The app checks GitHub Releases once a day.
-Installations made through `AI-Quota-Tray-Setup.exe` are updated automatically by
-the launcher; portable/manual installations still link to the release page.
+
+Installations made through `AI-Quota-Tray-Setup.exe` update in place: the button
+downloads the new build with a progress bar, verifies its SHA256, and turns into
+**Restart to apply**. Pressing it hands over to the launcher, which waits for the
+app to close, swaps the executable, and starts the new version — no reboot needed.
+Portable/manual installations have no launcher to do the swap, so they link to the
+release page instead.
 
 Stored in `%APPDATA%\AiQuotaTray\settings.json`.
 
