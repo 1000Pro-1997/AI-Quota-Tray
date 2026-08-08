@@ -210,8 +210,10 @@ public partial class App : Application
         if (_widgetBar is null) return;
 
         _widgetBar.DisplayMode = _settings.DisplayMode;
+        _widgetBar.MonitorDeviceName = _settings.WidgetMonitorDeviceName;
         _widgetBar.ColorResolver = _settings.ColorFor;
         _widgetBar.StatusResolver = _monitor.Status.For;
+        if (_widgetBar.IsVisible) _widgetBar.Reposition();
     }
 
     private void BuildTray()

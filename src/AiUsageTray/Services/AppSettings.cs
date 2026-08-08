@@ -54,6 +54,9 @@ public sealed class AppSettings
     /// <summary>작업표시줄 옆에 가로 막대로 사용량을 항상 띄운다.</summary>
     public bool ShowWidgetBar { get; set; } = true;
 
+    /// <summary>위젯바를 띄울 모니터의 Windows 장치 이름. 비우면 주 모니터.</summary>
+    public string WidgetMonitorDeviceName { get; set; } = "";
+
     /// <summary>설정 마법사를 이미 완료했는지.</summary>
     public bool SetupCompleted { get; set; }
 
@@ -157,6 +160,7 @@ public sealed class AppSettings
         KeepFiveHourWindowsAligned = fresh.KeepFiveHourWindowsAligned;
         ShowInTaskbar = fresh.ShowInTaskbar;
         ShowWidgetBar = fresh.ShowWidgetBar;
+        WidgetMonitorDeviceName = fresh.WidgetMonitorDeviceName;
         DisplayMode = fresh.DisplayMode;
         ClaudeColor = fresh.ClaudeColor;
         CodexColor = fresh.CodexColor;

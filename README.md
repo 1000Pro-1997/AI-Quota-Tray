@@ -132,6 +132,8 @@ Changes apply the moment you make them — there is no Save button. **AllReset**
 returns everything to defaults.
 
 The current version sits at the bottom. The app checks GitHub Releases once a day.
+On multi-monitor systems, Settings also lets you choose which display hosts the
+widget bar. A GitHub shortcut opens the project homepage directly.
 
 Installations made through `AI-Quota-Tray.exe` update in place: the button
 downloads the new build with a progress bar, verifies its SHA256, and turns into

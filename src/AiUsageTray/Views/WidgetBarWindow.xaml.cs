@@ -51,6 +51,9 @@ public partial class WidgetBarWindow : Window
 
     public DisplayMode DisplayMode { get; set; } = DisplayMode.Remaining;
 
+    /// <summary>설정에서 고른 모니터 장치 이름. 없거나 사라졌으면 주 모니터를 쓴다.</summary>
+    public string MonitorDeviceName { get; set; } = "";
+
     /// <summary>한 줄의 크기. 두 도구의 줄이 나란히 보이도록 고정한다.</summary>
     private const double RowWidth = 96;
     private const double RowHeight = 16;
@@ -434,7 +437,9 @@ public partial class WidgetBarWindow : Window
     {
         if (ActualWidth <= 0) UpdateLayout();
 
-        var screen = System.Windows.Forms.Screen.PrimaryScreen;
+        var screen = System.Windows.Forms.Screen.AllScreens.FirstOrDefault(s =>
+            string.Equals(s.DeviceName, MonitorDeviceName, StringComparison.OrdinalIgnoreCase))
+            ?? System.Windows.Forms.Screen.PrimaryScreen;
         if (screen is null) return;
 
         var work = screen.WorkingArea;
@@ -454,7 +459,7 @@ public partial class WidgetBarWindow : Window
             int barTop = work.Bottom;
             int barHeight = full.Bottom - work.Bottom;
 
-            x = work.Right - pw - TrayWidthGuess(scale);
+            x = work.Right - pw - (screen.Primary ? TrayWidthGuess(scale) : 12 * scale);
 
             // 작업표시줄 안에 세로 가운데로 놓는다.
             // 막대가 작업표시줄보다 높으면 아래를 살짝 띄우고 위로 넘치게 둔다.
@@ -466,7 +471,7 @@ public partial class WidgetBarWindow : Window
         {
             int barHeight = work.Top - full.Top;
 
-            x = work.Right - pw - TrayWidthGuess(scale);
+            x = work.Right - pw - (screen.Primary ? TrayWidthGuess(scale) : 12 * scale);
             y = ph <= barHeight
                 ? full.Top + (barHeight - ph) / 2
                 : full.Top + Gap * scale;

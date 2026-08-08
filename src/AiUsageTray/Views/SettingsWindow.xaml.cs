@@ -36,6 +36,8 @@ public partial class SettingsWindow : Window
 
     private readonly UpdateChecker? _updates;
 
+    private System.Windows.Forms.Screen[] _widgetScreens = Array.Empty<System.Windows.Forms.Screen>();
+
     public SettingsWindow(AppSettings settings, UpdateChecker? updates = null)
     {
         _settings = settings;
@@ -119,6 +121,7 @@ public partial class SettingsWindow : Window
         // 직접 바꿨을 수 있으므로 저장된 값보다 현재 상태가 정확하다.
         PinToTaskbar.IsChecked = TaskbarPromotion.IsPromoted() ?? _settings.ShowInTaskbar;
         ShowWidgetBar.IsChecked = _settings.ShowWidgetBar;
+        BuildWidgetMonitorList();
 
         if (!TaskbarPromotion.IsSupported)
         {
@@ -188,6 +191,33 @@ public partial class SettingsWindow : Window
     }
 
     private void OnOpenIssues(object sender, RoutedEventArgs e) => App.OpenIssues();
+
+    private void OnOpenGitHub(object sender, RoutedEventArgs e) => App.OpenUrl(AppInfo.Repository);
+
+    /// <summary>화면이 여러 개일 때만 위젯을 옮길 대상을 고르게 한다.</summary>
+    private void BuildWidgetMonitorList()
+    {
+        _widgetScreens = System.Windows.Forms.Screen.AllScreens;
+        WidgetMonitorBox.Items.Clear();
+
+        for (int i = 0; i < _widgetScreens.Length; i++)
+        {
+            var screen = _widgetScreens[i];
+            string primary = screen.Primary ? $" ({Strings.Get("settings.primaryMonitor")})" : "";
+            WidgetMonitorBox.Items.Add($"{i + 1}: {screen.DeviceName}{primary}");
+        }
+
+        int selected = Array.FindIndex(_widgetScreens, s => string.Equals(
+            s.DeviceName, _settings.WidgetMonitorDeviceName, StringComparison.OrdinalIgnoreCase));
+        if (selected < 0) selected = Array.FindIndex(_widgetScreens, s => s.Primary);
+        WidgetMonitorBox.SelectedIndex = selected >= 0 ? selected : 0;
+
+        bool multiple = _widgetScreens.Length > 1;
+        WidgetMonitorRow.Visibility = multiple ? Visibility.Visible : Visibility.Collapsed;
+        WidgetMonitorDivider.Visibility = multiple ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void OnWidgetMonitorChanged(object sender, SelectionChangedEventArgs e) => ApplyNow();
 
     /// <summary>설치 위치와 런처가 제자리에 있는지 보여 준다.</summary>
     private void ShowInstallState()
@@ -474,6 +504,7 @@ public partial class SettingsWindow : Window
         // 바로 적용해 어떻게 보이는지 확인할 수 있게 한다.
         Strings.Current = Strings.Languages[i].Code;
         Retranslate();
+        BuildWidgetMonitorList();
         UpdatePathStatus();
         ApplyNow();
     }
@@ -503,6 +534,8 @@ public partial class SettingsWindow : Window
 
         LblWidgetBar.Text = Strings.Get("settings.widgetBar");
         LblWidgetBarHint.Text = Strings.Get("settings.widgetBarHint");
+        LblWidgetMonitor.Text = Strings.Get("settings.widgetMonitor");
+        LblWidgetMonitorHint.Text = Strings.Get("settings.widgetMonitorHint");
         LblPinTaskbar.Text = Strings.Get("settings.pinTaskbar");
 
 
@@ -528,6 +561,9 @@ public partial class SettingsWindow : Window
         LblIssues.Text = Strings.Get("settings.issues");
         LblIssuesHint.Text = Strings.Get("settings.issuesHint");
         IssuesLink.Content = Strings.Get("settings.issuesButton");
+        LblGitHub.Text = Strings.Get("settings.github");
+        LblGitHubHint.Text = Strings.Get("settings.githubHint");
+        GitHubLink.Content = Strings.Get("settings.githubButton");
 
 
         // 런처 유무는 문구가 갈리므로 상태를 다시 읽어 채운다.
@@ -681,6 +717,10 @@ public partial class SettingsWindow : Window
         bool pin = PinToTaskbar.IsChecked == true;
         _settings.ShowInTaskbar = pin;
         _settings.ShowWidgetBar = ShowWidgetBar.IsChecked == true;
+        int monitorIdx = WidgetMonitorBox.SelectedIndex;
+        _settings.WidgetMonitorDeviceName = monitorIdx >= 0 && monitorIdx < _widgetScreens.Length
+            ? _widgetScreens[monitorIdx].DeviceName
+            : "";
 
         if (TaskbarPromotion.IsSupported) TaskbarPromotion.SetPromoted(pin);
 
@@ -732,6 +772,7 @@ public partial class SettingsWindow : Window
         AutoUpdateEnabled.IsChecked = _settings.AutoUpdate;
         PinToTaskbar.IsChecked = _settings.ShowInTaskbar;
         ShowWidgetBar.IsChecked = _settings.ShowWidgetBar;
+        BuildWidgetMonitorList();
 
         if (_settings.DisplayMode == DisplayMode.Used) ModeUsed.IsChecked = true;
         else ModeRemaining.IsChecked = true;

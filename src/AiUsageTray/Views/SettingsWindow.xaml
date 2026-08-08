@@ -738,6 +738,19 @@
                                   Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
                     </Grid>
 
+                    <Border x:Name="WidgetMonitorDivider" Style="{StaticResource RowDivider}"/>
+
+                    <Grid x:Name="WidgetMonitorRow" Margin="0,7,0,7">
+                        <StackPanel VerticalAlignment="Center" Margin="0,0,190,0">
+                            <TextBlock x:Name="LblWidgetMonitor" Style="{StaticResource RowTitle}"/>
+                            <TextBlock x:Name="LblWidgetMonitorHint" Style="{StaticResource RowHint}"/>
+                        </StackPanel>
+                        <ComboBox x:Name="WidgetMonitorBox" Width="176"
+                                  Style="{StaticResource SoftCombo}"
+                                  HorizontalAlignment="Right" VerticalAlignment="Center"
+                                  SelectionChanged="OnWidgetMonitorChanged"/>
+                    </Grid>
+
                     <Border Style="{StaticResource RowDivider}"/>
 
                     <Grid Margin="0,7,0,7">
@@ -873,6 +886,19 @@
                         <Button x:Name="ResetAllButton" Style="{StaticResource DangerButton}"
                                 Padding="12,6" HorizontalAlignment="Right"
                                 VerticalAlignment="Center" Click="OnResetAll"/>
+                    </Grid>
+
+                    <Border Style="{StaticResource RowDivider}"/>
+
+                    <!-- 프로젝트 홈페이지 -->
+                    <Grid Margin="0,7,0,7">
+                        <StackPanel VerticalAlignment="Center" Margin="0,0,110,0">
+                            <TextBlock x:Name="LblGitHub" Style="{StaticResource RowTitle}"/>
+                            <TextBlock x:Name="LblGitHubHint" Style="{StaticResource RowHint}"/>
+                        </StackPanel>
+                        <Button x:Name="GitHubLink" Style="{StaticResource GhostButton}"
+                                Padding="12,6" HorizontalAlignment="Right"
+                                VerticalAlignment="Center" Click="OnOpenGitHub"/>
                     </Grid>
 
                     <Border Style="{StaticResource RowDivider}"/>
