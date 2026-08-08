@@ -12,8 +12,14 @@ dotnet publish $project -c Release -r win-x64 --self-contained false `
     -p:PublishSingleFile=true -o (Join-Path $build 'framework')
 if ($LASTEXITCODE -ne 0) { throw 'Framework-dependent publish failed.' }
 
+# WPF는 네이티브 DLL(wpfgfx_cor3 등)을 쓴다. IncludeNativeLibrariesForSelfExtract
+# 없이 단일 파일로 묶으면 그 DLL이 풀리지 않아 앱이 DllNotFoundException으로 죽는다.
+# EnableCompressionInSingleFile을 빼면 크기가 두 배로 부푼다. 둘 다 반드시 넣을 것.
 dotnet publish $project -c Release -r win-x64 --self-contained true `
-    -p:PublishSingleFile=true -o (Join-Path $build 'standalone')
+    -p:PublishSingleFile=true `
+    -p:IncludeNativeLibrariesForSelfExtract=true `
+    -p:EnableCompressionInSingleFile=true `
+    -o (Join-Path $build 'standalone')
 if ($LASTEXITCODE -ne 0) { throw 'Standalone publish failed.' }
 
 cargo build --release --manifest-path (Join-Path $root 'launcher\Cargo.toml')
