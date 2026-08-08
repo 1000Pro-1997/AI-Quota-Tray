@@ -3,7 +3,7 @@
 `gh release create` 의 `--notes-file` 로 넘길 글. 아래를 복사해 버전과 내용만 갈아 끼운다.
 
 에셋이 둘이라 사용자가 무엇을 받을지 헷갈린다.
-**맨 위에서 런처 하나만 가리키고, 나머지는 접어 둔다.**
+**맨 위의 다운로드 문구는 아래 한 줄 형식을 그대로 유지하고, 버전만 바꾼다.**
 
 `AiQuotaTray-standalone.exe` 의 SHA256 은 반드시 남긴다. 런처와 앱이
 그 값으로 내려받은 파일을 검증하기 때문이다. 값이 없거나 틀리면 자동 업데이트가 멈춘다.
@@ -11,10 +11,10 @@
 
 ---
 
-## 👉 Download **AI-Quota-Tray.exe**
+**Download :** [**AI-Quota-Tray.exe**](https://github.com/1000Pro-1997/AI-Quota-Tray/releases/download/vX.Y.Z/AI-Quota-Tray.exe)
 
-About 2 MB. That is the only file you need — it installs the app, starts it with
-Windows, and keeps it updated from then on. No .NET required.
+About 2 MB. It installs the app, starts it with Windows, and keeps it updated
+from then on. No .NET required.
 
 <details>
 <summary>What are the other files?</summary>
