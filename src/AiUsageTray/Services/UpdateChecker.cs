@@ -61,16 +61,11 @@ public sealed class UpdateChecker
     private const string LatestReleaseApi =
         "https://api.github.com/repos/1000Pro-1997/AI-Quota-Tray/releases/latest";
 
-    /// <summary>이 간격 안에는 다시 묻지 않는다. GitHub API는 시간당 60회 제한이 있다.</summary>
-    private static readonly TimeSpan CheckInterval = TimeSpan.FromHours(24);
-
     private readonly HttpClient _http;
-    private readonly AppSettings _settings;
 
-    public UpdateChecker(HttpClient http, AppSettings settings)
+    public UpdateChecker(HttpClient http)
     {
         _http = http;
-        _settings = settings;
     }
 
     /// <summary>마지막으로 확인한 결과. 아직 확인 전이면 null.</summary>
@@ -84,14 +79,6 @@ public sealed class UpdateChecker
             var v = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
             return v is null ? new Version(1, 0, 0) : new Version(v.Major, v.Minor, v.Build);
         }
-    }
-
-    /// <summary>하루가 지났으면 확인한다. 시작할 때 부른다.</summary>
-    public async Task CheckIfDueAsync(CancellationToken ct = default)
-    {
-        if (DateTime.Now - _settings.LastUpdateCheck < CheckInterval) return;
-
-        await CheckAsync(ct).ConfigureAwait(false);
     }
 
     /// <summary>지금 바로 확인한다. 설정의 버튼에서 부른다.</summary>
@@ -109,27 +96,14 @@ public sealed class UpdateChecker
 
             // 릴리스를 아직 하나도 올리지 않았으면 404가 온다. 오류가 아니다.
             if (res.StatusCode == System.Net.HttpStatusCode.NotFound)
-            {
-                _settings.LastUpdateCheck = DateTime.Now;
-                _settings.Save();
-
                 return Last = new UpdateInfo { HasUpdate = false };
-            }
 
             if (!res.IsSuccessStatusCode)
                 return Last = UpdateInfo.Failed(Strings.Get("update.failed"));
 
             string body = await res.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-            var info = Parse(body);
 
-            // 확인에 성공했을 때만 시각을 남긴다. 실패는 다시 시도할 수 있게 둔다.
-            if (info.Error is null)
-            {
-                _settings.LastUpdateCheck = DateTime.Now;
-                _settings.Save();
-            }
-
-            return Last = info;
+            return Last = Parse(body);
         }
         catch (OperationCanceledException) { throw; }
         catch (HttpRequestException)

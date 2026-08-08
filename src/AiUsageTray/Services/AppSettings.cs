@@ -57,9 +57,6 @@ public sealed class AppSettings
     /// <summary>설정 마법사를 이미 완료했는지.</summary>
     public bool SetupCompleted { get; set; }
 
-    /// <summary>새 버전을 마지막으로 확인한 시각. 하루에 한 번만 묻는다.</summary>
-    public DateTime LastUpdateCheck { get; set; } = DateTime.MinValue;
-
     /// <summary>
     /// 새 버전을 알아서 받아 둘 것인가. 꺼도 확인은 계속한다.
     /// 알림은 받되 언제 받을지는 직접 고르고 싶은 사람이 있다.

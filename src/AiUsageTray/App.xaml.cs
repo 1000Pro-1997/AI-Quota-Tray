@@ -75,7 +75,7 @@ public partial class App : Application
         Strings.Current = _settings.Language;
         _monitor = new UsageMonitor(_settings);
         _primer = new WindowPrimer(_settings);
-        _updates = new UpdateChecker(new HttpClient { Timeout = TimeSpan.FromSeconds(15) }, _settings);
+        _updates = new UpdateChecker(new HttpClient { Timeout = TimeSpan.FromSeconds(15) });
 
         // 이벤트는 백그라운드 스레드에서 올 수 있으므로 UI 스레드로 넘긴다.
         _monitor.Updated += usages => Dispatcher.Invoke(() => OnUsageUpdated(usages));
@@ -98,7 +98,7 @@ public partial class App : Application
         bool showNow = e.Args.Any(a =>
             string.Equals(a, "--flyout", StringComparison.OrdinalIgnoreCase));
 
-        // 하루에 한 번만 새 버전을 묻는다. 실패해도 앱 동작에는 영향이 없다.
+        // 켤 때마다 새 버전을 묻는다. 실패해도 앱 동작에는 영향이 없다.
         _ = CheckAndStageUpdateAsync();
 
         _ = _monitor.RefreshAsync().ContinueWith(_ =>
@@ -118,14 +118,11 @@ public partial class App : Application
     {
         try
         {
-            // 런처가 없는 것은 정상이 아니다. 자립형 exe만 내려받아 쓰는 사람은
-            // 이 자리를 지나야 런처를 갖는데, 하루 간격에 걸려 확인을 건너뛰면
-            // 그동안 부팅해도 앱이 안 뜨고 새 버전도 못 받는다. 그때는 간격을
-            // 무시하고 묻는다.
-            if (UpdateDownloader.LauncherInstalled)
-                await _updates.CheckIfDueAsync();
-            else
-                await _updates.CheckAsync();
+            // 켤 때마다 묻는다. 확인을 부르는 자리가 여기 하나뿐이라 요청 수는
+            // 앱을 켠 횟수를 넘지 않는다. 시간당 60회인 GitHub 제한에 닿을 일이
+            // 없으니, 간격을 두어 "새 판이 나왔는데 오늘은 안 알려주는" 날을
+            // 만드는 편이 손해였다.
+            await _updates.CheckAsync();
 
             if (_updates.Last is not { Error: null } info) return;
 
