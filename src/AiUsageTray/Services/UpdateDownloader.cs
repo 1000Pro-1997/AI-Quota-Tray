@@ -74,12 +74,39 @@ public sealed class UpdateDownloader
             if (bytes.Length == 0 || bytes.Length > 32 * 1024 * 1024) return false;
 
             await File.WriteAllBytesAsync(LauncherPath, bytes, ct).ConfigureAwait(false);
+
+            // 파일만 되살리면 반쪽이다. 시작 프로그램 등록은 런처가 설치될 때
+            // 함께 들어가는데, 사용자가 런처를 지웠다면 그 등록도 이미 깨졌거나
+            // 없는 파일을 가리키고 있다. 부팅해도 아무것도 안 뜨는 상태가 된다.
+            RegisterStartup();
             return true;
         }
         catch
         {
             // 런처를 못 갖췄을 뿐이다. 받아 둔 업데이트는 다음에 쓰일 수 있다.
             return false;
+        }
+    }
+
+    /// <summary>런처를 Windows 시작 프로그램에 등록한다. 런처가 하는 것과 같은 규칙.</summary>
+    private static void RegisterStartup()
+    {
+        try
+        {
+            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(
+                @"Software\Microsoft\Windows\CurrentVersion\Run", writable: true);
+
+            // 값이 이미 런처를 제대로 가리키면 건드리지 않는다. 사용자가 일부러
+            // 자동 시작을 꺼 둔 것일 수도 있어, 없을 때만 새로 넣는다.
+            if (key?.GetValue("AiQuotaTray") is string existing &&
+                existing.Contains("Launcher.exe", StringComparison.OrdinalIgnoreCase))
+                return;
+
+            key?.SetValue("AiQuotaTray", $"\"{LauncherPath}\"");
+        }
+        catch
+        {
+            // 등록에 실패해도 런처 자체는 되살렸다. 앱에서 업데이트는 여전히 된다.
         }
     }
 

@@ -189,6 +189,10 @@ public static class Strings
             ["settings.sectionBehavior"] = "BEHAVIOR",
 
             // 설정 - 도구
+            ["settings.installPath"] = "Installed at",
+            ["settings.openFolder"] = "Open folder",
+            ["settings.launcherFound"] = "Launcher ready",
+            ["settings.launcherMissing"] = "Launcher missing",
             ["settings.claudeFound"] = "Sign-in information found",
             ["settings.claudeMissing"] = "File not found. Sign in to Claude Code",
             ["settings.codexFound"] = "Session history found",
@@ -230,6 +234,7 @@ public static class Strings
             // 설정 - 버튼
             ["settings.test"] = "Test connection",
             ["update.check"] = "Check for updates",
+            ["update.repairingLauncher"] = "Restoring launcher…",
             ["update.checking"] = "Checking…",
             ["update.latest"] = "You are on the latest version",
             ["update.available"] = "Version {0} is available",
@@ -329,6 +334,10 @@ public static class Strings
             ["settings.sectionDisplay"] = "표시",
             ["settings.sectionBehavior"] = "동작",
 
+            ["settings.installPath"] = "설치 위치",
+            ["settings.openFolder"] = "폴더 열기",
+            ["settings.launcherFound"] = "런처 준비됨",
+            ["settings.launcherMissing"] = "런처 없음",
             ["settings.claudeFound"] = "로그인 정보를 찾았습니다",
             ["settings.claudeMissing"] = "파일을 찾을 수 없습니다. Claude Code에 로그인하세요",
             ["settings.codexFound"] = "세션 기록을 찾았습니다",
@@ -367,6 +376,7 @@ public static class Strings
 
             ["settings.test"] = "연결 테스트",
             ["update.check"] = "업데이트 확인",
+            ["update.repairingLauncher"] = "런처를 복구하는 중…",
             ["update.checking"] = "확인 중…",
             ["update.latest"] = "최신 버전입니다",
             ["update.available"] = "새 버전 {0} 있음",
@@ -464,6 +474,10 @@ public static class Strings
             ["settings.sectionDisplay"] = "表示",
             ["settings.sectionBehavior"] = "動作",
 
+            ["settings.installPath"] = "インストール先",
+            ["settings.openFolder"] = "フォルダーを開く",
+            ["settings.launcherFound"] = "ランチャー準備完了",
+            ["settings.launcherMissing"] = "ランチャーがありません",
             ["settings.claudeFound"] = "サインイン情報が見つかりました",
             ["settings.claudeMissing"] = "ファイルが見つかりません。Claude Code にサインインしてください",
             ["settings.codexFound"] = "セッション履歴が見つかりました",
@@ -502,6 +516,7 @@ public static class Strings
 
             ["settings.test"] = "接続テスト",
             ["update.check"] = "更新を確認",
+            ["update.repairingLauncher"] = "ランチャーを復元中…",
             ["update.checking"] = "確認中…",
             ["update.latest"] = "最新バージョンです",
             ["update.available"] = "新しいバージョン {0} があります",
@@ -599,6 +614,10 @@ public static class Strings
             ["settings.sectionDisplay"] = "显示",
             ["settings.sectionBehavior"] = "行为",
 
+            ["settings.installPath"] = "安装位置",
+            ["settings.openFolder"] = "打开文件夹",
+            ["settings.launcherFound"] = "启动器就绪",
+            ["settings.launcherMissing"] = "缺少启动器",
             ["settings.claudeFound"] = "已找到登录信息",
             ["settings.claudeMissing"] = "找不到文件。请登录 Claude Code",
             ["settings.codexFound"] = "已找到会话记录",
@@ -637,6 +656,7 @@ public static class Strings
 
             ["settings.test"] = "测试连接",
             ["update.check"] = "检查更新",
+            ["update.repairingLauncher"] = "正在恢复启动器…",
             ["update.checking"] = "检查中…",
             ["update.latest"] = "已是最新版本",
             ["update.available"] = "有新版本 {0}",
@@ -734,6 +754,10 @@ public static class Strings
             ["settings.sectionDisplay"] = "顯示",
             ["settings.sectionBehavior"] = "行為",
 
+            ["settings.installPath"] = "安裝位置",
+            ["settings.openFolder"] = "開啟資料夾",
+            ["settings.launcherFound"] = "啟動器就緒",
+            ["settings.launcherMissing"] = "缺少啟動器",
             ["settings.claudeFound"] = "已找到登入資訊",
             ["settings.claudeMissing"] = "找不到檔案。請登入 Claude Code",
             ["settings.codexFound"] = "已找到工作階段紀錄",
@@ -772,6 +796,7 @@ public static class Strings
 
             ["settings.test"] = "測試連線",
             ["update.check"] = "檢查更新",
+            ["update.repairingLauncher"] = "正在還原啟動器…",
             ["update.checking"] = "檢查中…",
             ["update.latest"] = "已是最新版本",
             ["update.available"] = "有新版本 {0}",
@@ -869,6 +894,10 @@ public static class Strings
             ["settings.sectionDisplay"] = "VISUALIZACIÓN",
             ["settings.sectionBehavior"] = "COMPORTAMIENTO",
 
+            ["settings.installPath"] = "Instalado en",
+            ["settings.openFolder"] = "Abrir carpeta",
+            ["settings.launcherFound"] = "Lanzador listo",
+            ["settings.launcherMissing"] = "Falta el lanzador",
             ["settings.claudeFound"] = "Información de sesión encontrada",
             ["settings.claudeMissing"] = "Archivo no encontrado. Inicia sesión en Claude Code",
             ["settings.codexFound"] = "Historial de sesiones encontrado",
@@ -907,6 +936,7 @@ public static class Strings
 
             ["settings.test"] = "Probar conexión",
             ["update.check"] = "Buscar actualizaciones",
+            ["update.repairingLauncher"] = "Restaurando el lanzador…",
             ["update.checking"] = "Comprobando…",
             ["update.latest"] = "Tienes la última versión",
             ["update.available"] = "Versión {0} disponible",
@@ -1004,6 +1034,10 @@ public static class Strings
             ["settings.sectionDisplay"] = "EXIBIÇÃO",
             ["settings.sectionBehavior"] = "COMPORTAMENTO",
 
+            ["settings.installPath"] = "Instalado em",
+            ["settings.openFolder"] = "Abrir pasta",
+            ["settings.launcherFound"] = "Inicializador pronto",
+            ["settings.launcherMissing"] = "Inicializador ausente",
             ["settings.claudeFound"] = "Informações de login encontradas",
             ["settings.claudeMissing"] = "Arquivo não encontrado. Faça login no Claude Code",
             ["settings.codexFound"] = "Histórico de sessões encontrado",
@@ -1042,6 +1076,7 @@ public static class Strings
 
             ["settings.test"] = "Testar conexão",
             ["update.check"] = "Procurar atualizações",
+            ["update.repairingLauncher"] = "Restaurando o inicializador…",
             ["update.checking"] = "Verificando…",
             ["update.latest"] = "Você está na versão mais recente",
             ["update.available"] = "Versão {0} disponível",
@@ -1139,6 +1174,10 @@ public static class Strings
             ["settings.sectionDisplay"] = "ANZEIGE",
             ["settings.sectionBehavior"] = "VERHALTEN",
 
+            ["settings.installPath"] = "Installiert unter",
+            ["settings.openFolder"] = "Ordner öffnen",
+            ["settings.launcherFound"] = "Starter bereit",
+            ["settings.launcherMissing"] = "Starter fehlt",
             ["settings.claudeFound"] = "Anmeldedaten gefunden",
             ["settings.claudeMissing"] = "Datei nicht gefunden. Bei Claude Code anmelden",
             ["settings.codexFound"] = "Sitzungsverlauf gefunden",
@@ -1177,6 +1216,7 @@ public static class Strings
 
             ["settings.test"] = "Verbindung testen",
             ["update.check"] = "Nach Updates suchen",
+            ["update.repairingLauncher"] = "Starter wird wiederhergestellt…",
             ["update.checking"] = "Wird geprüft…",
             ["update.latest"] = "Du hast die neueste Version",
             ["update.available"] = "Version {0} verfügbar",
@@ -1274,6 +1314,10 @@ public static class Strings
             ["settings.sectionDisplay"] = "AFFICHAGE",
             ["settings.sectionBehavior"] = "COMPORTEMENT",
 
+            ["settings.installPath"] = "Installé dans",
+            ["settings.openFolder"] = "Ouvrir le dossier",
+            ["settings.launcherFound"] = "Lanceur prêt",
+            ["settings.launcherMissing"] = "Lanceur introuvable",
             ["settings.claudeFound"] = "Informations de connexion trouvées",
             ["settings.claudeMissing"] = "Fichier introuvable. Connectez-vous à Claude Code",
             ["settings.codexFound"] = "Historique de sessions trouvé",
@@ -1312,6 +1356,7 @@ public static class Strings
 
             ["settings.test"] = "Tester la connexion",
             ["update.check"] = "Rechercher des mises à jour",
+            ["update.repairingLauncher"] = "Restauration du lanceur…",
             ["update.checking"] = "Vérification…",
             ["update.latest"] = "Vous avez la dernière version",
             ["update.available"] = "Version {0} disponible",
@@ -1409,6 +1454,10 @@ public static class Strings
             ["settings.sectionDisplay"] = "ОТОБРАЖЕНИЕ",
             ["settings.sectionBehavior"] = "ПОВЕДЕНИЕ",
 
+            ["settings.installPath"] = "Установлено в",
+            ["settings.openFolder"] = "Открыть папку",
+            ["settings.launcherFound"] = "Лаунчер готов",
+            ["settings.launcherMissing"] = "Лаунчер отсутствует",
             ["settings.claudeFound"] = "Данные для входа найдены",
             ["settings.claudeMissing"] = "Файл не найден. Войдите в Claude Code",
             ["settings.codexFound"] = "История сессий найдена",
@@ -1447,6 +1496,7 @@ public static class Strings
 
             ["settings.test"] = "Проверить подключение",
             ["update.check"] = "Проверить обновления",
+            ["update.repairingLauncher"] = "Восстановление лаунчера…",
             ["update.checking"] = "Проверка…",
             ["update.latest"] = "У вас последняя версия",
             ["update.available"] = "Доступна версия {0}",

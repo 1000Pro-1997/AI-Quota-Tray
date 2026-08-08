@@ -145,12 +145,47 @@ public partial class SettingsWindow : Window
         ShowUpdateState(_updates?.Last);
 
         UpdatePathStatus();
+        ShowInstallState();
 
         // 화면을 다 채웠으니 이제부터의 변경은 사용자 조작이다.
         _loading = false;
     }
 
     private void OnOpenIssues(object sender, RoutedEventArgs e) => App.OpenIssues();
+
+    /// <summary>설치 위치와 런처가 제자리에 있는지 보여 준다.</summary>
+    private void ShowInstallState()
+    {
+        InstallPathText.Text = UpdateDownloader.InstallDir;
+
+        bool ok = UpdateDownloader.LauncherInstalled;
+        LauncherDot.Background = StatusDot(ok);
+        LauncherStatus.Text = Strings.Get(ok
+            ? "settings.launcherFound"
+            : "settings.launcherMissing");
+    }
+
+    /// <summary>
+    /// 설치 폴더를 탐색기로 연다. 폴더가 없으면 만들어서라도 연다.
+    /// 아무 반응이 없으면 버튼이 고장 난 줄 알기 때문이다.
+    /// </summary>
+    private void OnOpenInstallFolder(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            Directory.CreateDirectory(UpdateDownloader.InstallDir);
+
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = UpdateDownloader.InstallDir,
+                UseShellExecute = true,
+            });
+        }
+        catch
+        {
+            // 열지 못해도 설정 창에서 할 일은 남아 있다. 경로는 화면에 이미 있다.
+        }
+    }
 
     /// <summary>
     /// 버튼 하나가 상태에 따라 세 가지 일을 한다.
@@ -190,6 +225,22 @@ public partial class SettingsWindow : Window
         try
         {
             var info = await _updates.CheckAsync();
+
+            // 이미 최신이어도 런처가 사라졌으면 여기서 되살린다. 새 버전이 나올
+            // 때까지 기다리면 그동안은 부팅해도 앱이 안 뜬다. 확인 버튼을 누른
+            // 사람은 "지금 멀쩡한지" 보려던 것이니 고쳐 두는 편이 맞다.
+            if (!UpdateDownloader.LauncherInstalled && info.LauncherUrl.Length > 0)
+            {
+                UpdateText.Text = Strings.Get("update.repairingLauncher");
+
+                var repair = new UpdateDownloader(new HttpClient
+                {
+                    Timeout = TimeSpan.FromMinutes(5),
+                });
+                await repair.EnsureLauncherAsync(info);
+                ShowInstallState();
+            }
+
             ShowUpdateState(info);
         }
         finally
@@ -381,6 +432,11 @@ public partial class SettingsWindow : Window
 
         TestButton.Content = Strings.Get("settings.test");
         IssuesLink.Content = Strings.Get("settings.issues");
+
+        LblInstallPath.Text = Strings.Get("settings.installPath");
+        OpenFolderButton.Content = Strings.Get("settings.openFolder");
+        // 런처 유무는 문구가 갈리므로 상태를 다시 읽어 채운다.
+        ShowInstallState();
         ShowUpdateState(_updates?.Last);
 
         RelabelIntervals();
