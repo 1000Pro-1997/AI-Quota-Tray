@@ -253,6 +253,12 @@ public static class Strings
             ["settings.startWithWindows"] = "Start with Windows",
             ["settings.windowPrimer"] = "Keep 5-hour windows aligned",
             ["settings.windowPrimerHint"] = "Send one minimal request just after each reset",
+            ["settings.primeFive"] = "Send once after the 5-hour reset",
+            ["settings.primeWeekly"] = "Send once after the weekly reset",
+            ["settings.claudePrimeFiveHint"] = "Starts the next 5-hour window immediately",
+            ["settings.claudePrimeWeeklyHint"] = "Claude resets automatically even without a message",
+            ["settings.codexPrimeFiveHint"] = "The 5-hour limit is temporarily not being applied",
+            ["settings.codexPrimeWeeklyHint"] = "Starts the next weekly window immediately",
 
             // 설정 - 버튼
             ["update.check"] = "Check for updates",
@@ -416,6 +422,12 @@ public static class Strings
             ["settings.startWithWindows"] = "Windows 시작 시 자동 실행",
             ["settings.windowPrimer"] = "5시간 구간 시각 유지",
             ["settings.windowPrimerHint"] = "초기화 직후 최소 요청을 한 번 보냅니다",
+            ["settings.primeFive"] = "5시간 초기화 후 메시지 1회 보내기",
+            ["settings.primeWeekly"] = "주간 초기화 후 메시지 1회 보내기",
+            ["settings.claudePrimeFiveHint"] = "초기화 직후 다음 5시간 구간을 시작합니다",
+            ["settings.claudePrimeWeeklyHint"] = "메시지를 보내지 않아도 자동 초기화됩니다",
+            ["settings.codexPrimeFiveHint"] = "현재 5시간 제한이 임시로 해제된 상태입니다",
+            ["settings.codexPrimeWeeklyHint"] = "초기화 직후 다음 주간 구간을 시작합니다",
 
             ["update.check"] = "업데이트 확인",
             ["update.repairingLauncher"] = "런처를 복구하는 중…",

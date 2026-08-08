@@ -628,6 +628,25 @@
                         </StackPanel>
                     </Grid>
 
+                    <StackPanel Margin="16,1,0,8">
+                        <Grid Margin="0,5,0,5">
+                            <StackPanel Margin="0,0,96,0">
+                                <TextBlock x:Name="LblClaudePrimeFive" Style="{StaticResource RowTitle}"/>
+                                <TextBlock x:Name="LblClaudePrimeFiveHint" Style="{StaticResource RowHint}"/>
+                            </StackPanel>
+                            <CheckBox x:Name="ClaudePrimeFive" Style="{StaticResource Switch}"
+                                      Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
+                        </Grid>
+                        <Grid Margin="0,5,0,5">
+                            <StackPanel Margin="0,0,96,0">
+                                <TextBlock x:Name="LblClaudePrimeWeekly" Style="{StaticResource RowTitle}"/>
+                                <TextBlock x:Name="LblClaudePrimeWeeklyHint" Style="{StaticResource RowHint}"/>
+                            </StackPanel>
+                            <CheckBox x:Name="ClaudePrimeWeekly" Style="{StaticResource Switch}"
+                                      Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
+                        </Grid>
+                    </StackPanel>
+
                     <Border Style="{StaticResource RowDivider}"/>
 
                     <Grid Margin="0,7,0,7">
@@ -648,6 +667,25 @@
                                       Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
                         </StackPanel>
                     </Grid>
+
+                    <StackPanel Margin="16,1,0,8">
+                        <Grid Margin="0,5,0,5">
+                            <StackPanel Margin="0,0,96,0">
+                                <TextBlock x:Name="LblCodexPrimeFive" Style="{StaticResource RowTitle}"/>
+                                <TextBlock x:Name="LblCodexPrimeFiveHint" Style="{StaticResource RowHint}"/>
+                            </StackPanel>
+                            <CheckBox x:Name="CodexPrimeFive" Style="{StaticResource Switch}"
+                                      Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
+                        </Grid>
+                        <Grid Margin="0,5,0,5">
+                            <StackPanel Margin="0,0,96,0">
+                                <TextBlock x:Name="LblCodexPrimeWeekly" Style="{StaticResource RowTitle}"/>
+                                <TextBlock x:Name="LblCodexPrimeWeeklyHint" Style="{StaticResource RowHint}"/>
+                            </StackPanel>
+                            <CheckBox x:Name="CodexPrimeWeekly" Style="{StaticResource Switch}"
+                                      Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
+                        </Grid>
+                    </StackPanel>
 
                     <Border Style="{StaticResource RowDivider}"/>
 
@@ -817,17 +855,6 @@
                     <Grid Margin="0,7,0,7">
                         <TextBlock x:Name="LblStartup" Style="{StaticResource RowTitle}"/>
                         <CheckBox x:Name="StartWithWindows" Style="{StaticResource Switch}"
-                                  Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
-                    </Grid>
-
-                    <Border Style="{StaticResource RowDivider}"/>
-
-                    <Grid Margin="0,7,0,7">
-                        <StackPanel VerticalAlignment="Center" Margin="0,0,96,0">
-                            <TextBlock x:Name="LblWindowPrimer" Style="{StaticResource RowTitle}"/>
-                            <TextBlock x:Name="LblWindowPrimerHint" Style="{StaticResource RowHint}"/>
-                        </StackPanel>
-                        <CheckBox x:Name="WindowPrimerEnabled" Style="{StaticResource Switch}"
                                   Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
                     </Grid>
 

@@ -45,7 +45,14 @@ public sealed class AppSettings
 
     public bool StartWithWindows { get; set; } = true;
 
-    /// <summary>5시간 한도 초기화 직후 최소 요청을 보내 다음 창을 같은 시각에 시작한다.</summary>
+    /// <summary>공급자별 한도 초기화 직후 최소 요청을 보내 다음 창을 시작한다.</summary>
+    public bool ClaudePrimeFiveHour { get; set; }
+    public bool ClaudePrimeWeekly { get; set; }
+    public bool CodexPrimeFiveHour { get; set; }
+    public bool CodexPrimeWeekly { get; set; }
+
+    /// <summary>이전 버전 설정을 읽기 위한 호환 필드. 새 UI에서는 사용하지 않는다.</summary>
+    [Obsolete("Use the provider-specific primer settings.")]
     public bool KeepFiveHourWindowsAligned { get; set; }
 
     /// <summary>트레이 아이콘을 숨김 영역에서 꺼내 작업표시줄에 항상 보이게 한다.</summary>
@@ -170,7 +177,13 @@ public sealed class AppSettings
         CodexSessionsPath = fresh.CodexSessionsPath;
         RefreshIntervalSeconds = fresh.RefreshIntervalSeconds;
         StartWithWindows = fresh.StartWithWindows;
+        ClaudePrimeFiveHour = fresh.ClaudePrimeFiveHour;
+        ClaudePrimeWeekly = fresh.ClaudePrimeWeekly;
+        CodexPrimeFiveHour = fresh.CodexPrimeFiveHour;
+        CodexPrimeWeekly = fresh.CodexPrimeWeekly;
+#pragma warning disable CS0618
         KeepFiveHourWindowsAligned = fresh.KeepFiveHourWindowsAligned;
+#pragma warning restore CS0618
         ShowInTaskbar = fresh.ShowInTaskbar;
         ShowWidgetBar = fresh.ShowWidgetBar;
         WidgetMonitorDeviceName = fresh.WidgetMonitorDeviceName;
@@ -198,6 +211,15 @@ public sealed class AppSettings
                 var loaded = JsonSerializer.Deserialize<AppSettings>(json, JsonOpts);
                 if (loaded is not null)
                 {
+                    // 예전 단일 5시간 옵션을 공급자별 옵션으로 한 번 이관한다.
+#pragma warning disable CS0618
+                    if (loaded.KeepFiveHourWindowsAligned)
+                    {
+                        loaded.ClaudePrimeFiveHour = true;
+                        loaded.CodexPrimeFiveHour = true;
+                        loaded.KeepFiveHourWindowsAligned = false;
+                    }
+#pragma warning restore CS0618
                     // 너무 짧은 주기는 무의미한 부하만 만든다.
                     if (loaded.RefreshIntervalSeconds < 30) loaded.RefreshIntervalSeconds = 30;
                     return loaded;

@@ -13,10 +13,9 @@ using AiUsageTray.Models;
 
 namespace AiUsageTray.Services;
 
-/// <summary>5시간 창을 같은 시간축에서 시작하며, 주간 한도는 건드리지 않는다.</summary>
+/// <summary>선택한 공급자의 5시간/주간 창이 초기화된 직후 최소 요청을 한 번 보낸다.</summary>
 public sealed class WindowPrimer : IDisposable
 {
-    private static readonly TimeSpan WindowLength = TimeSpan.FromHours(5);
     // 리셋 경계보다 이르면 요청이 이전 창에 집계돼 새 창이 안 열린다. 서버가 내려준
     // 리셋 시각의 초 단위 오차와 로컬 시계 어긋남을 함께 덮으려고 30초를 둔다.
     // 늦어서 잃는 건 창 시작이 그만큼 밀리는 것뿐이라 여유를 크게 잡는 편이 낫다.
@@ -30,8 +29,9 @@ public sealed class WindowPrimer : IDisposable
     private int _running;
 
     private static string StateFile => Path.Combine(AppSettings.SettingsDirectory, "window-primer.json");
-    private static string TaskXmlFile(string provider) => Path.Combine(AppSettings.SettingsDirectory, $"window-primer-{provider.ToLowerInvariant()}.xml");
-    private static string TaskName(string provider) => $"AI Quota Tray - Prime {provider}";
+    private static string ScheduleKey(string provider, WindowKind kind) => $"{provider}:{kind}";
+    private static string TaskXmlFile(string provider, WindowKind kind) => Path.Combine(AppSettings.SettingsDirectory, $"window-primer-{provider.ToLowerInvariant()}-{kind.ToString().ToLowerInvariant()}.xml");
+    private static string TaskName(string provider, WindowKind kind) => $"AI Quota Tray - Prime {provider} {kind}";
 
     public WindowPrimer(AppSettings settings)
     {
@@ -42,109 +42,139 @@ public sealed class WindowPrimer : IDisposable
 
     public void Observe(IReadOnlyList<ProviderUsage> usages)
     {
-        if (!_settings.KeepFiveHourWindowsAligned) return;
-        var schedules = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
+        if (!AnyPrimerEnabled(_settings)) return;
+        var schedules = new Dictionary<string, (string Provider, WindowKind Kind, DateTime At)>(StringComparer.OrdinalIgnoreCase);
         WithState(state =>
         {
             foreach (var usage in usages)
             {
-                var reset = usage.Windows.Where(w => w.Kind == WindowKind.Session && w.ResetsAt is not null)
-                    .Select(w => w.ResetsAt!.Value).OrderBy(v => v).FirstOrDefault();
-                if (reset == default || !ProviderEnabled(_settings, usage.Provider)) continue;
-                if (!state.TryGetValue(usage.Provider, out var current) || reset > current) state[usage.Provider] = reset;
-                schedules[usage.Provider] = state[usage.Provider];
+                foreach (var window in usage.Windows.Where(w =>
+                             (w.Kind == WindowKind.Session || w.Kind == WindowKind.Weekly) &&
+                             w.ResetsAt is not null && PrimerEnabled(_settings, usage.Provider, w.Kind)))
+                {
+                    string key = ScheduleKey(usage.Provider, window.Kind);
+                    DateTime reset = window.ResetsAt!.Value;
+                    if (!state.TryGetValue(key, out var current) || reset > current) state[key] = reset;
+                    schedules[key] = (usage.Provider, window.Kind, state[key]);
+                }
             }
         });
-        foreach (var pair in schedules) RegisterWakeTask(pair.Key, pair.Value);
+        foreach (var schedule in schedules.Values) RegisterWakeTask(schedule.Provider, schedule.Kind, schedule.At);
     }
 
     public void SettingsChanged()
     {
-        if (!_settings.KeepFiveHourWindowsAligned)
+        if (!AnyPrimerEnabled(_settings))
         {
             WithState(state => state.Clear());
-            DeleteWakeTask("Claude");
-            DeleteWakeTask("Codex");
+            DeleteAllWakeTasks();
             return;
         }
 
-        var schedules = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
+        var schedules = new List<(string Provider, WindowKind Kind, DateTime At)>();
         WithState(state =>
         {
-            foreach (string provider in state.Keys.ToArray())
+            foreach (string key in state.Keys.ToArray())
             {
-                if (!ProviderEnabled(_settings, provider)) { state.Remove(provider); continue; }
-                state[provider] = NormalizeFuture(state[provider], DateTime.Now);
-                schedules[provider] = state[provider];
+                if (!TryParseScheduleKey(key, out string provider, out WindowKind kind) ||
+                    !PrimerEnabled(_settings, provider, kind)) { state.Remove(key); continue; }
+                state[key] = NormalizeFuture(state[key], DateTime.Now, WindowLength(kind));
+                schedules.Add((provider, kind, state[key]));
             }
         });
         foreach (string provider in new[] { "Claude", "Codex" })
         {
-            if (schedules.TryGetValue(provider, out var scheduled)) RegisterWakeTask(provider, scheduled);
-            else DeleteWakeTask(provider);
+            foreach (WindowKind kind in new[] { WindowKind.Session, WindowKind.Weekly })
+            {
+                var schedule = schedules.FirstOrDefault(s => s.Provider == provider && s.Kind == kind);
+                if (schedule.At != default) RegisterWakeTask(provider, kind, schedule.At);
+                else DeleteWakeTask(provider, kind);
+            }
         }
+        DeleteLegacyWakeTasks();
     }
 
-    public static async Task RunScheduledAsync(string provider, long scheduledTicks)
+    public static async Task RunScheduledAsync(string provider, WindowKind kind, long scheduledTicks)
     {
         var settings = AppSettings.Load();
-        if (!settings.KeepFiveHourWindowsAligned || !ProviderEnabled(settings, provider))
+        if (!PrimerEnabled(settings, provider, kind))
         {
-            DeleteWakeTask(provider);
+            DeleteWakeTask(provider, kind);
             return;
         }
-        await ClaimAndPrimeAsync(settings, provider, new DateTime(scheduledTicks, DateTimeKind.Local)).ConfigureAwait(false);
+        await ClaimAndPrimeAsync(settings, provider, kind, new DateTime(scheduledTicks, DateTimeKind.Local)).ConfigureAwait(false);
     }
 
     private async Task TickAsync()
     {
-        if (!_settings.KeepFiveHourWindowsAligned || Interlocked.Exchange(ref _running, 1) != 0) return;
+        if (!AnyPrimerEnabled(_settings) || Interlocked.Exchange(ref _running, 1) != 0) return;
         try
         {
-            List<(string Provider, DateTime Scheduled)> due = WithState(state => state
-                .Where(p => DateTime.Now >= p.Value + TriggerDelay && ProviderEnabled(_settings, p.Key))
-                .Select(p => (p.Key, p.Value)).ToList(), save: false);
-            foreach (var item in due) await ClaimAndPrimeAsync(_settings, item.Provider, item.Scheduled).ConfigureAwait(false);
+            List<(string Provider, WindowKind Kind, DateTime Scheduled)> due = WithState(state => state
+                .Where(p => DateTime.Now >= p.Value + TriggerDelay &&
+                            TryParseScheduleKey(p.Key, out string provider, out WindowKind kind) &&
+                            PrimerEnabled(_settings, provider, kind))
+                .Select(p => { TryParseScheduleKey(p.Key, out string provider, out WindowKind kind); return (provider, kind, p.Value); }).ToList(), save: false);
+            foreach (var item in due) await ClaimAndPrimeAsync(_settings, item.Provider, item.Kind, item.Scheduled).ConfigureAwait(false);
         }
         finally { Interlocked.Exchange(ref _running, 0); }
     }
 
-    private static async Task ClaimAndPrimeAsync(AppSettings settings, string provider, DateTime scheduled)
+    private static async Task ClaimAndPrimeAsync(AppSettings settings, string provider, WindowKind kind, DateTime scheduled)
     {
         bool shouldPrime = false;
         DateTime next = default;
         WithState(state =>
         {
-            if (!state.TryGetValue(provider, out var current) || current.Ticks != scheduled.Ticks) return;
+            string key = ScheduleKey(provider, kind);
+            if (!state.TryGetValue(key, out var current) || current.Ticks != scheduled.Ticks) return;
             DateTime now = DateTime.Now;
             shouldPrime = now >= current + TriggerDelay && now - (current + TriggerDelay) <= MaxLate;
-            next = AdvanceToFuture(current, now);
-            state[provider] = next;
+            next = AdvanceToFuture(current, now, WindowLength(kind));
+            state[key] = next;
         });
         if (next == default) return;
-        RegisterWakeTask(provider, next);
-        if (shouldPrime && settings.KeepFiveHourWindowsAligned && ProviderEnabled(settings, provider))
+        RegisterWakeTask(provider, kind, next);
+        if (shouldPrime && PrimerEnabled(settings, provider, kind))
             await PrimeAsync(provider).ConfigureAwait(false);
     }
 
-    private static DateTime AdvanceToFuture(DateTime scheduled, DateTime now)
+    private static DateTime AdvanceToFuture(DateTime scheduled, DateTime now, TimeSpan length)
     {
-        do { scheduled += WindowLength; } while (scheduled + TriggerDelay <= now);
+        do { scheduled += length; } while (scheduled + TriggerDelay <= now);
         return scheduled;
     }
 
-    private static DateTime NormalizeFuture(DateTime scheduled, DateTime now)
+    private static DateTime NormalizeFuture(DateTime scheduled, DateTime now, TimeSpan length)
     {
-        while (scheduled + TriggerDelay <= now) scheduled += WindowLength;
+        while (scheduled + TriggerDelay <= now) scheduled += length;
         return scheduled;
     }
 
-    private static bool ProviderEnabled(AppSettings settings, string provider) => provider switch
+    private static TimeSpan WindowLength(WindowKind kind) =>
+        kind == WindowKind.Weekly ? TimeSpan.FromDays(7) : TimeSpan.FromHours(5);
+
+    private static bool AnyPrimerEnabled(AppSettings settings) =>
+        settings.ClaudePrimeFiveHour || settings.ClaudePrimeWeekly ||
+        settings.CodexPrimeFiveHour || settings.CodexPrimeWeekly;
+
+    private static bool PrimerEnabled(AppSettings settings, string provider, WindowKind kind) => (provider, kind) switch
     {
-        "Claude" => settings.ClaudeEnabled,
-        "Codex" => settings.CodexEnabled,
+        ("Claude", WindowKind.Session) => settings.ClaudeEnabled && settings.ClaudePrimeFiveHour,
+        ("Claude", WindowKind.Weekly) => settings.ClaudeEnabled && settings.ClaudePrimeWeekly,
+        ("Codex", WindowKind.Session) => settings.CodexEnabled && settings.CodexPrimeFiveHour,
+        ("Codex", WindowKind.Weekly) => settings.CodexEnabled && settings.CodexPrimeWeekly,
         _ => false,
     };
+
+    private static bool TryParseScheduleKey(string key, out string provider, out WindowKind kind)
+    {
+        int separator = key.LastIndexOf(':');
+        provider = separator > 0 ? key[..separator] : "";
+        kind = WindowKind.Other;
+        return separator > 0 && Enum.TryParse(key[(separator + 1)..], true, out kind) &&
+               (kind == WindowKind.Session || kind == WindowKind.Weekly);
+    }
 
     private static async Task PrimeAsync(string provider)
     {
@@ -174,7 +204,7 @@ public sealed class WindowPrimer : IDisposable
         catch { }
     }
 
-    private static void RegisterWakeTask(string provider, DateTime scheduled)
+    private static void RegisterWakeTask(string provider, WindowKind kind, DateTime scheduled)
     {
         try
         {
@@ -183,25 +213,39 @@ public sealed class WindowPrimer : IDisposable
             Directory.CreateDirectory(AppSettings.SettingsDirectory);
             string userSid = WindowsIdentity.GetCurrent().User?.Value ?? "";
             string startBoundary = (scheduled + TriggerDelay).ToString("yyyy-MM-dd'T'HH:mm:ss");
-            string arguments = $"--prime-window {provider} {scheduled.Ticks}";
+            string arguments = $"--prime-window {provider} {kind} {scheduled.Ticks}";
             string xml = $"""
                 <?xml version="1.0" encoding="UTF-16"?>
                 <Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
-                  <RegistrationInfo><Description>Wakes the computer to keep the {Escape(provider)} 5-hour quota window aligned.</Description></RegistrationInfo>
+                  <RegistrationInfo><Description>Wakes the computer to start the {Escape(provider)} {kind} quota window after reset.</Description></RegistrationInfo>
                   <Triggers><TimeTrigger><StartBoundary>{startBoundary}</StartBoundary><Enabled>true</Enabled></TimeTrigger></Triggers>
                   <Principals><Principal id="Author"><UserId>{Escape(userSid)}</UserId><LogonType>InteractiveToken</LogonType><RunLevel>LeastPrivilege</RunLevel></Principal></Principals>
                   <Settings><MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy><DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries><StopIfGoingOnBatteries>false</StopIfGoingOnBatteries><StartWhenAvailable>false</StartWhenAvailable><RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable><IdleSettings><StopOnIdleEnd>false</StopOnIdleEnd><RestartOnIdle>false</RestartOnIdle></IdleSettings><AllowStartOnDemand>true</AllowStartOnDemand><Enabled>true</Enabled><Hidden>false</Hidden><RunOnlyIfIdle>false</RunOnlyIfIdle><WakeToRun>true</WakeToRun><ExecutionTimeLimit>PT5M</ExecutionTimeLimit><Priority>7</Priority></Settings>
                   <Actions Context="Author"><Exec><Command>{Escape(app)}</Command><Arguments>{Escape(arguments)}</Arguments><WorkingDirectory>{Escape(AppSettings.PrimerWorkingDirectory)}</WorkingDirectory></Exec></Actions>
                 </Task>
                 """;
-            string xmlFile = TaskXmlFile(provider);
+            string xmlFile = TaskXmlFile(provider, kind);
             File.WriteAllText(xmlFile, xml, Encoding.Unicode);
-            RunSchtasks("/Create", "/TN", TaskName(provider), "/XML", xmlFile, "/F");
+            RunSchtasks("/Create", "/TN", TaskName(provider, kind), "/XML", xmlFile, "/F");
         }
         catch { }
     }
 
-    private static void DeleteWakeTask(string provider) { try { RunSchtasks("/Delete", "/TN", TaskName(provider), "/F"); } catch { } }
+    private static void DeleteWakeTask(string provider, WindowKind kind) { try { RunSchtasks("/Delete", "/TN", TaskName(provider, kind), "/F"); } catch { } }
+
+    private static void DeleteAllWakeTasks()
+    {
+        foreach (string provider in new[] { "Claude", "Codex" })
+            foreach (WindowKind kind in new[] { WindowKind.Session, WindowKind.Weekly })
+                DeleteWakeTask(provider, kind);
+        DeleteLegacyWakeTasks();
+    }
+
+    private static void DeleteLegacyWakeTasks()
+    {
+        foreach (string provider in new[] { "Claude", "Codex" })
+            try { RunSchtasks("/Delete", "/TN", $"AI Quota Tray - Prime {provider}", "/F"); } catch { }
+    }
 
     private static void RunSchtasks(params string[] args)
     {

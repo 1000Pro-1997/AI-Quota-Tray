@@ -114,7 +114,10 @@ public partial class SettingsWindow : Window
         CodexPath.Text = _settings.EffectiveCodexPath;
 
         StartWithWindows.IsChecked = _settings.StartWithWindows;
-        WindowPrimerEnabled.IsChecked = _settings.KeepFiveHourWindowsAligned;
+        ClaudePrimeFive.IsChecked = _settings.ClaudePrimeFiveHour;
+        ClaudePrimeWeekly.IsChecked = _settings.ClaudePrimeWeekly;
+        CodexPrimeFive.IsChecked = _settings.CodexPrimeFiveHour;
+        CodexPrimeWeekly.IsChecked = _settings.CodexPrimeWeekly;
         AutoUpdateEnabled.IsChecked = _settings.AutoUpdate;
 
         // 실제 레지스트리 상태를 우선한다. 사용자가 Windows 설정에서
@@ -589,8 +592,14 @@ public partial class SettingsWindow : Window
         LblInterval.Text = Strings.Get("settings.interval");
         LblIntervalHint.Text = Strings.Get("settings.intervalHint");
         LblStartup.Text = Strings.Get("settings.startWithWindows");
-        LblWindowPrimer.Text = Strings.Get("settings.windowPrimer");
-        LblWindowPrimerHint.Text = Strings.Get("settings.windowPrimerHint");
+        LblClaudePrimeFive.Text = Strings.Get("settings.primeFive");
+        LblClaudePrimeFiveHint.Text = Strings.Get("settings.claudePrimeFiveHint");
+        LblClaudePrimeWeekly.Text = Strings.Get("settings.primeWeekly");
+        LblClaudePrimeWeeklyHint.Text = Strings.Get("settings.claudePrimeWeeklyHint");
+        LblCodexPrimeFive.Text = Strings.Get("settings.primeFive");
+        LblCodexPrimeFiveHint.Text = Strings.Get("settings.codexPrimeFiveHint");
+        LblCodexPrimeWeekly.Text = Strings.Get("settings.primeWeekly");
+        LblCodexPrimeWeeklyHint.Text = Strings.Get("settings.codexPrimeWeeklyHint");
 
         LblSectionSystem.Text = Strings.Get("settings.sectionSystem");
 
@@ -757,7 +766,10 @@ public partial class SettingsWindow : Window
 
         bool autoStart = StartWithWindows.IsChecked == true;
         _settings.StartWithWindows = autoStart;
-        _settings.KeepFiveHourWindowsAligned = WindowPrimerEnabled.IsChecked == true;
+        _settings.ClaudePrimeFiveHour = ClaudePrimeFive.IsChecked == true;
+        _settings.ClaudePrimeWeekly = ClaudePrimeWeekly.IsChecked == true;
+        _settings.CodexPrimeFiveHour = CodexPrimeFive.IsChecked == true;
+        _settings.CodexPrimeWeekly = CodexPrimeWeekly.IsChecked == true;
         _settings.AutoUpdate = AutoUpdateEnabled.IsChecked == true;
         ApplyAutoStart(autoStart);
 
@@ -830,7 +842,10 @@ public partial class SettingsWindow : Window
         ClaudePath.Text = _settings.EffectiveClaudePath;
         CodexPath.Text = _settings.EffectiveCodexPath;
         StartWithWindows.IsChecked = _settings.StartWithWindows;
-        WindowPrimerEnabled.IsChecked = _settings.KeepFiveHourWindowsAligned;
+        ClaudePrimeFive.IsChecked = _settings.ClaudePrimeFiveHour;
+        ClaudePrimeWeekly.IsChecked = _settings.ClaudePrimeWeekly;
+        CodexPrimeFive.IsChecked = _settings.CodexPrimeFiveHour;
+        CodexPrimeWeekly.IsChecked = _settings.CodexPrimeWeekly;
         AutoUpdateEnabled.IsChecked = _settings.AutoUpdate;
         PinToTaskbar.IsChecked = _settings.ShowInTaskbar;
         ShowWidgetBar.IsChecked = _settings.ShowWidgetBar;
