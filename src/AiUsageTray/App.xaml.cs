@@ -212,7 +212,7 @@ public partial class App : Application
 
     private void BuildTray()
     {
-        _currentIcon = TrayIconRenderer.Render(null, IconSize());
+        _currentIcon = TrayIconRenderer.RenderEmpty(IconSize());
 
         _tray = new Forms.NotifyIcon
         {
@@ -393,8 +393,8 @@ public partial class App : Application
 
         if (_iconRotation.Count == 0)
         {
-            // 아직 값이 없다. 빈 게이지로 둔다.
-            newIcon = TrayIconRenderer.Render(null, IconSize());
+            // 아직 값이 없다. 빈 뱃지로 둔다.
+            newIcon = TrayIconRenderer.RenderEmpty(IconSize());
         }
         else
         {

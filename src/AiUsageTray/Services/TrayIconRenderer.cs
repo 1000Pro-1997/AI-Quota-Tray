@@ -110,35 +110,99 @@ public static class TrayIconRenderer
         using (var g = Graphics.FromImage(bmp))
         {
             g.SmoothingMode = SmoothingMode.AntiAlias;
-            g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
+            g.TextRenderingHint = TextRenderingHint.AntiAlias;
             g.Clear(Color.Transparent);
 
+            // 모서리를 살짝만 깎은 네모. 둥글수록 작은 크기에서 배경이 야위어
+            // 숫자가 앉을 자리가 줄어든다. 네모에 가까울수록 글자가 커진다.
             using (var brush = new SolidBrush(background))
-            using (var path = RoundedRect(new RectangleF(0, 0, big, big), big * 0.16f))
+            using (var path = RoundedRect(new RectangleF(0, 0, big, big), big * 0.11f))
             {
                 g.FillPath(brush, path);
             }
 
             string text = ((int)Math.Round(Math.Clamp(value, 0, 100))).ToString();
 
-            // 세 자리(100)는 글자를 줄여야 들어간다.
-            float fontSize = text.Length >= 3 ? big * 0.46f : big * 0.62f;
+            // 글자를 상자에 맞춰 키운다. 자릿수마다 고정 크기를 주면 한 자리는
+            // 허전하고 세 자리는 넘친다. 실제로 재서 맞추는 편이 늘 꽉 찬다.
+            //
+            // 사방에 여백을 남긴다. 글자가 모서리에 닿으면 작업표시줄에서
+            // 배경색이 사라져 뱃지가 아니라 얼룩처럼 보인다.
+            float padX = big * 0.10f;
+            float padY = big * 0.13f;
+            float fontSize = FitFontSize(g, text, big - padX * 2, big - padY * 2);
 
             using var font = new Font("Segoe UI", fontSize, FontStyle.Bold, GraphicsUnit.Pixel);
             using var white = new SolidBrush(Color.White);
-            using var format = new StringFormat
+            using var format = new StringFormat(StringFormatFlags.NoWrap)
             {
                 Alignment = StringAlignment.Center,
                 LineAlignment = StringAlignment.Center,
+                Trimming = StringTrimming.None,
             };
 
             // 글꼴의 시각적 중심이 살짝 아래라 조금 올려 그린다.
             g.DrawString(text, font, white,
-                new RectangleF(0, -big * 0.02f, big, big), format);
+                new RectangleF(0, -big * 0.04f, big, big), format);
         }
 
         using var small = new Bitmap(bmp, new Size(size, size));
         return FromBitmap(small);
+    }
+
+    /// <summary>
+    /// 값이 아직 없을 때의 뱃지. 숫자 뱃지와 같은 네모라 아이콘이 갑자기
+    /// 다른 모양으로 바뀌지 않는다. 색을 죽이고 가운데 줄만 그어 비어 있음을 알린다.
+    /// </summary>
+    public static Icon RenderEmpty(int size = 16)
+    {
+        const int Scale = 8;
+        int big = size * Scale;
+
+        using var bmp = new Bitmap(big, big);
+        using (var g = Graphics.FromImage(bmp))
+        {
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.Clear(Color.Transparent);
+
+            using (var brush = new SolidBrush(Color.FromArgb(120, 128, 128, 128)))
+            using (var path = RoundedRect(new RectangleF(0, 0, big, big), big * 0.11f))
+            {
+                g.FillPath(brush, path);
+            }
+
+            // 줄 하나. 16px에서도 뭉개지지 않는 유일한 기호다.
+            float w = big * 0.44f, h = big * 0.11f;
+            using var dash = new SolidBrush(Color.FromArgb(200, 255, 255, 255));
+            g.FillRectangle(dash, (big - w) / 2f, (big - h) / 2f, w, h);
+        }
+
+        using var small = new Bitmap(bmp, new Size(size, size));
+        return FromBitmap(small);
+    }
+
+    /// <summary>
+    /// 글자가 <paramref name="maxWidth"/>·<paramref name="maxHeight"/> 안에 들어가는
+    /// 가장 큰 크기를 찾는다. Segoe UI Bold의 숫자 폭은 자릿수에 정비례하지 않아
+    /// 계산으로 맞추기 어렵다. 몇 번 재보는 편이 확실하다.
+    /// </summary>
+    private static float FitFontSize(Graphics g, string text, float maxWidth, float maxHeight)
+    {
+        float size = maxHeight;
+
+        // 열 번이면 충분히 수렴한다. 못 맞춰도 마지막 값은 원래 크기보다 작다.
+        for (int i = 0; i < 10; i++)
+        {
+            using var probe = new Font("Segoe UI", size, FontStyle.Bold, GraphicsUnit.Pixel);
+            var m = g.MeasureString(text, probe, PointF.Empty, StringFormat.GenericTypographic);
+
+            if (m.Width <= maxWidth && m.Height <= maxHeight) break;
+
+            float shrink = Math.Min(maxWidth / m.Width, maxHeight / m.Height);
+            size *= Math.Min(shrink, 0.97f); // 진동을 막으려 한 번에 다 줄이지 않는다.
+        }
+
+        return size;
     }
 
     private static GraphicsPath RoundedRect(RectangleF r, float radius)
