@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -459,7 +460,7 @@ public partial class WidgetBarWindow : Window
             int barTop = work.Bottom;
             int barHeight = full.Bottom - work.Bottom;
 
-            x = work.Right - pw - (screen.Primary ? TrayWidthGuess(scale) : 12 * scale);
+            x = work.Right - pw - TaskbarEndReservedWidth(screen, scale);
 
             // 작업표시줄 안에 세로 가운데로 놓는다.
             // 막대가 작업표시줄보다 높으면 아래를 살짝 띄우고 위로 넘치게 둔다.
@@ -471,7 +472,7 @@ public partial class WidgetBarWindow : Window
         {
             int barHeight = work.Top - full.Top;
 
-            x = work.Right - pw - (screen.Primary ? TrayWidthGuess(scale) : 12 * scale);
+            x = work.Right - pw - TaskbarEndReservedWidth(screen, scale);
             y = ph <= barHeight
                 ? full.Top + (barHeight - ph) / 2
                 : full.Top + Gap * scale;
@@ -501,19 +502,36 @@ public partial class WidgetBarWindow : Window
     }
 
     /// <summary>
-    /// 알림 영역 폭을 재서 그만큼 왼쪽으로 비켜준다.
-    /// 못 재면 넉넉한 기본값을 쓴다.
+    /// 선택한 모니터의 작업표시줄에서 알림·시계 영역을 재 그만큼 비켜준다.
+    /// 보조 작업표시줄에도 시계가 켜질 수 있으므로 주 모니터만 보지 않는다.
     /// </summary>
-    private static double TrayWidthGuess(double scale)
+    private static double TaskbarEndReservedWidth(System.Windows.Forms.Screen screen, double scale)
     {
         try
         {
-            var tray = FindWindow("Shell_TrayWnd", null);
-            if (tray != IntPtr.Zero)
+            IntPtr taskbar = FindTaskbarFor(screen);
+            if (taskbar != IntPtr.Zero && GetWindowRect(taskbar, out var barRect))
             {
-                var notify = FindWindowEx(tray, IntPtr.Zero, "TrayNotifyWnd", null);
-                if (notify != IntPtr.Zero && GetWindowRect(notify, out var r))
-                    return (r.Right - r.Left) + 8 * scale;
+                int reservedLeft = barRect.Right;
+
+                // Windows 버전에 따라 알림 영역과 시계의 클래스가 달라진다.
+                // 알려진 컨테이너 중 실제로 이 작업표시줄 안에 있는 것만 쓴다.
+                EnumChildWindows(taskbar, (child, _) =>
+                {
+                    string className = WindowClass(child);
+                    if (className is not ("TrayNotifyWnd" or "TrayClockWClass" or "ClockButton"))
+                        return true;
+
+                    if (GetWindowRect(child, out var r) &&
+                        r.Right > barRect.Left && r.Left < barRect.Right &&
+                        r.Bottom > barRect.Top && r.Top < barRect.Bottom)
+                        reservedLeft = Math.Min(reservedLeft, r.Left);
+
+                    return true;
+                }, IntPtr.Zero);
+
+                if (reservedLeft < barRect.Right)
+                    return barRect.Right - reservedLeft + 8 * scale;
             }
         }
         catch
@@ -521,7 +539,38 @@ public partial class WidgetBarWindow : Window
             // 셸 구조가 다를 수 있다. 아래 기본값으로 넘어간다.
         }
 
-        return 300 * scale;
+        // 알림 영역이 없는 보조 작업표시줄도 있으므로 과하게 비우지 않는다.
+        return 12 * scale;
+    }
+
+    /// <summary>주·보조 작업표시줄 중 선택한 화면과 가장 많이 겹치는 창을 찾는다.</summary>
+    private static IntPtr FindTaskbarFor(System.Windows.Forms.Screen screen)
+    {
+        IntPtr found = IntPtr.Zero;
+        long bestArea = 0;
+
+        EnumWindows((window, _) =>
+        {
+            string className = WindowClass(window);
+            if (className is not ("Shell_TrayWnd" or "Shell_SecondaryTrayWnd") ||
+                !GetWindowRect(window, out var r)) return true;
+
+            int left = Math.Max(r.Left, screen.Bounds.Left);
+            int top = Math.Max(r.Top, screen.Bounds.Top);
+            int right = Math.Min(r.Right, screen.Bounds.Right);
+            int bottom = Math.Min(r.Bottom, screen.Bounds.Bottom);
+            long area = Math.Max(0, right - left) * (long)Math.Max(0, bottom - top);
+            if (area > bestArea) { bestArea = area; found = window; }
+            return true;
+        }, IntPtr.Zero);
+
+        return found;
+    }
+
+    private static string WindowClass(IntPtr window)
+    {
+        var name = new StringBuilder(128);
+        return GetClassName(window, name, name.Capacity) > 0 ? name.ToString() : "";
     }
 
     private double GetDpiScale()
@@ -530,11 +579,18 @@ public partial class WidgetBarWindow : Window
         return src?.CompositionTarget?.TransformToDevice.M11 ?? 1.0;
     }
 
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    private static extern IntPtr FindWindow(string? className, string? windowName);
+    private delegate bool EnumWindowProc(IntPtr window, IntPtr parameter);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool EnumWindows(EnumWindowProc callback, IntPtr parameter);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool EnumChildWindows(IntPtr parent, EnumWindowProc callback, IntPtr parameter);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    private static extern IntPtr FindWindowEx(IntPtr parent, IntPtr child, string? className, string? windowName);
+    private static extern int GetClassName(IntPtr window, StringBuilder className, int maxCount);
 
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
