@@ -153,13 +153,13 @@ public partial class SettingsWindow : Window
     }
 
     /// <summary>
-    /// 창이 화면 밖으로 자라지 않게 높이를 묶는다.
+    /// 작은 화면에서는 창을 그만큼 줄인다.
     ///
-    /// SizeToContent="Height"는 내용만큼 창을 늘리는데, 설정 항목이 많아지면
-    /// 작업 표시줄 아래까지 내려가 마지막 줄에 손이 닿지 않는다. 화면(작업
-    /// 영역) 안에 들어오게 잘라 두면 넘치는 만큼은 ScrollViewer가 맡는다.
+    /// 높이는 XAML에서 620으로 못 박았다. 내용에 맞춰 늘리면 항목이 늘 때마다
+    /// 창 크기가 달라지고, 어느 순간 작업 표시줄 아래로 내려가 마지막 줄에
+    /// 손이 닿지 않는다. 고정해 두면 넘치는 만큼은 늘 ScrollViewer가 맡는다.
     ///
-    /// 창이 다 그려진 뒤라야 실제 높이를 알 수 있어 Loaded에서 한다.
+    /// 다만 620이 안 들어가는 화면도 있다. 그때만 화면에 맞춰 줄인다.
     /// </summary>
     private void OnWindowLoaded(object sender, RoutedEventArgs e)
     {
@@ -167,18 +167,17 @@ public partial class SettingsWindow : Window
         var area = System.Windows.Forms.Screen.FromHandle(
             new System.Windows.Interop.WindowInteropHelper(this).Handle).WorkingArea;
 
+        double scale = GetDpiScale();
+        double screenHeight = area.Height / scale;
+
         // 화면과 딱 맞으면 답답하다. 위아래로 조금 남긴다.
-        double limit = area.Height / GetDpiScale() - 40;
+        double limit = screenHeight - 40;
+        if (Height <= limit) return;
 
-        if (ActualHeight <= limit) return;
-
-        // 높이를 정하는 순간부터는 내용에 맞춰 늘리지 않는다. 그러지 않으면
-        // 방금 정한 MaxHeight를 SizeToContent가 도로 밀어낸다.
-        SizeToContent = SizeToContent.Manual;
         Height = limit;
 
         // 창을 줄였으니 가운데로 다시 놓는다. 잘린 채 아래로 치우쳐 뜬다.
-        Top = area.Top / GetDpiScale() + (area.Height / GetDpiScale() - limit) / 2;
+        Top = area.Top / scale + (screenHeight - limit) / 2;
     }
 
     /// <summary>화면 배율. 고DPI에서는 픽셀과 WPF 단위가 다르다.</summary>
