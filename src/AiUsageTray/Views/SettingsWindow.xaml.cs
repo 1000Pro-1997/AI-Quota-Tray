@@ -126,6 +126,8 @@ public partial class SettingsWindow : Window
         ShowWidgetBar.IsChecked = _settings.ShowWidgetBar;
         WidgetShowPercent.IsChecked = _settings.WidgetShowPercent;
         WidgetShowResetTime.IsChecked = _settings.WidgetShowResetTime;
+        WidgetPercentFontSize.Text = _settings.WidgetPercentFontSize.ToString();
+        WidgetResetTimeFontSize.Text = _settings.WidgetResetTimeFontSize.ToString();
         WidgetAutoSize.IsChecked = _settings.WidgetAutoSize;
         WidgetWidth.Text = _settings.WidgetWidth.ToString();
         WidgetHeight.Text = _settings.WidgetHeight.ToString();
@@ -135,6 +137,7 @@ public partial class SettingsWindow : Window
         WidgetOffsetY.Text = _settings.WidgetOffsetY.ToString();
         ShowOffsetRow();
         ShowWidgetSizeInputs();
+        ShowWidgetFontInputs();
         BuildWidgetMonitorList();
         LoadTimeSettings();
 
@@ -260,6 +263,20 @@ public partial class SettingsWindow : Window
     }
 
     private void OnWidgetSizeTextChanged(object sender, TextChangedEventArgs e) => ApplyNow();
+
+    private void OnWidgetTextToggle(object sender, RoutedEventArgs e)
+    {
+        ShowWidgetFontInputs();
+        ApplyNow();
+    }
+
+    private void OnWidgetFontSizeChanged(object sender, TextChangedEventArgs e) => ApplyNow();
+
+    private void ShowWidgetFontInputs()
+    {
+        WidgetPercentFontSize.IsEnabled = WidgetShowPercent.IsChecked == true;
+        WidgetResetTimeFontSize.IsEnabled = WidgetShowResetTime.IsChecked == true;
+    }
 
     private void OnTimeSettingChanged(object sender, SelectionChangedEventArgs e) => ApplyNow();
     private void OnTimeSettingTextChanged(object sender, TextChangedEventArgs e) => ApplyNow();
@@ -648,6 +665,8 @@ public partial class SettingsWindow : Window
         LblWidgetBarHint.Text = Strings.Get("settings.widgetBarHint");
         LblWidgetShowPercent.Text = Strings.Get("settings.widgetShowPercent");
         LblWidgetShowResetTime.Text = Strings.Get("settings.widgetShowResetTime");
+        WidgetPercentFontSize.ToolTip = Strings.Get("settings.fontSize");
+        WidgetResetTimeFontSize.ToolTip = Strings.Get("settings.fontSize");
         LblWidgetAutoSize.Text = Strings.Get("settings.widgetAutoSize");
         LblWidgetAutoSizeHint.Text = Strings.Get("settings.widgetAutoSizeHint");
         LblWidgetWidth.Text = Strings.Get("settings.widgetWidth");
@@ -856,6 +875,8 @@ public partial class SettingsWindow : Window
         _settings.ShowWidgetBar = ShowWidgetBar.IsChecked == true;
         _settings.WidgetShowPercent = WidgetShowPercent.IsChecked == true;
         _settings.WidgetShowResetTime = WidgetShowResetTime.IsChecked == true;
+        _settings.WidgetPercentFontSize = ParseWidgetDimension(WidgetPercentFontSize.Text, 11, 6, 30);
+        _settings.WidgetResetTimeFontSize = ParseWidgetDimension(WidgetResetTimeFontSize.Text, 10, 6, 30);
         _settings.WidgetAutoSize = WidgetAutoSize.IsChecked == true;
         _settings.WidgetWidth = ParseWidgetDimension(WidgetWidth.Text, 200, 80, 1200);
         _settings.WidgetHeight = ParseWidgetDimension(WidgetHeight.Text, 36, 24, 600);
@@ -943,6 +964,8 @@ public partial class SettingsWindow : Window
         ShowWidgetBar.IsChecked = _settings.ShowWidgetBar;
         WidgetShowPercent.IsChecked = _settings.WidgetShowPercent;
         WidgetShowResetTime.IsChecked = _settings.WidgetShowResetTime;
+        WidgetPercentFontSize.Text = _settings.WidgetPercentFontSize.ToString();
+        WidgetResetTimeFontSize.Text = _settings.WidgetResetTimeFontSize.ToString();
         WidgetAutoSize.IsChecked = _settings.WidgetAutoSize;
         WidgetWidth.Text = _settings.WidgetWidth.ToString();
         WidgetHeight.Text = _settings.WidgetHeight.ToString();
@@ -952,6 +975,7 @@ public partial class SettingsWindow : Window
         WidgetOffsetY.Text = _settings.WidgetOffsetY.ToString();
         ShowOffsetRow();
         ShowWidgetSizeInputs();
+        ShowWidgetFontInputs();
         BuildWidgetMonitorList();
         LoadTimeSettings();
 

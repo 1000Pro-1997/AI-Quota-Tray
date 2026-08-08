@@ -58,6 +58,8 @@ public partial class WidgetBarWindow : Window
     public bool ModelsHorizontal { get; set; } = true;
     public bool ShowPercent { get; set; } = true;
     public bool ShowResetTime { get; set; } = true;
+    public int PercentFontSize { get; set; } = 11;
+    public int ResetTimeFontSize { get; set; } = 10;
     public Func<UsageWindow, string>? TimeFormatter { get; set; }
     public Func<UsageWindow, bool>? SecondDisplayResolver { get; set; }
 
@@ -258,7 +260,8 @@ public partial class WidgetBarWindow : Window
             SizeToContent = SizeToContent.Manual;
             Width = Math.Clamp(ManualWidth, 80, 1200);
             Height = Math.Clamp(ManualHeight, 24, 600);
-            Sizer.Stretch = Stretch.Fill;
+            // 가로·세로를 따로 지정해도 글자와 막대의 종횡비는 찌그러뜨리지 않는다.
+            Sizer.Stretch = Stretch.Uniform;
         }
     }
 
@@ -336,7 +339,7 @@ public partial class WidgetBarWindow : Window
         var value = new TextBlock
         {
             Text = ShowPercent ? $"{shown:F0}%" : "",
-            FontSize = 11,
+            FontSize = PercentFontSize,
             FontWeight = FontWeights.Bold,
             // 문제가 있을 때만 빨강. 남은 시간은 평소 색을 유지한다.
             Foreground = health is ServiceHealth.Degraded
@@ -358,7 +361,7 @@ public partial class WidgetBarWindow : Window
         var time = new TextBlock
         {
             Text = ShowResetTime ? (TimeFormatter?.Invoke(w) ?? w.ResetShort) : "",
-            FontSize = 10,
+            FontSize = ResetTimeFontSize,
             Foreground = (Brush)Resources["BarSubtleBrush"],
             VerticalAlignment = VerticalAlignment.Center,
             HorizontalAlignment = HorizontalAlignment.Right,

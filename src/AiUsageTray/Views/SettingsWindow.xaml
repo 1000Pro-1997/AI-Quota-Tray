@@ -918,8 +918,13 @@
                         <StackPanel VerticalAlignment="Center" Margin="0,0,96,0">
                             <TextBlock x:Name="LblWidgetShowPercent" Style="{StaticResource RowTitle}"/>
                         </StackPanel>
-                        <CheckBox x:Name="WidgetShowPercent" Style="{StaticResource Switch}"
-                                  Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <TextBox x:Name="WidgetPercentFontSize" Style="{StaticResource CompactNumberBox}"
+                                     Width="42" Margin="0,0,10,0" TextAlignment="Center"
+                                     TextChanged="OnWidgetFontSizeChanged"/>
+                            <CheckBox x:Name="WidgetShowPercent" Style="{StaticResource Switch}"
+                                      Checked="OnWidgetTextToggle" Unchecked="OnWidgetTextToggle"/>
+                        </StackPanel>
                     </Grid>
 
                     <Border Style="{StaticResource RowDivider}"/>
@@ -927,8 +932,13 @@
                         <StackPanel VerticalAlignment="Center" Margin="0,0,96,0">
                             <TextBlock x:Name="LblWidgetShowResetTime" Style="{StaticResource RowTitle}"/>
                         </StackPanel>
-                        <CheckBox x:Name="WidgetShowResetTime" Style="{StaticResource Switch}"
-                                  Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <TextBox x:Name="WidgetResetTimeFontSize" Style="{StaticResource CompactNumberBox}"
+                                     Width="42" Margin="0,0,10,0" TextAlignment="Center"
+                                     TextChanged="OnWidgetFontSizeChanged"/>
+                            <CheckBox x:Name="WidgetShowResetTime" Style="{StaticResource Switch}"
+                                      Checked="OnWidgetTextToggle" Unchecked="OnWidgetTextToggle"/>
+                        </StackPanel>
                     </Grid>
 
                     <Border Style="{StaticResource RowDivider}"/>

@@ -73,6 +73,8 @@ public sealed class AppSettings
 
     public bool WidgetShowPercent { get; set; } = true;
     public bool WidgetShowResetTime { get; set; } = true;
+    public int WidgetPercentFontSize { get; set; } = 11;
+    public int WidgetResetTimeFontSize { get; set; } = 10;
 
     public TimeDisplayMode SessionTimeDisplayMode { get; set; } = TimeDisplayMode.Remaining;
     public string SessionTimeFormat { get; set; } = "hh\"h\" mm\"m\" ss\"s\"";
@@ -214,6 +216,8 @@ public sealed class AppSettings
         WidgetModelsHorizontal = fresh.WidgetModelsHorizontal;
         WidgetShowPercent = fresh.WidgetShowPercent;
         WidgetShowResetTime = fresh.WidgetShowResetTime;
+        WidgetPercentFontSize = fresh.WidgetPercentFontSize;
+        WidgetResetTimeFontSize = fresh.WidgetResetTimeFontSize;
         SessionTimeDisplayMode = fresh.SessionTimeDisplayMode;
         SessionTimeFormat = fresh.SessionTimeFormat;
         SessionTimeMaxParts = fresh.SessionTimeMaxParts;
@@ -260,6 +264,8 @@ public sealed class AppSettings
                     if (loaded.RefreshIntervalSeconds < 30) loaded.RefreshIntervalSeconds = 30;
                     loaded.WidgetWidth = Math.Clamp(loaded.WidgetWidth, 80, 1200);
                     loaded.WidgetHeight = Math.Clamp(loaded.WidgetHeight, 24, 600);
+                    loaded.WidgetPercentFontSize = Math.Clamp(loaded.WidgetPercentFontSize, 6, 30);
+                    loaded.WidgetResetTimeFontSize = Math.Clamp(loaded.WidgetResetTimeFontSize, 6, 30);
                     loaded.SessionTimeMaxParts = Math.Clamp(loaded.SessionTimeMaxParts, 1, 4);
                     loaded.WeeklyTimeMaxParts = Math.Clamp(loaded.WeeklyTimeMaxParts, 1, 4);
                     loaded.SessionOverlayTimeMaxParts = Math.Clamp(loaded.SessionOverlayTimeMaxParts, 1, 5);

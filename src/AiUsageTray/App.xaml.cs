@@ -237,6 +237,8 @@ public partial class App : Application
         _widgetBar.ModelsHorizontal = _settings.WidgetModelsHorizontal;
         _widgetBar.ShowPercent = _settings.WidgetShowPercent;
         _widgetBar.ShowResetTime = _settings.WidgetShowResetTime;
+        _widgetBar.PercentFontSize = _settings.WidgetPercentFontSize;
+        _widgetBar.ResetTimeFontSize = _settings.WidgetResetTimeFontSize;
         _widgetBar.TimeFormatter = w => TimeDisplayFormatter.Format(w, _settings);
         _widgetBar.SecondDisplayResolver = w => TimeDisplayFormatter.ShowsSeconds(w, _settings);
         _widgetBar.MonitorDeviceName = _settings.WidgetMonitorDeviceName;
