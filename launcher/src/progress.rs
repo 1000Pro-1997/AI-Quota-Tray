@@ -13,8 +13,11 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::thread::{self, JoinHandle};
 use windows_sys::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
-use windows_sys::Win32::Graphics::Gdi::{CreateSolidBrush, HBRUSH, UpdateWindow};
-use windows_sys::Win32::UI::Controls::{PBM_SETPOS, PBM_SETRANGE32};
+use windows_sys::Win32::Graphics::Gdi::{
+    CreateFontW, CreateSolidBrush, DEFAULT_CHARSET, DEFAULT_PITCH, FF_DONTCARE, FW_NORMAL, HBRUSH,
+    UpdateWindow,
+};
+use windows_sys::Win32::UI::Controls::{PBM_SETBARCOLOR, PBM_SETBKCOLOR, PBM_SETPOS, PBM_SETRANGE32};
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
@@ -35,6 +38,20 @@ pub struct ProgressWindow {
 
 const WM_TICK: u32 = WM_USER + 1;
 const BAR_ID: usize = 1001;
+
+const LABEL_ID: usize = 1002;
+
+/// 오른쪽 정렬 STATIC. windows-sys 0.59는 이 값을 내주지 않아 직접 적는다.
+const SS_RIGHT: u32 = 0x0000_0002;
+
+/// exe에 박힌 아이콘의 번호. winresource가 첫 아이콘을 1번으로 넣는다.
+/// MAKEINTRESOURCE와 같은 뜻이다 — 낮은 워드에 번호를 담은 가짜 포인터.
+const ICON_RESOURCE_ID: *const u16 = 1 as *const u16;
+
+/// 막대 색. COLORREF는 0x00BBGGRR 순서라 iOS 파랑(#007AFF)이 뒤집혀 적힌다.
+const ACCENT: u32 = 0x00FF_7A00;
+/// 막대 바탕. 창의 흰색과 구분되는 옅은 회색.
+const TRACK: u32 = 0x00EF_EF_EF;
 
 impl ProgressWindow {
     /// 창을 띄운다. 창을 만들지 못해도 설치는 계속되어야 하므로 None을 준다.
@@ -108,11 +125,16 @@ fn run_window(
         wc.lpszClassName = class.as_ptr();
         wc.hCursor = LoadCursorW(std::ptr::null_mut(), IDC_ARROW);
         wc.hbrBackground = CreateSolidBrush(0x00FF_FFFF) as HBRUSH;
-        wc.hIcon = LoadIconW(instance, to_wide("IDI_ICON1").as_ptr());
+
+        // 아이콘은 이름이 아니라 번호로 찾아야 한다. winresource가 넣어 주는
+        // RT_GROUP_ICON은 이름 없이 1번으로만 들어가서, "IDI_ICON1" 같은
+        // 문자열로 부르면 조용히 null이 돌아온다. 그래서 여태 제목 표시줄과
+        // 작업 표시줄이 비어 있었다.
+        wc.hIcon = LoadIconW(instance, ICON_RESOURCE_ID);
         RegisterClassW(&wc);
 
         // 화면 한가운데. 작업 표시줄을 가리지 않을 만큼 작게.
-        let (w, h) = (420, 150);
+        let (w, h) = (420, 172);
         let sw = GetSystemMetrics(SM_CXSCREEN);
         let sh = GetSystemMetrics(SM_CYSCREEN);
 
@@ -137,8 +159,17 @@ fn run_window(
             return;
         }
 
+        // 지정하지 않으면 90년대 비트맵 글꼴이 나온다. 창 하나 띄우는 값에
+        // 견주어 글꼴 한 줄이 인상을 가장 크게 바꾼다.
+        let font = CreateFontW(
+            -15, 0, 0, 0, FW_NORMAL as i32, 0, 0, 0,
+            DEFAULT_CHARSET as u32, 0, 0, 0,
+            (DEFAULT_PITCH | FF_DONTCARE) as u32,
+            to_wide("Segoe UI").as_ptr(),
+        );
+
         // 상태 문구.
-        CreateWindowExW(
+        let text = CreateWindowExW(
             0,
             to_wide("STATIC").as_ptr(),
             to_wide(message).as_ptr(),
@@ -152,6 +183,7 @@ fn run_window(
             instance,
             std::ptr::null(),
         );
+        SendMessageW(text, WM_SETFONT, font as WPARAM, 1);
 
         // 진행 막대. 공용 컨트롤이라 별도 초기화 없이 쓸 수 있다.
         let bar = CreateWindowExW(
@@ -160,9 +192,9 @@ fn run_window(
             std::ptr::null(),
             WS_CHILD | WS_VISIBLE,
             20,
-            68,
+            70,
             370,
-            22,
+            10,
             hwnd,
             BAR_ID as _,
             instance,
@@ -171,6 +203,30 @@ fn run_window(
         // 0~1000으로 잡아야 소수점 단위 움직임이 보인다.
         SendMessageW(bar, PBM_SETRANGE32, 0, 1000);
 
+        // 색을 직접 주면 테마가 꺼져 막대가 납작해진다. 여기서는 그편이
+        // 낫다 — 기본 테마의 초록 그라데이션보다 단색이 차분하다.
+        SendMessageW(bar, PBM_SETBARCOLOR, 0, ACCENT as LPARAM);
+        SendMessageW(bar, PBM_SETBKCOLOR, 0, TRACK as LPARAM);
+
+        // 퍼센트. 막대만 있으면 얼마나 남았는지 눈대중해야 한다.
+        let label = CreateWindowExW(
+            0,
+            to_wide("STATIC").as_ptr(),
+            to_wide("0%").as_ptr(),
+            WS_CHILD | WS_VISIBLE | SS_RIGHT,
+            20,
+            90,
+            370,
+            20,
+            hwnd,
+            LABEL_ID as _,
+            instance,
+            std::ptr::null(),
+        );
+        SendMessageW(label, WM_SETFONT, font as WPARAM, 1);
+
+        // 글꼴은 따로 지우지 않는다. 이 창은 설치가 끝나면 프로세스와 함께
+        // 사라져서, 회수하자고 창 구조에 자리를 더 내는 값이 안 나온다.
         SetWindowLongPtrW(hwnd, GWLP_USERDATA, Arc::into_raw(shared) as isize);
         ShowWindow(hwnd, SW_SHOW);
         UpdateWindow(hwnd);
@@ -200,6 +256,12 @@ unsafe extern "system" fn window_proc(
                     let bar = GetDlgItem(hwnd, BAR_ID as i32);
                     if !bar.is_null() {
                         SendMessageW(bar, PBM_SETPOS, value as WPARAM, 0);
+                    }
+
+                    let label = GetDlgItem(hwnd, LABEL_ID as i32);
+                    if !label.is_null() {
+                        let text = to_wide(&format!("{}%", value / 10));
+                        SetWindowTextW(label, text.as_ptr());
                     }
                 }
                 0
