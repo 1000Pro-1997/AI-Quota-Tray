@@ -99,12 +99,44 @@ public partial class App : Application
             string.Equals(a, "--flyout", StringComparison.OrdinalIgnoreCase));
 
         // 하루에 한 번만 새 버전을 묻는다. 실패해도 앱 동작에는 영향이 없다.
-        _ = _updates.CheckIfDueAsync();
+        _ = CheckAndStageUpdateAsync();
 
         _ = _monitor.RefreshAsync().ContinueWith(_ =>
         {
             if (showNow) Dispatcher.Invoke(ToggleFlyout);
         }, TaskScheduler.Default);
+    }
+
+    /// <summary>
+    /// 새 버전을 확인하고, 자동 업데이트가 켜져 있으면 받아 둔다.
+    ///
+    /// 받아만 두고 적용은 다음 실행에 맡긴다. 쓰던 중에 앱이 갑자기 사라졌다
+    /// 나타나면 놀라기 때문이다. 확인은 토글과 무관하게 늘 한다. 알림은 받되
+    /// 언제 받을지는 직접 고르고 싶은 사람이 있다.
+    /// </summary>
+    private async Task CheckAndStageUpdateAsync()
+    {
+        try
+        {
+            await _updates.CheckIfDueAsync();
+
+            if (!_settings.AutoUpdate) return;
+            if (_updates.Last is not { CanDownload: true } info) return;
+
+            // 런처가 없으면 받아 둬도 갈아끼워 줄 사람이 없다.
+            if (!UpdateDownloader.LauncherInstalled) return;
+
+            // 이미 받아 둔 것이 있으면 두 번 받지 않는다.
+            if (UpdateDownloader.PendingReady) return;
+
+            using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
+            await new UpdateDownloader(http).DownloadAsync(info, progress: null);
+        }
+        catch
+        {
+            // 배경에서 하는 일이다. 실패해도 사용자가 할 일은 없다.
+            // 설정 창의 버튼으로 언제든 다시 시도할 수 있다.
+        }
     }
 
     // ---- 구성 ----

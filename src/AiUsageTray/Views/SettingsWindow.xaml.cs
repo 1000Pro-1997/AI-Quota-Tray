@@ -113,6 +113,7 @@ public partial class SettingsWindow : Window
 
         StartWithWindows.IsChecked = _settings.StartWithWindows;
         WindowPrimerEnabled.IsChecked = _settings.KeepFiveHourWindowsAligned;
+        AutoUpdateEnabled.IsChecked = _settings.AutoUpdate;
 
         // 실제 레지스트리 상태를 우선한다. 사용자가 Windows 설정에서
         // 직접 바꿨을 수 있으므로 저장된 값보다 현재 상태가 정확하다.
@@ -430,11 +431,27 @@ public partial class SettingsWindow : Window
         LblWindowPrimer.Text = Strings.Get("settings.windowPrimer");
         LblWindowPrimerHint.Text = Strings.Get("settings.windowPrimerHint");
 
-        TestButton.Content = Strings.Get("settings.test");
-        IssuesLink.Content = Strings.Get("settings.issues");
+        LblSectionSystem.Text = Strings.Get("settings.sectionSystem");
+
+        LblVersion.Text = Strings.Get("settings.version");
+        LblAutoUpdate.Text = Strings.Get("settings.autoUpdate");
+        VersionText.Text = $"{AppInfo.Name} {AppInfo.Version}";
 
         LblInstallPath.Text = Strings.Get("settings.installPath");
         OpenFolderButton.Content = Strings.Get("settings.openFolder");
+
+        LblResetAll.Text = Strings.Get("settings.resetAll");
+        LblResetAllHint.Text = Strings.Get("settings.resetAllHint");
+        ResetAllButton.Content = Strings.Get("settings.resetAllButton");
+
+        LblIssues.Text = Strings.Get("settings.issues");
+        LblIssuesHint.Text = Strings.Get("settings.issuesHint");
+        IssuesLink.Content = Strings.Get("settings.issuesButton");
+
+        LblTest.Text = Strings.Get("settings.test");
+        LblTestHint.Text = Strings.Get("settings.testHint");
+        TestButton.Content = Strings.Get("settings.testButton");
+
         // 런처 유무는 문구가 갈리므로 상태를 다시 읽어 채운다.
         ShowInstallState();
         ShowUpdateState(_updates?.Last);
@@ -580,6 +597,7 @@ public partial class SettingsWindow : Window
         bool autoStart = StartWithWindows.IsChecked == true;
         _settings.StartWithWindows = autoStart;
         _settings.KeepFiveHourWindowsAligned = WindowPrimerEnabled.IsChecked == true;
+        _settings.AutoUpdate = AutoUpdateEnabled.IsChecked == true;
         ApplyAutoStart(autoStart);
 
         bool pin = PinToTaskbar.IsChecked == true;
@@ -633,6 +651,7 @@ public partial class SettingsWindow : Window
         CodexPath.Text = _settings.EffectiveCodexPath;
         StartWithWindows.IsChecked = _settings.StartWithWindows;
         WindowPrimerEnabled.IsChecked = _settings.KeepFiveHourWindowsAligned;
+        AutoUpdateEnabled.IsChecked = _settings.AutoUpdate;
         PinToTaskbar.IsChecked = _settings.ShowInTaskbar;
         ShowWidgetBar.IsChecked = _settings.ShowWidgetBar;
 
