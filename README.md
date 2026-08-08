@@ -19,26 +19,29 @@ when they reset.
 
 ## Download
 
-Grab a build from
-[Releases](https://github.com/1000Pro-1997/AI-Quota-Tray/releases). For most users,
-download the automatic installer/launcher:
+**[`AI-Quota-Tray-Setup.exe`](https://github.com/1000Pro-1997/AI-Quota-Tray/releases/latest/download/AI-Quota-Tray-Setup.exe)** — about 2 MB.
 
-| File | Size | Requires |
-|---|---|---|
-| `AI-Quota-Tray-Setup.exe` | About 2 MB | Nothing — installs and keeps itself updated |
-| `AiQuotaTray-standalone.exe` | About 157 MB | Nothing — just run it |
-| `AiQuotaTray.exe` | 550 KB | [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) |
+That is all you need. It installs the app, starts it with Windows, and keeps it
+up to date on its own. Nothing else to install — not even .NET.
 
-The launcher installs the standalone app under `%LOCALAPPDATA%\AI Quota Tray`, so
-it works on a clean Windows PC without installing .NET. On each launch it applies
-an update already downloaded, starts the app immediately, then checks GitHub for
-the next release in the background. A newly downloaded version is applied on the
-next launch. If the network is unavailable, the installed version still starts.
+<details>
+<summary>Other files on the release page (you can ignore these)</summary>
 
-The two direct app downloads remain available for portable/manual use. The small
-one needs .NET installed.
+The release also carries the app itself. The launcher downloads
+`AiQuotaTray-standalone.exe` for you, so you only need these if you want to skip
+the launcher and manage updates by hand.
 
-Neither needs an installer.
+| File | Size | Requires | Updates |
+|---|---|---|---|
+| `AiQuotaTray-standalone.exe` | About 157 MB | Nothing | Manual |
+| `AiQuotaTray.exe` | 550 KB | [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) | Manual |
+
+</details>
+
+The launcher installs the app under `%LOCALAPPDATA%\AI Quota Tray`, so it works on
+a clean Windows PC without installing .NET. On each launch it applies an update
+already downloaded, starts the app immediately, then checks GitHub in the
+background. If the network is unavailable, the installed version still starts.
 
 ## What it shows
 

@@ -26,5 +26,11 @@ Copy-Item (Join-Path $build 'standalone\AiQuotaTray.exe') `
 Copy-Item (Join-Path $root 'launcher\target\release\ai-quota-tray-launcher.exe') `
     (Join-Path $dist 'AI-Quota-Tray-Setup.exe') -Force
 
-Get-FileHash (Join-Path $dist '*.exe') -Algorithm SHA256 |
-    Select-Object Path, Hash
+# 자립형 exe의 SHA256은 릴리스 노트에 반드시 넣어야 한다.
+# 런처와 앱이 이 값으로 내려받은 파일을 검증한다. 없으면 자동 업데이트가 멈춘다.
+Write-Host ''
+Write-Host 'SHA256 (릴리스 노트의 Checksums 항목에 붙여넣을 것)' -ForegroundColor Cyan
+Get-ChildItem -Path $dist -Filter *.exe | ForEach-Object {
+    $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
+    '{0}  {1}' -f $_.Name, $hash
+}

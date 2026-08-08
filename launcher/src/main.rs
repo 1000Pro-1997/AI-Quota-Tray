@@ -1,5 +1,7 @@
 #![windows_subsystem = "windows"]
 
+mod progress;
+
 use reqwest::blocking::Client;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
@@ -64,32 +66,44 @@ fn run() -> Result<(), String> {
         return apply_now();
     }
 
+    fs::create_dir_all(install_dir()).map_err(|e| e.to_string())?;
+
+    // 내려받은 Setup.exe를 눌렀을 때. 자기를 설치 폴더에 앉히고 시작 프로그램에
+    // 등록한다. 여기서 새 프로세스를 띄우지 않고 그대로 이어서 일한다.
+    // 예전에는 복사본을 다시 실행했는데, 자기 자신이 잠고 있어 덮어쓰기가
+    // 실패하거나(os error 32) 프로세스가 둘로 갈라졌다.
     if !same_path(&current, &installed) {
         install_launcher(&current, &installed)?;
-        start_hidden(&installed, &[])?;
-        return Ok(());
     }
 
-    fs::create_dir_all(install_dir()).map_err(|e| e.to_string())?;
     let Some(_mutex) = LauncherMutex::acquire() else {
+        // 다른 런처가 이미 같은 일을 하고 있다. 겹쳐 받을 이유가 없다.
+        log_line("another launcher is running; nothing to do");
         return Ok(());
     };
 
     apply_pending_update()?;
 
-    if app_path().exists() {
-        if should_launch_app() {
-            start_hidden(&app_path(), &[])?;
-        }
-        // 앱은 즉시 띄우고, 확인과 다운로드는 이 런처 프로세스에서 뒤이어 수행한다.
-        if let Err(error) = stage_latest_update() {
-            log_line(&format!("background update skipped: {error}"));
-        }
-    } else {
+    // 앱이 아직 없으면 첫 설치다. 진행 창을 보이며 받고, 끝나면 띄운다.
+    if !app_path().exists() {
         download_first_install()?;
+
         if should_launch_app() {
             start_hidden(&app_path(), &["--flyout"])?;
         }
+        return Ok(());
+    }
+
+    // 두 번째부터는 앱을 띄우는 것이 본 일이다.
+    // 이미 떠 있으면 두 번 띄우지 않는다. 로그인 직후 시작 프로그램이
+    // 두 번 발화하거나 사용자가 손으로 실행한 경우에 걸린다.
+    if should_launch_app() && !app_is_running() {
+        start_hidden(&app_path(), &[])?;
+    }
+
+    // 앱은 이미 띄웠다. 다음 판 확인과 내려받기는 뒤이어 조용히 한다.
+    if let Err(error) = stage_latest_update() {
+        log_line(&format!("background update skipped: {error}"));
     }
 
     Ok(())
@@ -157,7 +171,15 @@ impl Drop for LauncherMutex {
 
 fn install_launcher(source: &Path, target: &Path) -> Result<(), String> {
     fs::create_dir_all(install_dir()).map_err(|e| e.to_string())?;
-    fs::copy(source, target).map_err(|e| format!("런처 설치 실패: {e}"))?;
+
+    // 내용이 같으면 덮어쓸 이유가 없다. 설치된 런처가 지금 돌고 있으면
+    // 자기 자신이 잠고 있어 복사가 실패하는데(os error 32), 그때도 하던 일은
+    // 계속되어야 한다. 그래서 복사 실패는 기록만 하고 넘어간다.
+    if !same_contents(source, target) {
+        if let Err(error) = fs::copy(source, target) {
+            log_line(&format!("launcher copy skipped: {error}"));
+        }
+    }
 
     if env::var_os("AI_QUOTA_TRAY_SKIP_STARTUP").is_some() {
         return Ok(());
@@ -269,7 +291,20 @@ fn apply_pending_update() -> Result<(), String> {
 fn download_first_install() -> Result<(), String> {
     let release = fetch_release()?;
     let asset = find_asset(&release)?;
-    download_verified(asset, &release.body, &partial_path())?;
+
+    // 첫 설치는 160MB가 넘는다. 침묵이 길면 실패한 줄 알기 때문에 창을 띄운다.
+    let window = progress::ProgressWindow::open(
+        "AI Quota Tray",
+        "AI Quota Tray를 내려받는 중입니다…
+잠시만 기다려 주세요.",
+    );
+
+    let result = download_verified(asset, &release.body, &partial_path(), window.as_ref());
+
+    // 실패 사유를 창이 가리지 않도록 먼저 닫는다.
+    drop(window);
+    result?;
+
     fs::rename(partial_path(), app_path()).map_err(|e| format!("앱 설치 실패: {e}"))?;
     fs::write(version_path(), normalize_version(&release.tag_name)).map_err(|e| e.to_string())?;
     Ok(())
@@ -284,7 +319,7 @@ fn stage_latest_update() -> Result<(), String> {
     }
 
     let asset = find_asset(&release)?;
-    download_verified(asset, &release.body, &partial_path())?;
+    download_verified(asset, &release.body, &partial_path(), None)?;
     let _ = fs::remove_file(pending_path());
     fs::rename(partial_path(), pending_path()).map_err(|e| format!("업데이트 준비 실패: {e}"))?;
     fs::write(pending_version_path(), &latest).map_err(|e| e.to_string())?;
@@ -319,7 +354,12 @@ fn find_asset(release: &Release) -> Result<&Asset, String> {
         .ok_or_else(|| format!("{ASSET_NAME} 파일이 릴리즈에 없습니다."))
 }
 
-fn download_verified(asset: &Asset, body: &str, destination: &Path) -> Result<(), String> {
+fn download_verified(
+    asset: &Asset,
+    body: &str,
+    destination: &Path,
+    window: Option<&progress::ProgressWindow>,
+) -> Result<(), String> {
     let expected = expected_sha256(asset, body)
         .ok_or_else(|| "릴리즈에서 SHA256을 확인할 수 없습니다.".to_string())?;
     let client = Client::builder()
@@ -345,6 +385,15 @@ fn download_verified(asset: &Asset, body: &str, destination: &Path) -> Result<()
         total += count as u64;
         if total > 250 * 1024 * 1024 {
             return Err("다운로드 파일이 너무 큽니다.".into());
+        }
+
+        if let Some(w) = window {
+            if w.cancelled() {
+                return Err("사용자가 설치를 취소했습니다.".into());
+            }
+            if asset.size > 0 {
+                w.set(total as f64 / asset.size as f64);
+            }
         }
         hasher.update(&buffer[..count]);
         file.write_all(&buffer[..count])
@@ -416,6 +465,15 @@ fn start_hidden(path: &Path, args: &[&str]) -> Result<(), String> {
         .spawn()
         .map(|_| ())
         .map_err(|e| format!("{} 실행 실패: {e}", path.display()))
+}
+
+/// 두 파일이 같은 내용인가. 크기만 견주어도 판올림은 걸러진다.
+/// 해시까지 볼 만한 자리가 아니다. 틀려도 덮어쓰기 한 번이 더 일어날 뿐이다.
+fn same_contents(left: &Path, right: &Path) -> bool {
+    match (fs::metadata(left), fs::metadata(right)) {
+        (Ok(a), Ok(b)) => a.len() == b.len(),
+        _ => false,
+    }
 }
 
 fn same_path(left: &Path, right: &Path) -> bool {
