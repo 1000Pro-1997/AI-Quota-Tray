@@ -516,7 +516,36 @@ public partial class WidgetBarWindow : Window
 
         double x, y;
 
-        if (work.Bottom < full.Bottom)          // 작업표시줄: 아래
+        // Windows 10은 위젯을 작업표시줄 내부에 얹지 않는다. 선택한 화면의
+        // 작업 영역에서 알림 영역과 가까운 모서리에 붙이고, 아래의 수동
+        // 오프셋으로 사용자가 자기 작업표시줄 구성에 맞게 미세 조정한다.
+        if (IsWindows10())
+        {
+            const int CornerGap = 4;
+            double gap = CornerGap * scale;
+
+            if (work.Top > full.Top)             // 작업표시줄: 위
+            {
+                x = work.Right - pw - gap;
+                y = work.Top + gap;
+            }
+            else if (work.Left > full.Left)      // 왼쪽
+            {
+                x = work.Left + gap;
+                y = work.Bottom - ph - gap;
+            }
+            else if (work.Right < full.Right)    // 오른쪽
+            {
+                x = work.Right - pw - gap;
+                y = work.Bottom - ph - gap;
+            }
+            else                                 // 아래 또는 자동 숨김
+            {
+                x = work.Right - pw - gap;
+                y = work.Bottom - ph - gap;
+            }
+        }
+        else if (work.Bottom < full.Bottom)     // 작업표시줄: 아래
         {
             int barTop = work.Bottom;
             int barHeight = full.Bottom - work.Bottom;
@@ -569,6 +598,15 @@ public partial class WidgetBarWindow : Window
         Left = x / scale;
         Top = y / scale;
     }
+
+    /// <summary>
+    /// Windows 10과 11은 모두 NT 10.0이므로 Windows 11의 최초 빌드(22000)를
+    /// 경계로 구분한다. 앱 매니페스트가 Windows 10을 선언하므로 버전 가상화도
+    /// 적용되지 않는다.
+    /// </summary>
+    private static bool IsWindows10() =>
+        OperatingSystem.IsWindowsVersionAtLeast(10) &&
+        !OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000);
 
     /// <summary>
     /// 선택한 모니터의 작업표시줄에서 알림·시계 영역을 재 그만큼 비켜준다.
