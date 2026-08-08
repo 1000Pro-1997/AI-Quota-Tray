@@ -19,7 +19,7 @@ when they reset.
 
 ## Download
 
-**[`AI-Quota-Tray-Setup.exe`](https://github.com/1000Pro-1997/AI-Quota-Tray/releases/latest/download/AI-Quota-Tray-Setup.exe)** — about 2 MB.
+**[`AI-Quota-Tray.exe`](https://github.com/1000Pro-1997/AI-Quota-Tray/releases/latest/download/AI-Quota-Tray.exe)** — about 2 MB.
 
 That is all you need. It installs the app, starts it with Windows, and keeps it
 up to date on its own. Nothing else to install — not even .NET.
@@ -28,13 +28,12 @@ up to date on its own. Nothing else to install — not even .NET.
 <summary>Other files on the release page (you can ignore these)</summary>
 
 The release also carries the app itself. The launcher downloads
-`AiQuotaTray-standalone.exe` for you, so you only need these if you want to skip
+`AiQuotaTray-standalone.exe` for you, so you only need it if you want to skip
 the launcher and manage updates by hand.
 
 | File | Size | Requires | Updates |
 |---|---|---|---|
-| `AiQuotaTray-standalone.exe` | About 157 MB | Nothing | Manual |
-| `AiQuotaTray.exe` | 550 KB | [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) | Manual |
+| `AiQuotaTray-standalone.exe` | About 75 MB | Nothing | Manual |
 
 </details>
 
@@ -134,7 +133,7 @@ returns everything to defaults.
 
 The current version sits at the bottom. The app checks GitHub Releases once a day.
 
-Installations made through `AI-Quota-Tray-Setup.exe` update in place: the button
+Installations made through `AI-Quota-Tray.exe` update in place: the button
 downloads the new build with a progress bar, verifies its SHA256, and turns into
 **Restart to apply**. Pressing it hands over to the launcher, which waits for the
 app to close, swaps the executable, and starts the new version — no reboot needed.

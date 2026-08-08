@@ -1,6 +1,7 @@
 #![windows_subsystem = "windows"]
 
 mod progress;
+mod tray;
 
 use reqwest::blocking::Client;
 use serde::Deserialize;
@@ -68,12 +69,31 @@ fn run() -> Result<(), String> {
 
     fs::create_dir_all(install_dir()).map_err(|e| e.to_string())?;
 
+    // 하는 일이 무엇이든 트레이에 아이콘부터 띄운다. 예전에는 첫 설치일 때만
+    // 창을 띄웠는데, 이미 설치된 사람이 Setup.exe를 누르면 화면에 아무것도
+    // 뜨지 않아 실행이 실패한 줄 알았다. 아이콘 하나로 그 침묵을 없앤다.
+    let tray = tray::TrayIcon::show("AI Quota Tray 준비 중…", 0);
+
+    let result = work(&current, &installed, tray.as_ref());
+
+    // 실패는 사용자가 알아챌 때까지 남겨 둔다. 아이콘이 곧 사라지면
+    // 무엇이 잘못됐는지 볼 기회가 없다.
+    if let (Err(error), Some(icon)) = (&result, tray.as_ref()) {
+        icon.set(-1, &format!("AI Quota Tray 실패 — {error}"));
+        wait_for_dismiss(icon);
+    }
+
+    result
+}
+
+/// 런처가 실제로 하는 일. 트레이 아이콘은 이 진행을 비추기만 한다.
+fn work(current: &Path, installed: &Path, tray: Option<&tray::TrayIcon>) -> Result<(), String> {
     // 내려받은 Setup.exe를 눌렀을 때. 자기를 설치 폴더에 앉히고 시작 프로그램에
     // 등록한다. 여기서 새 프로세스를 띄우지 않고 그대로 이어서 일한다.
     // 예전에는 복사본을 다시 실행했는데, 자기 자신이 잠고 있어 덮어쓰기가
     // 실패하거나(os error 32) 프로세스가 둘로 갈라졌다.
-    if !same_path(&current, &installed) {
-        install_launcher(&current, &installed)?;
+    if !same_path(current, installed) {
+        install_launcher(current, installed)?;
     }
 
     // 다른 런처가 배경에서 내려받는 중일 수 있다. 그때도 앱은 띄워야 한다.
@@ -85,38 +105,157 @@ fn run() -> Result<(), String> {
 
     // 받아 둔 새 버전이 있으면 먼저 갈아끼운다. 앱이 떠 있으면 다음 기회로 미룬다.
     if mutex.is_some() && !app_is_running() {
+        if pending_path().exists() {
+            set_tray(tray, 0, "AI Quota Tray 업데이트 적용 중…");
+        }
         apply_pending_update()?;
     }
 
-    // 앱이 아직 없으면 첫 설치다. 진행 창을 보이며 받고, 끝나면 띄운다.
+    // 앱이 아직 없으면 첫 설치다. 진행률을 아이콘에 그리며 받고, 끝나면 띄운다.
     if !app_path().exists() {
         if mutex.is_none() {
             // 받는 중인 런처가 곧 띄운다. 여기서 또 받을 이유가 없다.
+            set_tray(tray, 0, "AI Quota Tray 다른 곳에서 내려받는 중…");
             return Ok(());
         }
 
-        download_first_install()?;
-
-        if should_launch_app() {
-            start_hidden(&app_path(), &["--flyout"])?;
-        }
+        download_first_install(tray)?;
+        launch_and_confirm(tray, &["--flyout"])?;
         return Ok(());
     }
 
     // 설치가 끝난 뒤로는 앱을 띄우는 것이 본 일이다. 부팅이든 사용자가
     // Setup.exe를 다시 누른 것이든 같다. 이미 떠 있으면 두 번 띄우지 않는다.
-    if should_launch_app() && !app_is_running() {
-        start_hidden(&app_path(), &[])?;
+    //
+    // 여기서 실패하면 곧장 포기하지 않는다. exe가 깨졌거나 반만 받아진
+    // 상태일 수 있는데, 그대로 물러나면 다음에 눌러도 같은 파일로 또 실패해
+    // 스스로 헤어날 길이 없다. 한 번은 새로 받아 갈아끼우고 다시 시도한다.
+    if let Err(error) = launch_and_confirm(tray, &[]) {
+        log_line(&format!("app did not start: {error}; reinstalling"));
+
+        if mutex.is_none() {
+            // 다른 런처가 이미 받고 있다. 두 곳에서 같은 파일을 건드리면
+            // 서로의 중간 상태를 덮어쓴다.
+            return Err(error);
+        }
+
+        set_tray(tray, 0, "AI Quota Tray 앱이 손상되어 다시 받는 중…");
+        reinstall_app(tray)?;
+        launch_and_confirm(tray, &["--flyout"])?;
+        log_line("reinstall recovered the app");
     }
 
     // 앱은 띄웠다. 다음 판 확인과 내려받기는 뒤이어 조용히 한다.
     if mutex.is_some() {
-        if let Err(error) = stage_latest_update() {
+        if let Err(error) = stage_latest_update(tray) {
             log_line(&format!("background update skipped: {error}"));
         }
     }
 
+    // 새 버전을 받아 두었으면 다음 실행에 적용된다는 것을 알려 둔다.
+    if pending_path().exists() {
+        set_tray(tray, 100, "AI Quota Tray 업데이트 준비됨 — 다음 실행에 적용됩니다");
+    } else {
+        let version = fs::read_to_string(version_path()).unwrap_or_default();
+        let version = version.trim();
+        set_tray(
+            tray,
+            100,
+            &if version.is_empty() {
+                "AI Quota Tray 실행 중".to_string()
+            } else {
+                format!("AI Quota Tray v{version} 실행 중")
+            },
+        );
+    }
+
+    // 아이콘을 곧바로 지우면 사용자가 확인할 틈이 없다. 잠깐 남겼다 거둔다.
+    linger(tray);
     Ok(())
+}
+
+/// 앱을 띄우고 정말 살아났는지 지켜본다.
+///
+/// spawn은 프로세스를 만들었다는 뜻일 뿐이라, 앱이 뜨자마자 죽어도 성공으로
+/// 보인다. 예전에는 그래서 실패가 아무 데도 안 남았다. 뮤텍스를 잡을 때까지
+/// 기다려 봐야 실제로 떴는지 알 수 있다.
+fn launch_and_confirm(tray: Option<&tray::TrayIcon>, args: &[&str]) -> Result<(), String> {
+    if !should_launch_app() {
+        return Ok(());
+    }
+
+    if app_is_running() {
+        set_tray(tray, 100, "AI Quota Tray 이미 실행 중");
+        return Ok(());
+    }
+
+    set_tray(tray, 100, "AI Quota Tray 실행하는 중…");
+    start_hidden(&app_path(), args)?;
+
+    // 자립형 exe는 처음 뜰 때 자기를 풀어내느라 몇 초가 걸린다. 넉넉히 본다.
+    for _ in 0..40 {
+        if app_is_running() {
+            return Ok(());
+        }
+        std::thread::sleep(Duration::from_millis(250));
+    }
+
+    Err("앱이 시작되지 않았습니다. 백신이 막았는지 확인해 주세요.".into())
+}
+
+fn set_tray(tray: Option<&tray::TrayIcon>, value: i32, tip: &str) {
+    if let Some(icon) = tray {
+        icon.set(value, tip);
+    }
+}
+
+/// 할 일이 끝난 뒤 아이콘을 잠시 남긴다. 그동안 눌린 메뉴도 받아 준다.
+fn linger(tray: Option<&tray::TrayIcon>) {
+    let Some(icon) = tray else { return };
+
+    for _ in 0..24 {
+        if icon.quit_requested() {
+            return;
+        }
+        handle_commands(icon);
+        std::thread::sleep(Duration::from_millis(250));
+    }
+}
+
+/// 실패했을 때. 사용자가 종료를 고를 때까지 아이콘을 붙잡아 둔다.
+fn wait_for_dismiss(icon: &tray::TrayIcon) {
+    // 그래도 영원히 남기지는 않는다. 자리를 비워 두는 편이 낫다.
+    for _ in 0..1200 {
+        if icon.quit_requested() {
+            return;
+        }
+        handle_commands(icon);
+        std::thread::sleep(Duration::from_millis(250));
+    }
+}
+
+/// 아이콘으로 들어온 요청을 처리한다.
+fn handle_commands(icon: &tray::TrayIcon) {
+    for command in icon.take_commands() {
+        match command {
+            tray::TrayCommand::Open => {
+                if !app_is_running() && app_path().exists() {
+                    let _ = start_hidden(&app_path(), &["--flyout"]);
+                }
+            }
+            tray::TrayCommand::OpenFolder => open_with_shell(&install_dir()),
+            tray::TrayCommand::OpenLog => open_with_shell(&log_path()),
+            tray::TrayCommand::Quit => return,
+        }
+    }
+}
+
+/// 탐색기나 메모장으로 연다. 열지 못해도 하던 일에는 지장이 없다.
+fn open_with_shell(path: &Path) {
+    let _ = Command::new("explorer.exe")
+        .arg(path)
+        .creation_flags(CREATE_NO_WINDOW)
+        .spawn();
 }
 
 fn install_dir() -> PathBuf {
@@ -228,6 +367,10 @@ fn apply_now() -> Result<(), String> {
         return Err("받아 둔 업데이트가 없습니다.".into());
     }
 
+    // 앱이 사라졌다 다시 뜨는 사이 트레이가 텅 빈다. 그동안 무슨 일이
+    // 벌어지는지 알려 줄 것이 아이콘 말고는 없다.
+    let tray = tray::TrayIcon::show("AI Quota Tray 업데이트 적용 중…", 100);
+
     // 앱이 완전히 사라진 뒤에 띄워야 한다. 앱은 SingleInstance 뮤텍스를 쥐고 있어,
     // 아직 살아 있는 동안 새 인스턴스를 띄우면 "이미 실행 중"으로 조용히 죽는다.
     // 최대 30초. 이보다 오래 안 끝나면 앱이 멈춘 것이라 봐야 한다.
@@ -237,6 +380,7 @@ fn apply_now() -> Result<(), String> {
             exited = true;
             break;
         }
+        set_tray(tray.as_ref(), 100, "AI Quota Tray 종료를 기다리는 중…");
         std::thread::sleep(Duration::from_millis(500));
     }
 
@@ -245,8 +389,9 @@ fn apply_now() -> Result<(), String> {
     }
 
     apply_pending_update()?;
-    let _ = start_hidden(&app_path(), &[]);
+    launch_and_confirm(tray.as_ref(), &[])?;
     log_line("update applied on request");
+    linger(tray.as_ref());
     Ok(())
 }
 
@@ -298,29 +443,77 @@ fn apply_pending_update() -> Result<(), String> {
     Ok(())
 }
 
-fn download_first_install() -> Result<(), String> {
+fn download_first_install(tray: Option<&tray::TrayIcon>) -> Result<(), String> {
+    set_tray(tray, 0, "AI Quota Tray 릴리즈 확인 중…");
     let release = fetch_release()?;
     let asset = find_asset(&release)?;
 
-    // 첫 설치는 160MB가 넘는다. 침묵이 길면 실패한 줄 알기 때문에 창을 띄운다.
+    // 첫 설치는 160MB가 넘는다. 침묵이 길면 실패한 줄 알기 때문에 창도 함께
+    // 띄운다. 트레이 아이콘만으로는 처음 쓰는 사람이 어디를 볼지 모른다.
     let window = progress::ProgressWindow::open(
         "AI Quota Tray",
-        "AI Quota Tray를 내려받는 중입니다…
-잠시만 기다려 주세요.",
+        "AI Quota Tray를 내려받는 중입니다…\n잠시만 기다려 주세요.",
     );
 
-    let result = download_verified(asset, &release.body, &partial_path(), window.as_ref());
+    let result = download_verified(
+        asset,
+        &release.body,
+        &partial_path(),
+        window.as_ref(),
+        tray,
+        "AI Quota Tray 내려받는 중",
+    );
 
     // 실패 사유를 창이 가리지 않도록 먼저 닫는다.
     drop(window);
     result?;
 
+    set_tray(tray, 100, "AI Quota Tray 설치하는 중…");
     fs::rename(partial_path(), app_path()).map_err(|e| format!("앱 설치 실패: {e}"))?;
     fs::write(version_path(), normalize_version(&release.tag_name)).map_err(|e| e.to_string())?;
     Ok(())
 }
 
-fn stage_latest_update() -> Result<(), String> {
+/// 앱이 뜨지 않을 때 최신판을 새로 받아 덮어쓴다.
+///
+/// 깨진 파일을 지우고 받는 것이 아니라, 받아서 검증까지 끝낸 뒤에 바꾼다.
+/// 먼저 지웠다가 내려받기가 실패하면 앱이 아예 없는 채로 남기 때문이다.
+fn reinstall_app(tray: Option<&tray::TrayIcon>) -> Result<(), String> {
+    let release = fetch_release()?;
+    let latest = normalize_version(&release.tag_name);
+    let asset = find_asset(&release)?;
+
+    let window = progress::ProgressWindow::open(
+        "AI Quota Tray",
+        "앱이 손상되어 다시 내려받는 중입니다…\n잠시만 기다려 주세요.",
+    );
+
+    let result = download_verified(
+        asset,
+        &release.body,
+        &partial_path(),
+        window.as_ref(),
+        tray,
+        &format!("AI Quota Tray v{latest} 다시 받는 중"),
+    );
+
+    drop(window);
+    result?;
+
+    // 검증을 통과한 것만 제자리에 넣는다. 깨진 파일은 이 시점에 지운다.
+    let _ = fs::remove_file(app_path());
+    fs::rename(partial_path(), app_path()).map_err(|e| format!("앱 교체 실패: {e}"))?;
+    fs::write(version_path(), &latest).map_err(|e| e.to_string())?;
+
+    // 받아 둔 pending이 있었다면 방금 최신판을 깔았으니 쓸모가 없다.
+    let _ = fs::remove_file(pending_path());
+    let _ = fs::remove_file(pending_version_path());
+
+    log_line(&format!("app reinstalled as {latest}"));
+    Ok(())
+}
+
+fn stage_latest_update(tray: Option<&tray::TrayIcon>) -> Result<(), String> {
     let release = fetch_release()?;
     let latest = normalize_version(&release.tag_name);
     let current = fs::read_to_string(version_path()).unwrap_or_else(|_| "0.0.0".into());
@@ -329,7 +522,14 @@ fn stage_latest_update() -> Result<(), String> {
     }
 
     let asset = find_asset(&release)?;
-    download_verified(asset, &release.body, &partial_path(), None)?;
+    download_verified(
+        asset,
+        &release.body,
+        &partial_path(),
+        None,
+        tray,
+        &format!("AI Quota Tray v{latest} 내려받는 중"),
+    )?;
     let _ = fs::remove_file(pending_path());
     fs::rename(partial_path(), pending_path()).map_err(|e| format!("업데이트 준비 실패: {e}"))?;
     fs::write(pending_version_path(), &latest).map_err(|e| e.to_string())?;
@@ -369,6 +569,8 @@ fn download_verified(
     body: &str,
     destination: &Path,
     window: Option<&progress::ProgressWindow>,
+    tray: Option<&tray::TrayIcon>,
+    label: &str,
 ) -> Result<(), String> {
     let expected = expected_sha256(asset, body)
         .ok_or_else(|| "릴리즈에서 SHA256을 확인할 수 없습니다.".to_string())?;
@@ -387,6 +589,8 @@ fn download_verified(
     let mut hasher = Sha256::new();
     let mut total = 0u64;
     let mut buffer = [0u8; 64 * 1024];
+    // 아이콘에 마지막으로 그린 퍼센트. 같은 숫자를 다시 그리지 않으려는 것이다.
+    let mut reported = -1;
     loop {
         let count = response.read(&mut buffer).map_err(|e| e.to_string())?;
         if count == 0 {
@@ -405,6 +609,22 @@ fn download_verified(
                 w.set(total as f64 / asset.size as f64);
             }
         }
+
+        if let Some(icon) = tray {
+            if icon.quit_requested() {
+                return Err("사용자가 설치를 취소했습니다.".into());
+            }
+            // 아이콘은 한 칸(1%) 단위로만 바뀐다. 그보다 자주 그려 봐야
+            // 눈에 띄지 않고 셸에 메시지만 쌓인다.
+            if asset.size > 0 {
+                let percent = total as f64 * 100.0 / asset.size as f64;
+                if percent as i32 > reported {
+                    reported = percent as i32;
+                    icon.set_percent(label, percent);
+                }
+            }
+        }
+
         hasher.update(&buffer[..count]);
         file.write_all(&buffer[..count])
             .map_err(|e| e.to_string())?;

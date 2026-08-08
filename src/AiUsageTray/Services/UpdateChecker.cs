@@ -56,7 +56,7 @@ public sealed class UpdateChecker
     public const string AssetName = "AiQuotaTray-standalone.exe";
 
     /// <summary>업데이트를 갈아끼워 줄 런처. 앱이 자기 자신을 덮어쓸 수 없어 필요하다.</summary>
-    public const string LauncherAssetName = "AI-Quota-Tray-Setup.exe";
+    public const string LauncherAssetName = "AI-Quota-Tray.exe";
 
     private const string LatestReleaseApi =
         "https://api.github.com/repos/1000Pro-1997/AI-Quota-Tray/releases/latest";
