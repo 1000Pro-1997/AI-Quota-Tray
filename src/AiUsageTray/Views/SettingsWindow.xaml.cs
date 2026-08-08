@@ -142,7 +142,7 @@ public partial class SettingsWindow : Window
         _codexColor = _settings.CodexColor;
         UpdateSwatches();
 
-        VersionText.Text = $"{AppInfo.Name} {AppInfo.Version}";
+        VersionText.Text = AppInfo.Version;
         ShowUpdateState(_updates?.Last);
 
         UpdatePathStatus();
@@ -256,7 +256,7 @@ public partial class SettingsWindow : Window
         }
 
         UpdateButton.IsEnabled = false;
-        UpdateText.Text = Strings.Get("update.checking");
+        UpdateButton.Content = Strings.Get("update.checking");
         UpdateDot.Visibility = Visibility.Collapsed;
 
         try
@@ -268,7 +268,7 @@ public partial class SettingsWindow : Window
             // 사람은 "지금 멀쩡한지" 보려던 것이니 고쳐 두는 편이 맞다.
             if (!UpdateDownloader.LauncherInstalled && info.LauncherUrl.Length > 0)
             {
-                UpdateText.Text = Strings.Get("update.repairingLauncher");
+                UpdateButton.Content = Strings.Get("update.repairingLauncher");
 
                 var repair = new UpdateDownloader(new HttpClient
                 {
@@ -286,17 +286,16 @@ public partial class SettingsWindow : Window
         }
     }
 
-    /// <summary>진행 막대를 보이며 내려받는다. 끝나면 재시작만 남는다.</summary>
+    /// <summary>버튼이 차오르는 것으로 진행을 알리며 내려받는다.</summary>
     private async Task DownloadAsync(UpdateInfo info)
     {
         UpdateButton.IsEnabled = false;
         UpdateDot.Visibility = Visibility.Collapsed;
-        UpdateProgressTrack.Visibility = Visibility.Visible;
         SetProgress(0);
 
         var progress = new Progress<DownloadProgress>(p =>
         {
-            UpdateText.Text = Strings.Get("update.downloading", (int)p.Percent);
+            UpdateButton.Content = Strings.Get("update.downloading", (int)p.Percent);
             SetProgress(p.Percent);
         });
 
@@ -313,30 +312,27 @@ public partial class SettingsWindow : Window
 
             await downloader.DownloadAsync(info, progress);
 
-            UpdateProgressTrack.Visibility = Visibility.Collapsed;
+            SetProgress(0);
             UpdateDot.Visibility = Visibility.Visible;
-            UpdateButton.Content = Strings.Get("update.restart");
 
             // 다 받았으면 갈아끼우는 일만 남았다. 버튼을 한 번 더 누르게 하는 것은
             // 사용자에게 아무 선택도 주지 않으면서 손만 더 가게 하는 셈이라
             // 곧바로 재시작한다. 창을 닫아 버렸으면 다음 실행 때 적용된다.
             if (UpdateDownloader.LauncherInstalled)
             {
-                UpdateText.Text = Strings.Get("update.restarting");
+                UpdateButton.Content = Strings.Get("update.restarting");
                 ApplyAndRestart();
                 return;
             }
 
-            UpdateText.Text = Strings.Get("update.available",
-                info.Latest?.ToString() ?? info.TagName);
+            UpdateButton.Content = Strings.Get("update.restart");
         }
         catch (Exception ex)
         {
-            UpdateProgressTrack.Visibility = Visibility.Collapsed;
-            UpdateText.Text = ex is InvalidOperationException
-                ? ex.Message
+            SetProgress(0);
+            UpdateButton.Content = ex is InvalidOperationException
+                ? Strings.Get("update.download")
                 : Strings.Get("update.downloadFailed");
-            UpdateButton.Content = Strings.Get("update.download");
         }
         finally
         {
@@ -348,7 +344,7 @@ public partial class SettingsWindow : Window
     private void ApplyAndRestart()
     {
         UpdateButton.IsEnabled = false;
-        UpdateText.Text = Strings.Get("update.restarting");
+        UpdateButton.Content = Strings.Get("update.restarting");
 
         if (UpdateDownloader.RestartToApply())
         {
@@ -357,29 +353,39 @@ public partial class SettingsWindow : Window
         }
 
         // 런처를 못 띄웠다. 받아 둔 것은 다음 부팅에 적용되니 알리기만 한다.
-        UpdateText.Text = Strings.Get("update.noLauncher");
+        UpdateButton.Content = Strings.Get("update.noLauncher");
         UpdateButton.IsEnabled = true;
     }
 
     /// <summary>0~100을 막대 너비로 옮긴다.</summary>
-    private void SetProgress(double percent) =>
-        UpdateProgressFill.Width = UpdateProgressTrack.Width * Math.Clamp(percent, 0, 100) / 100.0;
+    /// <summary>
+    /// 버튼이 왼쪽부터 차오르는 정도를 정한다. 0이면 채움이 사라진다.
+    ///
+    /// ControlTemplate 안에서는 ActualWidth에 비율을 곱할 수 없어, 여기서
+    /// 픽셀로 계산해 Tag에 넣는다. 템플릿의 채움 Border가 그 값을 너비로 쓴다.
+    /// </summary>
+    private void SetProgress(double percent)
+    {
+        double ratio = Math.Clamp(percent, 0, 100) / 100.0;
+        UpdateButton.Tag = ratio <= 0 ? 0.0 : UpdateButton.ActualWidth * ratio;
+    }
 
     /// <summary>확인 결과를 버전 줄에 반영한다.</summary>
     private void ShowUpdateState(UpdateInfo? info)
     {
+        SetProgress(0);
+
         if (info is null)
         {
             // 아직 확인 전이다. 누르면 확인한다는 것만 알린다.
-            UpdateText.Text = "";
             UpdateDot.Visibility = Visibility.Collapsed;
             UpdateButton.Content = Strings.Get("update.check");
             return;
         }
 
-        if (info.Error is { } error)
+        if (info.Error is not null)
         {
-            UpdateText.Text = error;
+            // 사유는 길어서 버튼에 안 들어간다. 다시 눌러 보라는 뜻만 남긴다.
             UpdateDot.Visibility = Visibility.Collapsed;
             UpdateButton.Content = Strings.Get("update.check");
             return;
@@ -387,7 +393,6 @@ public partial class SettingsWindow : Window
 
         if (info.HasUpdate)
         {
-            UpdateText.Text = Strings.Get("update.available", info.Latest?.ToString() ?? info.TagName);
             UpdateDot.Visibility = Visibility.Visible;
             UpdateButton.Content = UpdateDownloader.PendingReady
                 ? Strings.Get("update.restart")
@@ -395,9 +400,10 @@ public partial class SettingsWindow : Window
         }
         else
         {
-            UpdateText.Text = Strings.Get("update.latest");
+            // 확인해 보니 최신이더라는 것까지 버튼이 말한다. 다시 누르면
+            // 또 확인하므로 문구가 "확인"으로 돌아갈 필요는 없다.
             UpdateDot.Visibility = Visibility.Collapsed;
-            UpdateButton.Content = Strings.Get("update.check");
+            UpdateButton.Content = Strings.Get("update.latest");
         }
     }
 
@@ -471,7 +477,7 @@ public partial class SettingsWindow : Window
 
         LblVersion.Text = Strings.Get("settings.version");
         LblAutoUpdate.Text = Strings.Get("settings.autoUpdate");
-        VersionText.Text = $"{AppInfo.Name} {AppInfo.Version}";
+        VersionText.Text = AppInfo.Version;
 
         LblInstallPath.Text = Strings.Get("settings.installPath");
         OpenFolderButton.Content = Strings.Get("settings.openFolder");
@@ -484,9 +490,6 @@ public partial class SettingsWindow : Window
         LblIssuesHint.Text = Strings.Get("settings.issuesHint");
         IssuesLink.Content = Strings.Get("settings.issuesButton");
 
-        LblTest.Text = Strings.Get("settings.test");
-        LblTestHint.Text = Strings.Get("settings.testHint");
-        TestButton.Content = Strings.Get("settings.testButton");
 
         // 런처 유무는 문구가 갈리므로 상태를 다시 읽어 채운다.
         ShowInstallState();
@@ -711,49 +714,6 @@ public partial class SettingsWindow : Window
         _loading = false;
     }
 
-
-    private async void OnTest(object sender, RoutedEventArgs e)
-    {
-        UpdatePathStatus();
-
-        TestButton.IsEnabled = false;
-        string original = (string)TestButton.Content;
-        TestButton.Content = Strings.Get("popup.checking");
-
-        try
-        {
-            // 화면의 현재 값으로 임시 설정을 만들어 실제 조회를 시도한다.
-            var probe = new AppSettings
-            {
-                ClaudeEnabled = ClaudeEnabled.IsChecked == true,
-                CodexEnabled = CodexEnabled.IsChecked == true,
-                ClaudeCredentialsPath = ClaudePath.Text.Trim(),
-                CodexSessionsPath = CodexPath.Text.Trim(),
-            };
-
-            using var monitor = new UsageMonitor(probe);
-            await monitor.RefreshAsync();
-
-            var lines = monitor.Latest.Select(u => u.Error is null
-                ? $"✓ {u.Provider}: {string.Join(", ", u.Windows.Select(w => w.Label + " " + Strings.Get("value.used", $"{w.Percent:F0}")))}"
-                : $"✗ {u.Provider}: {u.Error}");
-
-            string message = monitor.Latest.Count == 0
-                ? Strings.Get("dialog.testNoTools")
-                : string.Join(Environment.NewLine, lines);
-
-            MessageBox.Show(this, message, Strings.Get("dialog.testTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show(this, ex.Message, Strings.Get("dialog.testTitle"), MessageBoxButton.OK, MessageBoxImage.Warning);
-        }
-        finally
-        {
-            TestButton.Content = original;
-            TestButton.IsEnabled = true;
-        }
-    }
 
     // ---- 색상 선택 ----
 

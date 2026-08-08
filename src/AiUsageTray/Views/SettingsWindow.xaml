@@ -22,7 +22,7 @@
             <Setter Property="FontSize" Value="11"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Setter Property="Foreground" Value="{DynamicResource SubtleBrush}"/>
-            <Setter Property="Margin" Value="2,0,0,7"/>
+            <Setter Property="Margin" Value="2,0,0,5"/>
         </Style>
 
         <Style x:Key="RowTitle" TargetType="TextBlock">
@@ -45,8 +45,8 @@
             <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush2}"/>
             <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="CornerRadius" Value="8"/>
-            <Setter Property="Padding" Value="14,4,14,4"/>
-            <Setter Property="Margin" Value="0,0,0,14"/>
+            <Setter Property="Padding" Value="14,3,14,3"/>
+            <Setter Property="Margin" Value="0,0,0,10"/>
         </Style>
 
         <Style x:Key="RowDivider" TargetType="Border">
@@ -193,6 +193,49 @@
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
                                 <Setter Property="Opacity" Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ===== 진행률이 차오르는 버튼 =====
+             내려받는 동안 따로 막대를 두면 좁은 줄이 더 복잡해진다. 버튼 자체가
+             왼쪽부터 파랗게 차오르고 글씨가 퍼센트를 알린다.
+
+             채움 너비는 코드에서 Tag(0~1)를 주면 변환기가 실제 픽셀로 바꾼다.
+             ControlTemplate 안에서는 ActualWidth에 곱셈을 걸 수 없다. -->
+        <Style x:Key="ProgressButton" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" CornerRadius="7" ClipToBounds="True"
+                                Padding="{TemplateBinding Padding}"
+                                Background="{DynamicResource CardBrush}"
+                                BorderBrush="{DynamicResource BorderBrush2}" BorderThickness="1">
+                            <Grid>
+                                <!-- 차오르는 부분. 진행이 없으면 너비가 0이라 안 보인다. -->
+                                <Border x:Name="Fill" HorizontalAlignment="Left"
+                                        Background="{DynamicResource AccentBrush}"
+                                        Margin="-12,-6,-12,-6"
+                                        Width="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}"/>
+                                <ContentPresenter HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background"
+                                        Value="{DynamicResource HoverStrongBrush}"/>
+                            </Trigger>
+                            <!-- 내려받는 중에는 눌러도 소용없어 흐리게 하지만,
+                                 퍼센트는 읽혀야 하므로 많이 흐리게 하지 않는다. -->
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.75"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -452,26 +495,48 @@
         </Style>
 
         <!-- ===== 스크롤바 =====
-             기본 스크롤바는 이 창의 결과 어울리지 않는다. 화살표 단추를 빼고
-             막대만 가늘게 남긴다. 내용이 넘칠 때만 보이므로 눈에 띄지 않는다. -->
+             iOS처럼 내용 위에 얹혀 뜬다. 자리를 차지하지 않으니 본문 폭이
+             스크롤 유무에 따라 흔들리지 않는다.
+
+             평소에는 반쯤 비치다 손을 올리면 진해지고 굵어진다. 화살표 단추는
+             두지 않는다. 눌러 본 사람이 없다. -->
         <Style x:Key="ThinScrollBar" TargetType="ScrollBar">
-            <Setter Property="Width" Value="8"/>
+            <Setter Property="Width" Value="11"/>
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ScrollBar">
-                        <Border Background="Transparent" Padding="2,4,2,4">
+                        <Border x:Name="Root" Background="Transparent" Padding="0,5,3,5">
                             <Track x:Name="PART_Track" IsDirectionReversed="True">
                                 <Track.Thumb>
-                                    <Thumb>
+                                    <Thumb x:Name="Grip">
                                         <Thumb.Template>
                                             <ControlTemplate TargetType="Thumb">
-                                                <Border x:Name="Bar" CornerRadius="2"
-                                                        Background="{DynamicResource TrackOffBrush}"/>
+                                                <!-- 실제로 잡히는 넓이는 그대로 두고
+                                                     보이는 막대만 가늘게 그린다. 얇은
+                                                     막대는 손으로 집기 어렵다. -->
+                                                <Border Background="Transparent">
+                                                    <Border x:Name="Bar" Width="5"
+                                                            HorizontalAlignment="Right"
+                                                            CornerRadius="2.5"
+                                                            Background="{DynamicResource SubtleBrush}"
+                                                            Opacity="0.4"/>
+                                                </Border>
                                                 <ControlTemplate.Triggers>
+                                                    <!-- 손을 올리면 진해지고 굵어진다.
+                                                         오른쪽에 붙여 두어 굵어져도
+                                                         가장자리 자리는 그대로다. -->
                                                     <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter TargetName="Bar" Property="Background"
-                                                                Value="{DynamicResource SubtleBrush}"/>
+                                                        <Setter TargetName="Bar" Property="Opacity"
+                                                                Value="0.75"/>
+                                                        <Setter TargetName="Bar" Property="Width"
+                                                                Value="8"/>
+                                                    </Trigger>
+                                                    <Trigger Property="IsDragging" Value="True">
+                                                        <Setter TargetName="Bar" Property="Opacity"
+                                                                Value="0.9"/>
+                                                        <Setter TargetName="Bar" Property="Width"
+                                                                Value="8"/>
                                                     </Trigger>
                                                 </ControlTemplate.Triggers>
                                             </ControlTemplate>
@@ -510,14 +575,30 @@
             <ScrollViewer.Resources>
                 <Style TargetType="ScrollBar" BasedOn="{StaticResource ThinScrollBar}"/>
             </ScrollViewer.Resources>
-            <StackPanel Margin="20,18,20,18">
+            <ScrollViewer.Template>
+                <ControlTemplate TargetType="ScrollViewer">
+                    <!-- 막대를 같은 칸에 겹쳐 놓는다. 기본 템플릿처럼 칸을 나누면
+                         스크롤이 생길 때 본문이 그만큼 밀려 글이 다시 배치된다. -->
+                    <Grid>
+                        <ScrollContentPresenter/>
+                        <ScrollBar x:Name="PART_VerticalScrollBar"
+                                   Orientation="Vertical"
+                                   HorizontalAlignment="Right"
+                                   Value="{TemplateBinding VerticalOffset}"
+                                   Maximum="{TemplateBinding ScrollableHeight}"
+                                   ViewportSize="{TemplateBinding ViewportHeight}"
+                                   Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}"/>
+                    </Grid>
+                </ControlTemplate>
+            </ScrollViewer.Template>
+            <StackPanel Margin="20,13,20,13">
 
             <!-- 도구 -->
             <TextBlock x:Name="LblSectionTools" Style="{StaticResource SectionLabel}"/>
             <Border Style="{StaticResource Card}">
                 <StackPanel>
 
-                    <Grid Margin="0,10,0,10">
+                    <Grid Margin="0,7,0,7">
                         <StackPanel VerticalAlignment="Center" Margin="0,0,96,0">
                             <StackPanel Orientation="Horizontal">
                                 <Border x:Name="ClaudeDot" Width="9" Height="9" CornerRadius="4.5"
@@ -538,7 +619,7 @@
 
                     <Border Style="{StaticResource RowDivider}"/>
 
-                    <Grid Margin="0,10,0,10">
+                    <Grid Margin="0,7,0,7">
                         <StackPanel VerticalAlignment="Center" Margin="0,0,96,0">
                             <StackPanel Orientation="Horizontal">
                                 <Border x:Name="CodexDot" Width="9" Height="9" CornerRadius="4.5"
@@ -604,7 +685,7 @@
             <Border Style="{StaticResource Card}">
                 <StackPanel>
 
-                    <Grid Margin="0,10,0,10">
+                    <Grid Margin="0,7,0,7">
                         <StackPanel VerticalAlignment="Center" Margin="0,0,150,0">
                             <TextBlock x:Name="LblLanguage" Style="{StaticResource RowTitle}"/>
                             <TextBlock x:Name="LblLanguageHint" Style="{StaticResource RowHint}"/>
@@ -618,7 +699,7 @@
 
                     <Border Style="{StaticResource RowDivider}"/>
 
-                    <Grid Margin="0,10,0,10">
+                    <Grid Margin="0,7,0,7">
                         <StackPanel VerticalAlignment="Center" Margin="0,0,190,0">
                             <TextBlock x:Name="LblNumberFormat" Style="{StaticResource RowTitle}"/>
                             <TextBlock x:Name="LblNumberFormatHint" Style="{StaticResource RowHint}"/>
@@ -637,7 +718,7 @@
 
                     <Border Style="{StaticResource RowDivider}"/>
 
-                    <Grid Margin="0,10,0,10">
+                    <Grid Margin="0,7,0,7">
                         <StackPanel VerticalAlignment="Center" Margin="0,0,96,0">
                             <TextBlock x:Name="LblWidgetBar" Style="{StaticResource RowTitle}"/>
                             <TextBlock x:Name="LblWidgetBarHint" Style="{StaticResource RowHint}"/>
@@ -648,7 +729,7 @@
 
                     <Border Style="{StaticResource RowDivider}"/>
 
-                    <Grid Margin="0,10,0,10">
+                    <Grid Margin="0,7,0,7">
                         <StackPanel VerticalAlignment="Center" Margin="0,0,96,0">
                             <TextBlock x:Name="LblPinTaskbar" Style="{StaticResource RowTitle}"/>
                             <TextBlock x:Name="TaskbarHint" Style="{StaticResource RowHint}"/>
@@ -676,7 +757,7 @@
 
                     <Border Style="{StaticResource RowDivider}"/>
 
-                    <Grid Margin="0,10,0,10">
+                    <Grid Margin="0,7,0,7">
                         <TextBlock x:Name="LblStartup" Style="{StaticResource RowTitle}"/>
                         <CheckBox x:Name="StartWithWindows" Style="{StaticResource Switch}"
                                   Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
@@ -684,7 +765,7 @@
 
                     <Border Style="{StaticResource RowDivider}"/>
 
-                    <Grid Margin="0,10,0,10">
+                    <Grid Margin="0,7,0,7">
                         <StackPanel VerticalAlignment="Center" Margin="0,0,96,0">
                             <TextBlock x:Name="LblWindowPrimer" Style="{StaticResource RowTitle}"/>
                             <TextBlock x:Name="LblWindowPrimerHint" Style="{StaticResource RowHint}"/>
@@ -702,7 +783,7 @@
                 <StackPanel>
 
                     <!-- 현재 버전 · 업데이트 확인 · 자동 업데이트 -->
-                    <Grid Margin="0,10,0,10">
+                    <Grid Margin="0,7,0,7">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
@@ -717,24 +798,15 @@
                                         Background="#3FB950" Margin="8,0,0,0"
                                         VerticalAlignment="Center" Visibility="Collapsed"/>
                             </StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
-                                <TextBlock x:Name="VersionText" Style="{StaticResource RowHint}"/>
-                                <TextBlock x:Name="UpdateText" Style="{StaticResource RowHint}"
-                                           Margin="6,2,0,0"/>
-                                <!-- 내려받는 동안에만 보이는 진행 막대 -->
-                                <Border x:Name="UpdateProgressTrack" Width="90" Height="4"
-                                        CornerRadius="2" Margin="8,0,0,0"
-                                        VerticalAlignment="Center" Visibility="Collapsed"
-                                        Background="{DynamicResource TrackOffBrush}">
-                                    <Border x:Name="UpdateProgressFill" Width="0" Height="4"
-                                            CornerRadius="2" HorizontalAlignment="Left"
-                                            Background="#3FB950"/>
-                                </Border>
-                            </StackPanel>
+                            <!-- 상태는 버튼이 말한다. 여기는 번호만 둔다. -->
+                            <TextBlock x:Name="VersionText" Style="{StaticResource RowHint}"/>
                         </StackPanel>
 
+                        <!-- 확인·내려받기·재시작을 이 버튼 하나가 다 한다.
+                             내려받는 동안에는 스스로 파랗게 차오르며 퍼센트를 쓴다. -->
                         <Button x:Name="UpdateButton" Grid.Column="1"
-                                Style="{StaticResource GhostButton}" Padding="12,6"
+                                Style="{StaticResource ProgressButton}" Padding="12,6"
+                                MinWidth="104"
                                 VerticalAlignment="Center" Margin="0,0,14,0"
                                 Click="OnUpdateClick"/>
 
@@ -752,7 +824,7 @@
                     <Border Style="{StaticResource RowDivider}"/>
 
                     <!-- 설치 위치. 어디에 깔렸는지 보이지 않으면 지웠는지도 모른다. -->
-                    <Grid Margin="0,10,0,10">
+                    <Grid Margin="0,7,0,7">
                         <StackPanel VerticalAlignment="Center" Margin="0,0,110,0">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock x:Name="LblInstallPath" Style="{StaticResource RowTitle}"/>
@@ -773,7 +845,7 @@
                     <Border Style="{StaticResource RowDivider}"/>
 
                     <!-- 설정 초기화 -->
-                    <Grid Margin="0,10,0,10">
+                    <Grid Margin="0,7,0,7">
                         <StackPanel VerticalAlignment="Center" Margin="0,0,110,0">
                             <TextBlock x:Name="LblResetAll" Style="{StaticResource RowTitle}"/>
                             <TextBlock x:Name="LblResetAllHint" Style="{StaticResource RowHint}"/>
@@ -786,7 +858,7 @@
                     <Border Style="{StaticResource RowDivider}"/>
 
                     <!-- 문제 및 버그 신고 -->
-                    <Grid Margin="0,10,0,10">
+                    <Grid Margin="0,7,0,7">
                         <StackPanel VerticalAlignment="Center" Margin="0,0,110,0">
                             <TextBlock x:Name="LblIssues" Style="{StaticResource RowTitle}"/>
                             <TextBlock x:Name="LblIssuesHint" Style="{StaticResource RowHint}"/>
@@ -794,19 +866,6 @@
                         <Button x:Name="IssuesLink" Style="{StaticResource GhostButton}"
                                 Padding="12,6" HorizontalAlignment="Right"
                                 VerticalAlignment="Center" Click="OnOpenIssues"/>
-                    </Grid>
-
-                    <Border Style="{StaticResource RowDivider}"/>
-
-                    <!-- 연결 시험. 값이 안 보일 때 어디가 막혔는지 짚어 준다. -->
-                    <Grid Margin="0,10,0,10">
-                        <StackPanel VerticalAlignment="Center" Margin="0,0,110,0">
-                            <TextBlock x:Name="LblTest" Style="{StaticResource RowTitle}"/>
-                            <TextBlock x:Name="LblTestHint" Style="{StaticResource RowHint}"/>
-                        </StackPanel>
-                        <Button x:Name="TestButton" Style="{StaticResource GhostButton}"
-                                Padding="12,6" HorizontalAlignment="Right"
-                                VerticalAlignment="Center" Click="OnTest"/>
                     </Grid>
 
                 </StackPanel>
