@@ -30,6 +30,13 @@ public partial class FlyoutWindow : Window
 
     public event Action? RefreshRequested;
     public event Action? SettingsRequested;
+    public event Action<bool>? WidgetBarToggled;
+
+    public bool WidgetBarEnabled
+    {
+        get => WidgetBarToggle.IsChecked == true;
+        set => WidgetBarToggle.IsChecked = value;
+    }
 
     public FlyoutWindow()
     {
@@ -80,6 +87,8 @@ public partial class FlyoutWindow : Window
             Set("TextBrush", Color.FromRgb(0xF2, 0xF2, 0xF2));
             Set("SubtleBrush", Color.FromRgb(0x94, 0x94, 0x94));
             Set("TrackBrush", Color.FromArgb(0x22, 0xFF, 0xFF, 0xFF));
+            Set("TrackOffBrush", Color.FromArgb(0x32, 0xFF, 0xFF, 0xFF));
+            Set("AccentBrush", Color.FromRgb(0x4C, 0x8E, 0xF0));
             Set("HoverBrush", Color.FromArgb(0x14, 0xFF, 0xFF, 0xFF));
         }
         else
@@ -90,6 +99,8 @@ public partial class FlyoutWindow : Window
             Set("TextBrush", Color.FromRgb(0x1A, 0x1A, 0x1A));
             Set("SubtleBrush", Color.FromRgb(0x70, 0x70, 0x74));
             Set("TrackBrush", Color.FromArgb(0x18, 0x00, 0x00, 0x00));
+            Set("TrackOffBrush", Color.FromArgb(0x24, 0x00, 0x00, 0x00));
+            Set("AccentBrush", Color.FromRgb(0x2F, 0x7C, 0xEA));
             Set("HoverBrush", Color.FromArgb(0x10, 0x00, 0x00, 0x00));
         }
     }
@@ -525,6 +536,9 @@ public partial class FlyoutWindow : Window
     // ---- 이벤트 ----
 
     private void OnRefreshClick(object sender, RoutedEventArgs e) => RefreshRequested?.Invoke();
+
+    private void OnWidgetBarToggleClick(object sender, RoutedEventArgs e) =>
+        WidgetBarToggled?.Invoke(WidgetBarEnabled);
 
     private void OnSettingsClick(object sender, RoutedEventArgs e)
     {

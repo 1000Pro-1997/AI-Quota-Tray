@@ -82,6 +82,32 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <Style x:Key="HeaderSwitch" TargetType="CheckBox">
+            <Setter Property="Width" Value="30"/>
+            <Setter Property="Height" Value="17"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Border x:Name="Track" CornerRadius="8.5"
+                                Background="{DynamicResource TrackOffBrush}">
+                            <Ellipse x:Name="Knob" Width="13" Height="13" Fill="White"
+                                     HorizontalAlignment="Left" Margin="2,0,0,0"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Track" Property="Background"
+                                        Value="{DynamicResource AccentBrush}"/>
+                                <Setter TargetName="Knob" Property="Margin" Value="15,0,0,0"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <!-- 그림자를 위해 여백을 두고 그 안에 판을 그린다. 도구 카드는 이 위에 얹힌다. -->
@@ -119,6 +145,8 @@
                                   Data="M 2.1,13.4 L 1.4,9.4 L 5.3,10.4 Z"/>
                         </Canvas>
                     </Button>
+                    <CheckBox x:Name="WidgetBarToggle" Style="{StaticResource HeaderSwitch}"
+                              Margin="5,0,0,0" Click="OnWidgetBarToggleClick"/>
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">

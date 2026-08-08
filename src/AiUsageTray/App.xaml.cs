@@ -159,6 +159,12 @@ public partial class App : Application
         _flyout = new FlyoutWindow();
         _flyout.RefreshRequested += () => _ = _monitor.RefreshAsync(force: true);
         _flyout.SettingsRequested += OpenSettings;
+        _flyout.WidgetBarToggled += enabled =>
+        {
+            _settings.ShowWidgetBar = enabled;
+            _settings.Save();
+            SyncWidgetBar();
+        };
         ApplyDisplaySettings();
     }
 
@@ -169,6 +175,7 @@ public partial class App : Application
         _flyout.ColorResolver = _settings.ColorFor;
         _flyout.StatusResolver = _monitor.Status.For;
         _flyout.RefreshedAtResolver = () => _monitor.LastRefreshAt;
+        _flyout.WidgetBarEnabled = _settings.ShowWidgetBar;
     }
 
     /// <summary>위젯바를 만든다. 설정이 꺼져 있으면 만들지 않는다.</summary>
