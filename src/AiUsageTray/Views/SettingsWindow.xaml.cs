@@ -204,7 +204,10 @@ public partial class SettingsWindow : Window
         {
             var screen = _widgetScreens[i];
             string primary = screen.Primary ? $" ({Strings.Get("settings.primaryMonitor")})" : "";
-            WidgetMonitorBox.Items.Add($"{i + 1}: {screen.DeviceName}{primary}");
+            // \\.\DISPLAY2 같은 내부 경로는 저장에만 쓰고 화면에는 DISPLAY2만 보인다.
+            string label = screen.DeviceName.Split('\\', StringSplitOptions.RemoveEmptyEntries).LastOrDefault()
+                ?? screen.DeviceName;
+            WidgetMonitorBox.Items.Add($"{label}{primary}");
         }
 
         int selected = Array.FindIndex(_widgetScreens, s => string.Equals(
