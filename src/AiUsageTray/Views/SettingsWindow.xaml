@@ -486,6 +486,21 @@
             </Setter>
         </Style>
 
+        <Style x:Key="CompactNumberBox" TargetType="TextBox"
+               BasedOn="{StaticResource PathBox}">
+            <Setter Property="Width" Value="27"/>
+            <Setter Property="Height" Value="22"/>
+            <Setter Property="Padding" Value="3,2"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="{DynamicResource TrackOffBrush}"/>
+                    <Setter Property="Foreground" Value="{DynamicResource SubtleBrush}"/>
+                    <Setter Property="Opacity" Value="0.72"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
         <!-- 접기/펴기 -->
         <Style x:Key="DisclosureButton" TargetType="ToggleButton">
             <Setter Property="Cursor" Value="Hand"/>
@@ -821,15 +836,19 @@
                             <TextBlock x:Name="LblWidgetAutoSizeHint" Style="{StaticResource RowHint}"/>
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                            <StackPanel x:Name="WidgetSizeInputs" Orientation="Horizontal" Margin="0,0,10,0">
-                                <TextBlock x:Name="LblWidgetWidth" Style="{StaticResource RowHint}"
-                                           VerticalAlignment="Center" Margin="0,0,5,0"/>
-                                <TextBox x:Name="WidgetWidth" Width="52" Style="{StaticResource PathBox}"
-                                         TextAlignment="Right" TextChanged="OnWidgetSizeTextChanged"/>
-                                <TextBlock x:Name="LblWidgetHeight" Style="{StaticResource RowHint}"
-                                           VerticalAlignment="Center" Margin="9,0,5,0"/>
-                                <TextBox x:Name="WidgetHeight" Width="52" Style="{StaticResource PathBox}"
-                                         TextAlignment="Right" TextChanged="OnWidgetSizeTextChanged"/>
+                            <StackPanel x:Name="WidgetSizeInputs" Margin="0,0,10,0">
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,3">
+                                    <TextBlock x:Name="LblWidgetWidth" Style="{StaticResource RowHint}"
+                                               Width="28" VerticalAlignment="Center"/>
+                                    <TextBox x:Name="WidgetWidth" Style="{StaticResource CompactNumberBox}"
+                                             TextAlignment="Right" TextChanged="OnWidgetSizeTextChanged"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock x:Name="LblWidgetHeight" Style="{StaticResource RowHint}"
+                                               Width="28" VerticalAlignment="Center"/>
+                                    <TextBox x:Name="WidgetHeight" Style="{StaticResource CompactNumberBox}"
+                                             TextAlignment="Right" TextChanged="OnWidgetSizeTextChanged"/>
+                                </StackPanel>
                             </StackPanel>
                             <CheckBox x:Name="WidgetAutoSize" Style="{StaticResource Switch}"
                                       Checked="OnAutoSizeToggled" Unchecked="OnAutoSizeToggled"/>
@@ -865,13 +884,21 @@
                         </StackPanel>
                         <StackPanel x:Name="WidgetOffsetRow" Orientation="Horizontal"
                                     HorizontalAlignment="Right" VerticalAlignment="Center">
-                            <TextBlock x:Name="LblWidgetOffsetX" Style="{StaticResource RowHint}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                            <TextBox x:Name="WidgetOffsetX" Width="44" Style="{StaticResource PathBox}"
-                                     TextAlignment="Right" TextChanged="OnOffsetTextChanged"/>
-                            <TextBlock x:Name="LblWidgetOffsetY" Style="{StaticResource RowHint}" VerticalAlignment="Center" Margin="8,0,6,0"/>
-                            <TextBox x:Name="WidgetOffsetY" Width="44" Style="{StaticResource PathBox}"
-                                     TextAlignment="Right" TextChanged="OnOffsetTextChanged"/>
-                            <CheckBox x:Name="WidgetAutoOffset" Style="{StaticResource Switch}" Margin="10,0,0,0"
+                            <StackPanel Margin="0,0,10,0">
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,3">
+                                    <TextBlock x:Name="LblWidgetOffsetX" Style="{StaticResource RowHint}"
+                                               Width="28" VerticalAlignment="Center"/>
+                                    <TextBox x:Name="WidgetOffsetX" Style="{StaticResource CompactNumberBox}"
+                                             TextAlignment="Right" TextChanged="OnOffsetTextChanged"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock x:Name="LblWidgetOffsetY" Style="{StaticResource RowHint}"
+                                               Width="28" VerticalAlignment="Center"/>
+                                    <TextBox x:Name="WidgetOffsetY" Style="{StaticResource CompactNumberBox}"
+                                             TextAlignment="Right" TextChanged="OnOffsetTextChanged"/>
+                                </StackPanel>
+                            </StackPanel>
+                            <CheckBox x:Name="WidgetAutoOffset" Style="{StaticResource Switch}"
                                       Checked="OnAutoOffsetToggled" Unchecked="OnAutoOffsetToggled"/>
                         </StackPanel>
                     </Grid>

@@ -244,11 +244,6 @@ public partial class SettingsWindow : Window
     /// <summary>자동을 끄면 수동 오프셋 칸을 연다. 켜면 다시 감춘다.</summary>
     private void OnAutoOffsetToggled(object sender, RoutedEventArgs e)
     {
-        if (WidgetAutoOffset.IsChecked == true)
-        {
-            WidgetOffsetX.Text = "0";
-            WidgetOffsetY.Text = "0";
-        }
         ShowOffsetRow();
         ApplyNow();
     }
@@ -263,9 +258,13 @@ public partial class SettingsWindow : Window
 
     private void OnWidgetSizeTextChanged(object sender, TextChangedEventArgs e) => ApplyNow();
 
-    private void ShowWidgetSizeInputs() =>
-        WidgetSizeInputs.Visibility = WidgetAutoSize.IsChecked == true
-            ? Visibility.Collapsed : Visibility.Visible;
+    private void ShowWidgetSizeInputs()
+    {
+        bool manual = WidgetAutoSize.IsChecked != true;
+        WidgetSizeInputs.Visibility = Visibility.Visible;
+        WidgetWidth.IsEnabled = manual;
+        WidgetHeight.IsEnabled = manual;
+    }
 
     /// <summary>오프셋 칸은 늘 보이고, 자동 위치일 때만 편집을 막는다.</summary>
     private void ShowOffsetRow()
