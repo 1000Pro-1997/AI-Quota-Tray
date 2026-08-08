@@ -46,6 +46,43 @@ public sealed class UpdateDownloader
     /// <summary>런처가 설치되어 있는가. 없으면 받아도 교체해 줄 사람이 없다.</summary>
     public static bool LauncherInstalled => File.Exists(LauncherPath);
 
+    /// <summary>
+    /// 런처가 없으면 릴리스에서 받아 앉힌다.
+    ///
+    /// 사용자가 자립형 exe만 손으로 내려받아 쓰는 경우가 있다. 그때도 앱 안에서
+    /// 업데이트가 끝나도록, 교체를 맡을 런처를 스스로 마련한다. 셋업 파일을
+    /// 따로 받게 하지 않으려는 것이다. 실패해도 업데이트 자체는 진행한다.
+    /// </summary>
+    public async Task<bool> EnsureLauncherAsync(UpdateInfo info, CancellationToken ct = default)
+    {
+        if (LauncherInstalled) return true;
+        if (info.LauncherUrl.Length == 0) return false;
+
+        try
+        {
+            Directory.CreateDirectory(InstallDir);
+
+            using var req = new HttpRequestMessage(HttpMethod.Get, info.LauncherUrl);
+            req.Headers.TryAddWithoutValidation("User-Agent", "AiQuotaTray");
+
+            using var res = await _http.SendAsync(req, ct).ConfigureAwait(false);
+            res.EnsureSuccessStatusCode();
+
+            byte[] bytes = await res.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
+
+            // 런처는 2MB 남짓이다. 이보다 크면 받아온 것이 런처가 아니다.
+            if (bytes.Length == 0 || bytes.Length > 32 * 1024 * 1024) return false;
+
+            await File.WriteAllBytesAsync(LauncherPath, bytes, ct).ConfigureAwait(false);
+            return true;
+        }
+        catch
+        {
+            // 런처를 못 갖췄을 뿐이다. 받아 둔 업데이트는 다음에 쓰일 수 있다.
+            return false;
+        }
+    }
+
     /// <summary>이미 받아 둔 새 버전이 있는가.</summary>
     public static bool PendingReady => File.Exists(PendingPath);
 

@@ -171,8 +171,9 @@ public partial class SettingsWindow : Window
 
         if (_updates.Last is { HasUpdate: true } known)
         {
-            // 런처가 없거나 릴리스에 파일이 없으면 손으로 받게 한다.
-            if (!known.CanDownload || !UpdateDownloader.LauncherInstalled)
+            // 릴리스에 받을 파일이 없을 때만 손으로 받게 한다.
+            // 런처는 없으면 내려받는 김에 함께 갖춘다.
+            if (!known.CanDownload)
             {
                 App.OpenUrl(known.PageUrl);
                 return;
@@ -219,13 +220,27 @@ public partial class SettingsWindow : Window
                 Timeout = TimeSpan.FromMinutes(10),
             });
 
+            // 교체를 맡을 런처가 없으면 먼저 갖춘다. 2MB라 금방 끝난다.
+            await downloader.EnsureLauncherAsync(info);
+
             await downloader.DownloadAsync(info, progress);
 
             UpdateProgressTrack.Visibility = Visibility.Collapsed;
-            UpdateText.Text = Strings.Get("update.available",
-                info.Latest?.ToString() ?? info.TagName);
             UpdateDot.Visibility = Visibility.Visible;
             UpdateButton.Content = Strings.Get("update.restart");
+
+            // 다 받았으면 갈아끼우는 일만 남았다. 버튼을 한 번 더 누르게 하는 것은
+            // 사용자에게 아무 선택도 주지 않으면서 손만 더 가게 하는 셈이라
+            // 곧바로 재시작한다. 창을 닫아 버렸으면 다음 실행 때 적용된다.
+            if (UpdateDownloader.LauncherInstalled)
+            {
+                UpdateText.Text = Strings.Get("update.restarting");
+                ApplyAndRestart();
+                return;
+            }
+
+            UpdateText.Text = Strings.Get("update.available",
+                info.Latest?.ToString() ?? info.TagName);
         }
         catch (Exception ex)
         {
