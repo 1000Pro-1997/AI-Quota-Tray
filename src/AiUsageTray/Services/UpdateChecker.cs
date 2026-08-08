@@ -37,6 +37,12 @@ public sealed class UpdateInfo
     /// <summary>런처 내려받기 주소. 릴리스에 없으면 빈 문자열.</summary>
     public string LauncherUrl { get; init; } = "";
 
+    /// <summary>런처 파일의 크기(바이트). 잘못된 응답을 거르는 데 쓴다.</summary>
+    public long LauncherSize { get; init; }
+
+    /// <summary>기대되는 런처 SHA256. 검증할 수 없으면 빈 문자열.</summary>
+    public string LauncherSha256 { get; init; } = "";
+
     /// <summary>앱 안에서 바로 받을 수 있는가. 주소와 해시가 모두 있어야 한다.</summary>
     public bool CanDownload =>
         HasUpdate && AssetUrl.Length > 0 && AssetSha256.Length == 64;
@@ -137,7 +143,7 @@ public sealed class UpdateChecker
 
         string body = root.TryGetProperty("body", out var b) ? b.GetString() ?? "" : "";
         var (url, size, sha) = FindAsset(root, body);
-        string launcher = FindLauncherUrl(root);
+        var (launcher, launcherSize, launcherSha) = FindLauncherAsset(root, body);
 
         return new UpdateInfo
         {
@@ -149,21 +155,26 @@ public sealed class UpdateChecker
             AssetSize = size,
             AssetSha256 = sha,
             LauncherUrl = launcher,
+            LauncherSize = launcherSize,
+            LauncherSha256 = launcherSha,
         };
     }
 
-    /// <summary>런처 에셋의 주소만 찾는다. 해시는 런처 자신이 검증할 몫이 아니다.</summary>
-    private static string FindLauncherUrl(JsonElement root)
+    /// <summary>런처도 실행 파일이므로 앱 본체와 똑같이 크기와 해시를 확인한다.</summary>
+    private static (string Url, long Size, string Sha) FindLauncherAsset(JsonElement root, string body)
     {
         if (!root.TryGetProperty("assets", out var assets) || assets.ValueKind != JsonValueKind.Array)
-            return "";
+            return ("", 0, "");
 
         foreach (var a in assets.EnumerateArray())
         {
-            if (a.TryGetProperty("name", out var n) && n.GetString() == LauncherAssetName)
-                return a.TryGetProperty("browser_download_url", out var u) ? u.GetString() ?? "" : "";
+            if (!a.TryGetProperty("name", out var n) || n.GetString() != LauncherAssetName) continue;
+            string url = a.TryGetProperty("browser_download_url", out var u) ? u.GetString() ?? "" : "";
+            long size = a.TryGetProperty("size", out var s) && s.ValueKind == JsonValueKind.Number
+                ? s.GetInt64() : 0;
+            return (url, size, AssetSha(a, body, LauncherAssetName));
         }
-        return "";
+        return ("", 0, "");
     }
 
     /// <summary>릴리스에서 자립형 exe와 그 SHA256을 찾는다. 런처가 쓰는 규칙과 같다.</summary>
@@ -180,16 +191,7 @@ public sealed class UpdateChecker
             long size = a.TryGetProperty("size", out var s) && s.ValueKind == JsonValueKind.Number
                 ? s.GetInt64() : 0;
 
-            // GitHub가 digest를 주면 그것을 쓰고, 없으면 릴리스 본문에서 찾는다.
-            string sha = "";
-            if (a.TryGetProperty("digest", out var d) && d.ValueKind == JsonValueKind.String &&
-                d.GetString() is { } raw && raw.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase))
-            {
-                string v = raw[7..];
-                if (IsSha256(v)) sha = v;
-            }
-
-            if (sha.Length == 0) sha = ShaFromBody(body);
+            string sha = AssetSha(a, body, AssetName);
 
             return (url, size, sha);
         }
@@ -197,12 +199,23 @@ public sealed class UpdateChecker
         return ("", 0, "");
     }
 
-    /// <summary>릴리스 본문에서 자립형 exe 이름이 있는 줄의 64자리 16진수를 찾는다.</summary>
-    private static string ShaFromBody(string body)
+    /// <summary>릴리스 본문에서 해당 파일 이름이 있는 줄의 SHA256을 찾는다.</summary>
+    private static string AssetSha(JsonElement asset, string body, string assetName)
+    {
+        if (asset.TryGetProperty("digest", out var d) && d.ValueKind == JsonValueKind.String &&
+            d.GetString() is { } raw && raw.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase))
+        {
+            string value = raw[7..];
+            if (IsSha256(value)) return value;
+        }
+        return ShaFromBody(body, assetName);
+    }
+
+    private static string ShaFromBody(string body, string assetName)
     {
         foreach (string line in body.Split('\n'))
         {
-            if (!line.Contains(AssetName, StringComparison.Ordinal)) continue;
+            if (!line.Contains(assetName, StringComparison.Ordinal)) continue;
 
             foreach (string word in line.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries))
             {

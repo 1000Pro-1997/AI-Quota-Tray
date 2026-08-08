@@ -32,6 +32,10 @@ public sealed class UpdateDownloader
                 "AI Quota Tray");
 
     public static string LauncherPath => Path.Combine(InstallDir, "Launcher.exe");
+    public static string PendingLauncherPath => Path.Combine(InstallDir, "Launcher.pending.exe");
+    private static string PendingLauncherVersionPath => Path.Combine(InstallDir, "pending-launcher-version.txt");
+    private static string LauncherVersionPath => Path.Combine(InstallDir, "launcher-version.txt");
+    private static string LauncherPartialPath => Path.Combine(InstallDir, "Launcher.download");
     public static string PendingPath => Path.Combine(InstallDir, "AiQuotaTray.pending.exe");
     public static string PendingVersionPath => Path.Combine(InstallDir, "pending-version.txt");
     private static string PartialPath => Path.Combine(InstallDir, "AiQuotaTray.download");
@@ -47,20 +51,30 @@ public sealed class UpdateDownloader
     public static bool LauncherInstalled => File.Exists(LauncherPath);
 
     /// <summary>
-    /// 런처가 없으면 릴리스에서 받아 앉힌다.
+    /// 런처가 없으면 바로 설치하고, 구판이면 검증한 새 파일을 pending으로 둔다.
     ///
     /// 사용자가 자립형 exe만 손으로 내려받아 쓰는 경우가 있다. 그때도 앱 안에서
-    /// 업데이트가 끝나도록, 교체를 맡을 런처를 스스로 마련한다. 셋업 파일을
-    /// 따로 받게 하지 않으려는 것이다. 실패해도 업데이트 자체는 진행한다.
+    /// 업데이트가 끝나도록 런처를 마련한다. 이미 설치된 런처는 실행 중일 수 있어
+    /// 다음 시작에서 새 복사본이 교체하도록 맡긴다.
     /// </summary>
     public async Task<bool> EnsureLauncherAsync(UpdateInfo info, CancellationToken ct = default)
     {
-        if (LauncherInstalled) return true;
-        if (info.LauncherUrl.Length == 0) return false;
+        if (info.LauncherUrl.Length == 0 || info.LauncherSha256.Length != 64)
+            return LauncherInstalled;
 
         try
         {
             Directory.CreateDirectory(InstallDir);
+
+            string latest = info.Latest?.ToString() ?? "";
+            if (LauncherInstalled && ReadVersion(LauncherVersionPath) == latest) return true;
+
+            if (LauncherInstalled && File.Exists(PendingLauncherPath) &&
+                ReadVersion(PendingLauncherVersionPath) == latest)
+            {
+                StartLauncherReplacement();
+                return true;
+            }
 
             using var req = new HttpRequestMessage(HttpMethod.Get, info.LauncherUrl);
             req.Headers.TryAddWithoutValidation("User-Agent", "AiQuotaTray");
@@ -68,21 +82,49 @@ public sealed class UpdateDownloader
             using var res = await _http.SendAsync(req, ct).ConfigureAwait(false);
             res.EnsureSuccessStatusCode();
 
-            byte[] bytes = await res.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
+            await using var source = await res.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+            using var sha = SHA256.Create();
+            long received = 0;
+            await using (var target = new FileStream(
+                LauncherPartialPath, FileMode.Create, FileAccess.Write, FileShare.None,
+                bufferSize: 64 * 1024, useAsync: true))
+            {
+                var buffer = new byte[64 * 1024];
+                while (true)
+                {
+                    int count = await source.ReadAsync(buffer, ct).ConfigureAwait(false);
+                    if (count == 0) break;
+                    received += count;
+                    if (received > 32L * 1024 * 1024)
+                        throw new InvalidOperationException("Launcher download is too large.");
+                    sha.TransformBlock(buffer, 0, count, null, 0);
+                    await target.WriteAsync(buffer.AsMemory(0, count), ct).ConfigureAwait(false);
+                }
+                sha.TransformFinalBlock([], 0, 0);
+                await target.FlushAsync(ct).ConfigureAwait(false);
+            }
 
-            // 런처는 2MB 남짓이다. 이보다 크면 받아온 것이 런처가 아니다.
-            if (bytes.Length == 0 || bytes.Length > 32 * 1024 * 1024) return false;
+            string actual = Convert.ToHexString(sha.Hash ?? []).ToLowerInvariant();
+            if (received == 0 ||
+                (info.LauncherSize > 0 && received != info.LauncherSize) ||
+                !string.Equals(actual, info.LauncherSha256, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("Launcher download verification failed.");
 
-            await File.WriteAllBytesAsync(LauncherPath, bytes, ct).ConfigureAwait(false);
+            if (!LauncherInstalled)
+            {
+                File.Move(LauncherPartialPath, LauncherPath, overwrite: true);
+                await File.WriteAllTextAsync(LauncherVersionPath, latest, ct).ConfigureAwait(false);
+                RegisterStartup();
+                return true;
+            }
 
-            // 파일만 되살리면 반쪽이다. 시작 프로그램 등록은 런처가 설치될 때
-            // 함께 들어가는데, 사용자가 런처를 지웠다면 그 등록도 이미 깨졌거나
-            // 없는 파일을 가리키고 있다. 부팅해도 아무것도 안 뜨는 상태가 된다.
-            RegisterStartup();
+            File.Move(LauncherPartialPath, PendingLauncherPath, overwrite: true);
+            await File.WriteAllTextAsync(PendingLauncherVersionPath, latest, ct).ConfigureAwait(false);
             return true;
         }
         catch
         {
+            TryDelete(LauncherPartialPath);
             // 런처를 못 갖췄을 뿐이다. 받아 둔 업데이트는 다음에 쓰일 수 있다.
             return false;
         }
@@ -112,6 +154,30 @@ public sealed class UpdateDownloader
 
     /// <summary>이미 받아 둔 새 버전이 있는가.</summary>
     public static bool PendingReady => File.Exists(PendingPath);
+
+    private static string ReadVersion(string path)
+    {
+        try { return File.ReadAllText(path).Trim(); }
+        catch { return ""; }
+    }
+
+    private static void StartLauncherReplacement()
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = PendingLauncherPath,
+                Arguments = "--replace-launcher",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            });
+        }
+        catch
+        {
+            // 다음 시작 때 다시 시도한다. 기존 런처와 앱은 그대로 쓸 수 있다.
+        }
+    }
 
     /// <summary>
     /// 새 버전을 받아 pending 자리에 둔다. 성공하면 재시작만 하면 된다.

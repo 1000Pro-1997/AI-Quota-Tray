@@ -61,10 +61,34 @@ fn run() -> Result<(), String> {
     let installed = launcher_path();
     let current = env::current_exe().map_err(|e| e.to_string())?;
 
+    if env::args()
+        .skip(1)
+        .any(|a| a == "--replace-launcher" || a == "--replace-launcher-and-run")
+    {
+        return replace_launcher(&current, &installed);
+    }
+
     // 앱이 "받아뒀으니 지금 갈아끼워 달라"고 부른 경우.
     // 앱은 이 호출 직후 스스로 종료하므로, 잠금이 풀릴 때까지 기다렸다 교체한다.
     if env::args().skip(1).any(|a| a == "--apply-now") {
         return apply_now();
+    }
+
+    // 새 런처가 현재 프로세스의 파일 잠금이 풀린 뒤 교체하고 흐름을 이어 간다.
+    if same_path(&current, &installed) && pending_launcher_path().exists() {
+        // 교체를 끝낸 helper 자신은 실행 중이라 pending 파일을 지울 수 없다.
+        // 다음 실행에서 내용이 같음을 확인한 뒤 찌꺼기만 정리한다.
+        if same_contents(&current, &pending_launcher_path()) {
+            let _ = fs::remove_file(pending_launcher_path());
+            let _ = fs::remove_file(pending_launcher_version_path());
+        } else {
+            Command::new(pending_launcher_path())
+                .arg("--replace-launcher-and-run")
+                .creation_flags(CREATE_NO_WINDOW)
+                .spawn()
+                .map_err(|e| format!("새 런처 실행 실패: {e}"))?;
+            return Ok(());
+        }
     }
 
     fs::create_dir_all(install_dir()).map_err(|e| e.to_string())?;
@@ -154,7 +178,11 @@ fn work(current: &Path, installed: &Path, tray: Option<&tray::TrayIcon>) -> Resu
 
     // 새 버전을 받아 두었으면 다음 실행에 적용된다는 것을 알려 둔다.
     if pending_path().exists() {
-        set_tray(tray, 100, "AI Quota Tray 업데이트 준비됨 — 다음 실행에 적용됩니다");
+        set_tray(
+            tray,
+            100,
+            "AI Quota Tray 업데이트 준비됨 — 다음 실행에 적용됩니다",
+        );
     } else {
         let version = fs::read_to_string(version_path()).unwrap_or_default();
         let version = version.trim();
@@ -272,6 +300,15 @@ fn should_launch_app() -> bool {
 fn launcher_path() -> PathBuf {
     install_dir().join("Launcher.exe")
 }
+fn pending_launcher_path() -> PathBuf {
+    install_dir().join("Launcher.pending.exe")
+}
+fn launcher_version_path() -> PathBuf {
+    install_dir().join("launcher-version.txt")
+}
+fn pending_launcher_version_path() -> PathBuf {
+    install_dir().join("pending-launcher-version.txt")
+}
 fn app_path() -> PathBuf {
     install_dir().join("AiQuotaTray.exe")
 }
@@ -329,6 +366,7 @@ fn install_launcher(source: &Path, target: &Path) -> Result<(), String> {
             log_line(&format!("launcher copy skipped: {error}"));
         }
     }
+    let _ = fs::write(launcher_version_path(), env!("CARGO_PKG_VERSION"));
 
     if env::var_os("AI_QUOTA_TRAY_SKIP_STARTUP").is_some() {
         return Ok(());
@@ -352,6 +390,51 @@ fn install_launcher(source: &Path, target: &Path) -> Result<(), String> {
         .map_err(|e| format!("시작 프로그램 등록 실패: {e}"))?;
     if !status.success() {
         return Err("시작 프로그램을 등록하지 못했습니다.".into());
+    }
+    Ok(())
+}
+
+/// pending 복사본이 기존 런처의 파일 잠금이 풀릴 때까지 기다렸다 교체한다.
+fn replace_launcher(current: &Path, installed: &Path) -> Result<(), String> {
+    fs::create_dir_all(install_dir()).map_err(|e| e.to_string())?;
+    let relaunch = env::args()
+        .skip(1)
+        .any(|a| a == "--replace-launcher-and-run");
+    let replacement = install_dir().join("Launcher.replacement.exe");
+    let backup = install_dir().join("Launcher.previous.exe");
+    let _ = fs::remove_file(&replacement);
+    fs::copy(current, &replacement).map_err(|e| format!("새 런처 준비 실패: {e}"))?;
+
+    let mut replaced = false;
+    // 구형 런처가 앱 본체를 내려받는 중이어도 파일을 건드리지 않고 기다린다.
+    for _ in 0..600 {
+        let _ = fs::remove_file(&backup);
+        if fs::rename(installed, &backup).is_ok() {
+            if fs::rename(&replacement, installed).is_ok() {
+                replaced = true;
+                break;
+            }
+            let _ = fs::rename(&backup, installed);
+        }
+        std::thread::sleep(Duration::from_millis(500));
+    }
+    if !replaced {
+        let _ = fs::remove_file(&replacement);
+        return Err("기존 런처를 교체하지 못했습니다.".into());
+    }
+    let _ = fs::remove_file(&backup);
+
+    let version = fs::read_to_string(pending_launcher_version_path())
+        .unwrap_or_else(|_| env!("CARGO_PKG_VERSION").to_string());
+    fs::write(launcher_version_path(), version).map_err(|e| e.to_string())?;
+    let _ = fs::remove_file(pending_launcher_version_path());
+    log_line("launcher update applied");
+
+    if relaunch {
+        Command::new(installed)
+            .creation_flags(CREATE_NO_WINDOW)
+            .spawn()
+            .map_err(|e| format!("갱신된 런처 실행 실패: {e}"))?;
     }
     Ok(())
 }
