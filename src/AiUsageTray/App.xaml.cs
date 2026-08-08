@@ -164,6 +164,10 @@ public partial class App : Application
             _settings.ShowWidgetBar = enabled;
             _settings.Save();
             SyncWidgetBar();
+
+            // 설정창이 열려 있으면 같은 값을 보게 한다. 두 토글이 어긋나 보이면
+            // 어느 쪽이 진짜인지 알 수 없다.
+            if (_settingsWindow is { IsLoaded: true }) _settingsWindow.SyncWidgetBarToggle();
         };
         ApplyDisplaySettings();
     }
@@ -197,6 +201,14 @@ public partial class App : Application
 
             ApplyWidgetSettings();
             _widgetBar?.Render(_monitor.Latest);
+
+            // 조회를 기다리지 않고 바로 띄운다. 끄는 쪽은 Close()로 즉시
+            // 사라지는데 켜는 쪽만 다음 새로고침까지 안 보이면 고장으로 보인다.
+            if (_widgetBar is { IsVisible: false })
+            {
+                _widgetBar.Show();
+                _widgetBar.Reposition();
+            }
         }
         else if (_widgetBar is not null)
         {

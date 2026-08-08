@@ -809,6 +809,17 @@ public partial class SettingsWindow : Window
         ApplyNow();
     }
 
+    /// <summary>팝업에서 위젯바를 껐다 켰을 때 이 창의 토글도 따라가게 한다.</summary>
+    public void SyncWidgetBarToggle()
+    {
+        // 편집 중인 다른 값을 건드리지 않으려고 이 토글만 갱신한다.
+        // ReloadFromSettings()는 화면 전체를 되돌려 입력하던 내용을 지운다.
+        bool wasLoading = _loading;
+        _loading = true;
+        ShowWidgetBar.IsChecked = _settings.ShowWidgetBar;
+        _loading = wasLoading;
+    }
+
     /// <summary>설정에 담긴 값으로 화면을 다시 그린다.</summary>
     private void ReloadFromSettings()
     {

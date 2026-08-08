@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -17,7 +17,10 @@ namespace AiUsageTray.Services;
 public sealed class WindowPrimer : IDisposable
 {
     private static readonly TimeSpan WindowLength = TimeSpan.FromHours(5);
-    private static readonly TimeSpan TriggerDelay = TimeSpan.FromSeconds(5);
+    // 리셋 경계보다 이르면 요청이 이전 창에 집계돼 새 창이 안 열린다. 서버가 내려준
+    // 리셋 시각의 초 단위 오차와 로컬 시계 어긋남을 함께 덮으려고 30초를 둔다.
+    // 늦어서 잃는 건 창 시작이 그만큼 밀리는 것뿐이라 여유를 크게 잡는 편이 낫다.
+    private static readonly TimeSpan TriggerDelay = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan MaxLate = TimeSpan.FromMinutes(10);
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
     private const string StateMutexName = "Local\\AiQuotaTray.WindowPrimerState";
