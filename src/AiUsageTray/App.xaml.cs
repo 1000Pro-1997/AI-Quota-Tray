@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -108,7 +108,7 @@ public partial class App : Application
     }
 
     /// <summary>
-    /// 새 버전을 확인하고, 자동 업데이트가 켜져 있으면 받아 둔다.
+    /// 런처를 갖추고, 자동 업데이트가 켜져 있으면 새 버전을 받아 둔다.
     ///
     /// 받아만 두고 적용은 다음 실행에 맡긴다. 쓰던 중에 앱이 갑자기 사라졌다
     /// 나타나면 놀라기 때문이다. 확인은 토글과 무관하게 늘 한다. 알림은 받되
@@ -118,19 +118,35 @@ public partial class App : Application
     {
         try
         {
-            await _updates.CheckIfDueAsync();
+            // 런처가 없는 것은 정상이 아니다. 자립형 exe만 내려받아 쓰는 사람은
+            // 이 자리를 지나야 런처를 갖는데, 하루 간격에 걸려 확인을 건너뛰면
+            // 그동안 부팅해도 앱이 안 뜨고 새 버전도 못 받는다. 그때는 간격을
+            // 무시하고 묻는다.
+            if (UpdateDownloader.LauncherInstalled)
+                await _updates.CheckIfDueAsync();
+            else
+                await _updates.CheckAsync();
+
+            if (_updates.Last is not { Error: null } info) return;
+
+            using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
+            var downloader = new UpdateDownloader(http);
+
+            // 최신판을 쓰는 중이라도 런처는 필요하다. 부팅 시 자동 시작과
+            // 앞으로의 교체가 모두 런처 손에 달려 있어, 새 버전이 나오기를
+            // 기다릴 일이 아니다. 자동 업데이트 토글보다 앞에 두는 까닭이다.
+            await downloader.EnsureLauncherAsync(info);
 
             if (!_settings.AutoUpdate) return;
-            if (_updates.Last is not { CanDownload: true } info) return;
+            if (!info.CanDownload) return;
 
-            // 런처가 없으면 받아 둬도 갈아끼워 줄 사람이 없다.
+            // 런처를 갖추지 못했으면 받아 둬도 갈아끼워 줄 사람이 없다.
             if (!UpdateDownloader.LauncherInstalled) return;
 
             // 이미 받아 둔 것이 있으면 두 번 받지 않는다.
             if (UpdateDownloader.PendingReady) return;
 
-            using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
-            await new UpdateDownloader(http).DownloadAsync(info, progress: null);
+            await downloader.DownloadAsync(info, progress: null);
         }
         catch
         {

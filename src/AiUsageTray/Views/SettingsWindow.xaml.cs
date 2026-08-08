@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -199,6 +199,46 @@ public partial class SettingsWindow : Window
         LauncherStatus.Text = Strings.Get(ok
             ? "settings.launcherFound"
             : "settings.launcherMissing");
+
+        // 고칠 수단은 고장났을 때만 보인다. 멀쩡한데 버튼이 있으면
+        // 눌러야 하는 줄 안다.
+        InstallLauncherButton.Visibility = ok ? Visibility.Collapsed : Visibility.Visible;
+        if (!ok) InstallLauncherButton.Content = Strings.Get("settings.installLauncher");
+    }
+
+    /// <summary>
+    /// 런처를 지금 받아 앉힌다.
+    ///
+    /// 앱만 내려받아 쓰는 사람에게는 런처가 없다. 앱이 시작할 때 스스로
+    /// 갖추지만 그때 인터넷이 없었을 수 있어, 손으로 다시 시킬 길을 둔다.
+    /// </summary>
+    private async void OnInstallLauncher(object sender, RoutedEventArgs e)
+    {
+        if (_updates is null) return;
+
+        InstallLauncherButton.IsEnabled = false;
+        InstallLauncherButton.Content = Strings.Get("settings.installingLauncher");
+
+        try
+        {
+            // 어제 확인했더라도 지금 주소가 필요하다. 간격을 무시하고 묻는다.
+            var info = await _updates.CheckAsync();
+
+            using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
+            await new UpdateDownloader(http).EnsureLauncherAsync(info);
+        }
+        catch
+        {
+            // 실패하면 버튼이 그대로 남는다. 다시 누르면 된다.
+        }
+        finally
+        {
+            InstallLauncherButton.IsEnabled = true;
+            InstallLauncherButton.Content = Strings.Get("settings.installLauncher");
+
+            // 성공했으면 상태 줄과 버튼이 함께 정리된다.
+            ShowInstallState();
+        }
     }
 
     /// <summary>

@@ -1,4 +1,4 @@
-<Window x:Class="AiUsageTray.Views.SettingsWindow"
+﻿<Window x:Class="AiUsageTray.Views.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="AI Quota Tray"
@@ -848,9 +848,18 @@
                             <TextBlock x:Name="InstallPathText" Style="{StaticResource RowHint}"
                                        TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
                         </StackPanel>
-                        <Button x:Name="OpenFolderButton" Style="{StaticResource GhostButton}"
-                                Padding="12,6" HorizontalAlignment="Right"
-                                VerticalAlignment="Center" Click="OnOpenInstallFolder"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                                    VerticalAlignment="Center">
+                            <!-- 런처가 사라졌을 때만 나타난다. 앱만 내려받아 쓰는 사람에게
+                                 지금 바로 고칠 수단을 주려는 것이다. -->
+                            <Button x:Name="InstallLauncherButton" Style="{StaticResource GhostButton}"
+                                    Padding="12,6" Margin="0,0,8,0"
+                                    VerticalAlignment="Center" Visibility="Collapsed"
+                                    Click="OnInstallLauncher"/>
+                            <Button x:Name="OpenFolderButton" Style="{StaticResource GhostButton}"
+                                    Padding="12,6"
+                                    VerticalAlignment="Center" Click="OnOpenInstallFolder"/>
+                        </StackPanel>
                     </Grid>
 
                     <Border Style="{StaticResource RowDivider}"/>
