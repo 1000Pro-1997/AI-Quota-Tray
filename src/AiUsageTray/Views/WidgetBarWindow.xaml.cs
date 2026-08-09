@@ -40,6 +40,23 @@ public partial class WidgetBarWindow : Window
     private static extern bool SetWindowPos(IntPtr hWnd, IntPtr insertAfter,
         int x, int y, int cx, int cy, uint flags);
 
+    // 전체화면 앱이 떠 있는지 셸에 물어본다. 알림 풍선을 띄워도 되는지
+    // 판단하려고 만들어진 API지만, "지금 화면을 독차지한 앱이 있는가"를
+    // 알려주는 가장 확실한 수단이라 그대로 쓴다.
+    [DllImport("shell32.dll")]
+    private static extern int SHQueryUserNotificationState(out UserNotificationState state);
+
+    private enum UserNotificationState
+    {
+        NotPresent = 1,
+        Busy = 2,
+        RunningDirect3dFullScreen = 3,
+        PresentationMode = 4,
+        AcceptsNotifications = 5,
+        QuietTime = 6,
+        RunningWindowsStoreApp = 7,
+    }
+
     // 창을 topmost 목록의 맨 위로 다시 올리되, 위치·크기·활성화는 건드리지 않는다.
     private static readonly IntPtr HwndTopmost = new(-1);
     private const uint SwpNoMove = 0x0002;
@@ -65,6 +82,15 @@ public partial class WidgetBarWindow : Window
 
     /// <summary>설정에서 고른 모니터 장치 이름. 없거나 사라졌으면 주 모니터를 쓴다.</summary>
     public string MonitorDeviceName { get; set; } = "";
+
+    /// <summary>
+    /// 전체화면 앱이 떠 있는 동안 위젯을 숨긴다.
+    ///
+    /// 이 창은 항상 topmost라 게임이나 전체화면 영상 위에도 그대로 남는다.
+    /// 작업표시줄은 그럴 때 가려지므로 "작업표시줄 옆의 막대"라는 인상이
+    /// 깨지고, 게임 화면을 가리는 방해물이 된다. 그래서 같이 물러난다.
+    /// </summary>
+    public bool HideOnFullScreen { get; set; } = true;
 
     /// <summary>위치를 알아서 잡을 것인가. 끄면 아래 두 값으로 직접 민다.</summary>
     public bool AutoOffset { get; set; } = true;
@@ -101,6 +127,12 @@ public partial class WidgetBarWindow : Window
         Interval = TimeSpan.FromSeconds(1),
     };
 
+    /// <summary>
+    /// 전체화면 때문에 숨긴 상태인가. 사용자가 위젯을 끈 것과 구분해야
+    /// 전체화면이 끝났을 때 되살릴지 말지 정할 수 있다.
+    /// </summary>
+    private bool _hiddenByFullScreen;
+
     /// <summary>마지막으로 그린 값. 시간만 갱신할 때 다시 쓴다.</summary>
     private IReadOnlyList<ProviderUsage> _shown = Array.Empty<ProviderUsage>();
     private readonly List<(TextBlock Label, UsageWindow Window)> _timeLabels = new();
@@ -116,18 +148,82 @@ public partial class WidgetBarWindow : Window
         Items.MouseEnter += (_, _) => Items.Opacity = 0.88;
         Items.MouseLeave += (_, _) => Items.Opacity = 1.0;
 
-        _keepOnTop.Tick += (_, _) => BringToTop();
+        _keepOnTop.Tick += (_, _) =>
+        {
+            // 숨어 있는 동안에도 이 타이머는 계속 돌아야 한다. 전체화면이
+            // 끝난 것을 알아채고 다시 나올 사람이 이것 말고는 없다.
+            if (SyncFullScreenVisibility()) return;
+            BringToTop();
+        };
 
         // 사용량은 그대로여도 남은 시간은 계속 줄어든다.
         _tick.Tick += (_, _) => UpdateCountdowns();
 
         IsVisibleChanged += (_, e) =>
         {
-            if ((bool)e.NewValue) { _keepOnTop.Start(); _tick.Start(); }
-            else { _keepOnTop.Stop(); _tick.Stop(); }
+            if ((bool)e.NewValue)
+            {
+                _hiddenByFullScreen = false;
+                _keepOnTop.Start();
+                _tick.Start();
+            }
+            else
+            {
+                // 전체화면 때문에 숨은 것이라면 감시를 멈추면 안 된다.
+                if (!_hiddenByFullScreen) _keepOnTop.Stop();
+                _tick.Stop();
+            }
         };
 
         Closed += (_, _) => { _keepOnTop.Stop(); _tick.Stop(); };
+    }
+
+    /// <summary>
+    /// 전체화면 상태에 맞춰 창을 숨기거나 되살린다.
+    /// 숨긴 채로 둬야 하면 true를 돌려준다.
+    /// </summary>
+    private bool SyncFullScreenVisibility()
+    {
+        if (!HideOnFullScreen)
+        {
+            // 설정을 방금 껐다면 숨겨둔 창을 곧바로 되돌린다.
+            if (_hiddenByFullScreen) Restore();
+            return false;
+        }
+
+        if (IsFullScreenAppRunning())
+        {
+            if (!_hiddenByFullScreen && IsVisible)
+            {
+                _hiddenByFullScreen = true;
+                Hide();
+            }
+
+            return true;
+        }
+
+        if (_hiddenByFullScreen) Restore();
+        return false;
+
+        void Restore()
+        {
+            _hiddenByFullScreen = false;
+            Show();
+            Reposition();
+        }
+    }
+
+    /// <summary>지금 화면을 독차지한 앱이 있는가.</summary>
+    private static bool IsFullScreenAppRunning()
+    {
+        // 실패하면 0(S_OK)이 아닌 값이 온다. 그럴 땐 숨기지 않는 쪽이 안전하다.
+        // 감지를 못 해 계속 숨어 있으면 위젯이 고장 난 것처럼 보인다.
+        if (SHQueryUserNotificationState(out var state) != 0) return false;
+
+        // D3D 전체화면(게임)과 프레젠테이션 모드(전체화면 영상·발표)만 잡는다.
+        // Busy나 QuietTime은 방해 금지 상태일 뿐 화면을 가리지 않으므로 뺀다.
+        return state is UserNotificationState.RunningDirect3dFullScreen
+            or UserNotificationState.PresentationMode;
     }
 
     /// <summary>Z순서 맨 위로 되돌린다. 위치나 포커스는 그대로 둔다.</summary>

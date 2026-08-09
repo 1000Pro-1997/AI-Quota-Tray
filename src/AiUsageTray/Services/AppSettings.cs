@@ -71,6 +71,12 @@ public sealed class AppSettings
     /// <summary>도구 블록을 가로로 나열한다. 끄면 세로.</summary>
     public bool WidgetModelsHorizontal { get; set; } = true;
 
+    /// <summary>
+    /// 전체화면 앱이 떠 있는 동안 위젯바를 숨긴다.
+    /// 작업표시줄이 가려질 때 위젯도 같이 물러나게 하는 장치다.
+    /// </summary>
+    public bool WidgetHideOnFullScreen { get; set; } = true;
+
     public bool WidgetShowPercent { get; set; } = true;
     public bool WidgetShowResetTime { get; set; } = true;
     public int WidgetPercentFontSize { get; set; } = 11;
@@ -214,6 +220,7 @@ public sealed class AppSettings
         WidgetWidth = fresh.WidgetWidth;
         WidgetHeight = fresh.WidgetHeight;
         WidgetModelsHorizontal = fresh.WidgetModelsHorizontal;
+        WidgetHideOnFullScreen = fresh.WidgetHideOnFullScreen;
         WidgetShowPercent = fresh.WidgetShowPercent;
         WidgetShowResetTime = fresh.WidgetShowResetTime;
         WidgetPercentFontSize = fresh.WidgetPercentFontSize;

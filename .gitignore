@@ -23,6 +23,9 @@ Thumbs.db
 /AiQuotaTray.exe
 /AiQuotaTray-standalone.exe
 
+# 릴리스 자산을 내려받아 대조할 때 쓰는 임시 파일.
+/dl-*.exe
+
 # 배포본을 모아두는 곳. 릴리스에 올릴 exe를 여기서 꺼내 쓴다.
 /dist/
 /artifacts/

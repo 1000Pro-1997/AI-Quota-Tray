@@ -132,6 +132,7 @@ public partial class SettingsWindow : Window
         WidgetWidth.Text = _settings.WidgetWidth.ToString();
         WidgetHeight.Text = _settings.WidgetHeight.ToString();
         WidgetModelsHorizontal.IsChecked = _settings.WidgetModelsHorizontal;
+        WidgetHideOnFullScreen.IsChecked = _settings.WidgetHideOnFullScreen;
         WidgetAutoOffset.IsChecked = _settings.WidgetAutoOffset;
         WidgetOffsetX.Text = _settings.WidgetOffsetX.ToString();
         WidgetOffsetY.Text = _settings.WidgetOffsetY.ToString();
@@ -673,6 +674,8 @@ public partial class SettingsWindow : Window
         LblWidgetHeight.Text = Strings.Get("settings.widgetHeight");
         LblWidgetOrientation.Text = Strings.Get("settings.widgetOrientation");
         LblWidgetOrientationHint.Text = Strings.Get("settings.widgetOrientationHint");
+        LblWidgetHideOnFullScreen.Text = Strings.Get("settings.widgetHideOnFullScreen");
+        LblWidgetHideOnFullScreenHint.Text = Strings.Get("settings.widgetHideOnFullScreenHint");
         LblWidgetMonitor.Text = Strings.Get("settings.widgetMonitor");
         LblWidgetMonitorHint.Text = Strings.Get("settings.widgetMonitorHint");
         LblWidgetAutoOffset.Text = Strings.Get("settings.widgetAutoOffset");
@@ -881,6 +884,7 @@ public partial class SettingsWindow : Window
         _settings.WidgetWidth = ParseWidgetDimension(WidgetWidth.Text, 200, 80, 1200);
         _settings.WidgetHeight = ParseWidgetDimension(WidgetHeight.Text, 36, 24, 600);
         _settings.WidgetModelsHorizontal = WidgetModelsHorizontal.IsChecked == true;
+        _settings.WidgetHideOnFullScreen = WidgetHideOnFullScreen.IsChecked == true;
         _settings.SessionTimeDisplayMode = SessionTimeModeBox.SelectedIndex == 1 ? TimeDisplayMode.ResetAt : TimeDisplayMode.Remaining;
         _settings.WeeklyTimeDisplayMode = WeeklyTimeModeBox.SelectedIndex == 1 ? TimeDisplayMode.ResetAt : TimeDisplayMode.Remaining;
         _settings.SessionTimeFormat = SessionTimeFormat.Text.Trim();
@@ -970,6 +974,7 @@ public partial class SettingsWindow : Window
         WidgetWidth.Text = _settings.WidgetWidth.ToString();
         WidgetHeight.Text = _settings.WidgetHeight.ToString();
         WidgetModelsHorizontal.IsChecked = _settings.WidgetModelsHorizontal;
+        WidgetHideOnFullScreen.IsChecked = _settings.WidgetHideOnFullScreen;
         WidgetAutoOffset.IsChecked = _settings.WidgetAutoOffset;
         WidgetOffsetX.Text = _settings.WidgetOffsetX.ToString();
         WidgetOffsetY.Text = _settings.WidgetOffsetY.ToString();

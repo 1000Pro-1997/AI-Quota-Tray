@@ -977,6 +977,16 @@
                                   Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
                     </Grid>
 
+                    <Border Style="{StaticResource RowDivider}"/>
+                    <Grid Margin="0,7,0,7">
+                        <StackPanel VerticalAlignment="Center" Margin="0,0,96,0">
+                            <TextBlock x:Name="LblWidgetHideOnFullScreen" Style="{StaticResource RowTitle}"/>
+                            <TextBlock x:Name="LblWidgetHideOnFullScreenHint" Style="{StaticResource RowHint}"/>
+                        </StackPanel>
+                        <CheckBox x:Name="WidgetHideOnFullScreen" Style="{StaticResource Switch}"
+                                  Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
+                    </Grid>
+
                     <Border x:Name="WidgetMonitorDivider" Style="{StaticResource RowDivider}"/>
                     <Grid x:Name="WidgetMonitorRow" Margin="0,7,0,7">
                         <StackPanel VerticalAlignment="Center" Margin="0,0,190,0">
