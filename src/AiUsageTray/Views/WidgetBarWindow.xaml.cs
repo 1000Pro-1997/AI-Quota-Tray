@@ -40,22 +40,32 @@ public partial class WidgetBarWindow : Window
     private static extern bool SetWindowPos(IntPtr hWnd, IntPtr insertAfter,
         int x, int y, int cx, int cy, uint flags);
 
-    // 전체화면 앱이 떠 있는지 셸에 물어본다. 알림 풍선을 띄워도 되는지
-    // 판단하려고 만들어진 API지만, "지금 화면을 독차지한 앱이 있는가"를
-    // 알려주는 가장 확실한 수단이라 그대로 쓴다.
-    [DllImport("shell32.dll")]
-    private static extern int SHQueryUserNotificationState(out UserNotificationState state);
+    // 맨 앞 창이 위젯이 놓인 모니터를 통째로 덮었는지 직접 잰다.
+    //
+    // 처음에는 SHQueryUserNotificationState를 썼지만 두 가지가 어긋났다.
+    // 그 API는 주 모니터만 보므로 보조 화면에서 게임을 돌리면 못 잡고,
+    // D3D 배타적 전체화면에만 반응해서 요즘 흔한 테두리 없는 창(게임의
+    // borderless 모드, 브라우저 전체화면 영상)은 아예 걸리지 않았다.
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
 
-    private enum UserNotificationState
+    [DllImport("user32.dll")]
+    private static extern IntPtr MonitorFromWindow(IntPtr hWnd, uint flags);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetMonitorInfoW(IntPtr monitor, ref MonitorInfo info);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MonitorInfo
     {
-        NotPresent = 1,
-        Busy = 2,
-        RunningDirect3dFullScreen = 3,
-        PresentationMode = 4,
-        AcceptsNotifications = 5,
-        QuietTime = 6,
-        RunningWindowsStoreApp = 7,
+        public int Size;
+        public Rect32 Monitor;
+        public Rect32 Work;
+        public uint Flags;
     }
+
+    private const uint MonitorDefaultToNearest = 2;
 
     // 창을 topmost 목록의 맨 위로 다시 올리되, 위치·크기·활성화는 건드리지 않는다.
     private static readonly IntPtr HwndTopmost = new(-1);
@@ -213,18 +223,56 @@ public partial class WidgetBarWindow : Window
         }
     }
 
-    /// <summary>지금 화면을 독차지한 앱이 있는가.</summary>
-    private static bool IsFullScreenAppRunning()
+    /// <summary>
+    /// 위젯이 놓인 모니터를 통째로 덮은 창이 맨 앞에 있는가.
+    ///
+    /// 모니터를 하나만 보므로 다른 화면에서 게임을 해도 위젯이 있는 쪽이
+    /// 멀쩡하면 계속 보인다. 화면이 여러 대일 때 원하는 동작이다.
+    /// </summary>
+    private bool IsFullScreenAppRunning()
     {
-        // 실패하면 0(S_OK)이 아닌 값이 온다. 그럴 땐 숨기지 않는 쪽이 안전하다.
-        // 감지를 못 해 계속 숨어 있으면 위젯이 고장 난 것처럼 보인다.
-        if (SHQueryUserNotificationState(out var state) != 0) return false;
+        IntPtr foreground = GetForegroundWindow();
+        if (foreground == IntPtr.Zero) return false;
 
-        // D3D 전체화면(게임)과 프레젠테이션 모드(전체화면 영상·발표)만 잡는다.
-        // Busy나 QuietTime은 방해 금지 상태일 뿐 화면을 가리지 않으므로 뺀다.
-        return state is UserNotificationState.RunningDirect3dFullScreen
-            or UserNotificationState.PresentationMode;
+        // 자기 자신이나 같은 앱의 팝업은 전체화면일 리 없다.
+        var self = new WindowInteropHelper(this).Handle;
+        if (foreground == self) return false;
+
+        // 바탕화면과 셸은 늘 화면 전체를 덮고 있다. 이것까지 전체화면으로
+        // 치면 아무것도 안 띄운 평소에 위젯이 사라진다.
+        var cls = new StringBuilder(256);
+        GetClassName(foreground, cls, cls.Capacity);
+        string name = cls.ToString();
+        if (name is "Progman" or "WorkerW" or "Shell_TrayWnd"
+            or "Windows.UI.Core.CoreWindow" or "XamlExplorerHostIslandWindow")
+            return false;
+
+        if (!GetWindowRect(foreground, out var win)) return false;
+
+        // 맨 앞 창이 어느 모니터에 있는지 본다. 위젯이 있는 모니터가
+        // 아니면 신경 쓸 것 없다.
+        IntPtr monitor = MonitorFromWindow(foreground, MonitorDefaultToNearest);
+        var info = new MonitorInfo { Size = Marshal.SizeOf<MonitorInfo>() };
+        if (!GetMonitorInfoW(monitor, ref info)) return false;
+
+        var target = TargetScreen();
+        if (target is null) return false;
+
+        var bounds = target.Bounds;
+        if (info.Monitor.Left != bounds.Left || info.Monitor.Top != bounds.Top
+            || info.Monitor.Right != bounds.Right || info.Monitor.Bottom != bounds.Bottom)
+            return false;
+
+        // 그 모니터를 빈틈없이 덮었는가. 테두리 없는 창도 이걸로 잡힌다.
+        return win.Left <= info.Monitor.Left && win.Top <= info.Monitor.Top
+            && win.Right >= info.Monitor.Right && win.Bottom >= info.Monitor.Bottom;
     }
+
+    /// <summary>위젯을 띄울 화면. 설정에서 고른 것이 없거나 사라졌으면 주 모니터.</summary>
+    private System.Windows.Forms.Screen? TargetScreen() =>
+        System.Windows.Forms.Screen.AllScreens.FirstOrDefault(s =>
+            string.Equals(s.DeviceName, MonitorDeviceName, StringComparison.OrdinalIgnoreCase))
+        ?? System.Windows.Forms.Screen.PrimaryScreen;
 
     /// <summary>Z순서 맨 위로 되돌린다. 위치나 포커스는 그대로 둔다.</summary>
     private void BringToTop()
@@ -595,9 +643,7 @@ public partial class WidgetBarWindow : Window
     {
         if (ActualWidth <= 0) UpdateLayout();
 
-        var screen = System.Windows.Forms.Screen.AllScreens.FirstOrDefault(s =>
-            string.Equals(s.DeviceName, MonitorDeviceName, StringComparison.OrdinalIgnoreCase))
-            ?? System.Windows.Forms.Screen.PrimaryScreen;
+        var screen = TargetScreen();
         if (screen is null) return;
 
         var work = screen.WorkingArea;
