@@ -13,10 +13,6 @@ when they reset.
   <img src="docs/images/popup.png" alt="Popup showing Claude and Codex quota" width="340">
 </p>
 
-<p align="center">
-  <img src="docs/images/widgetbar.png" alt="Widget bar next to the notification area" width="600">
-</p>
-
 ## Download
 
 **[`AI-Quota-Tray.exe`](https://github.com/1000Pro-1997/AI-Quota-Tray/releases/latest/download/AI-Quota-Tray.exe)** — about 2 MB.
@@ -62,6 +58,12 @@ blue for Codex, both changeable.
 
 **No API key needed.** If you are signed in to either CLI, the app finds it.
 
+Claude also reports your limits to its own status line every time you use it. The
+app picks those up as a second source, so numbers can stay fresh even when the
+usage endpoint is unreachable. To receive them it registers a small helper script
+as Claude Code's `statusLine` in `~/.claude/settings.json` — **only if you have not
+set one yourself.** An existing status line is never overwritten.
+
 ### How tokens are handled
 
 The Claude credentials file is **read, never written**. Access tokens expire after
@@ -90,6 +92,10 @@ Usage lookups are read-only, so **they do not consume any of your quota**.
 A colored square with a number — orange for Claude, blue for Codex. The number
 follows your display setting (remaining by default).
 
+<p align="center">
+  <img src="docs/images/tray-icon.png" alt="Tray icon showing remaining quota as a colored number" width="260">
+</p>
+
 With both tools enabled it alternates every 4 seconds. With one, it stays put.
 
 Windows draws tray icons in a fixed 16×16 square, so it cannot be made wider.
@@ -98,6 +104,10 @@ Use the widget bar below for more room.
 ### Widget bar
 
 An overlay that sits next to the notification area, one row per limit:
+
+<p align="center">
+  <img src="docs/images/widgetbar.png" alt="Widget bar next to the notification area" width="600">
+</p>
 
 ```
 [====38%====     3h 39m ]   <- Claude 5-hour (orange)
@@ -113,6 +123,38 @@ Click the bar to open the popup. Hover to see which tool and which limit.
 
 Remaining time recalculates every 30 seconds, independent of the refresh interval.
 
+#### Fitting it to your taskbar
+
+The bar sizes itself to its contents by default. Turn auto-size off to set width
+and height by hand, and switch the layout so the two tools stack vertically instead
+of sitting side by side.
+
+<p align="center">
+  <img src="docs/images/widget-settings.png" alt="Widget settings: size, layout, monitor, and offset" width="440">
+</p>
+
+Percentages and reset times can each be hidden — leaving just the bars — and both
+have their own font size. On a multi-monitor setup, **Widget monitor** picks which
+display hosts the bar; the app places it next to that monitor's notification area.
+If your taskbar layout is unusual, turn **Automatic position** off and nudge the bar
+with the Left and Up offsets.
+
+**Hide on full screen** is on by default: the bar gets out of the way when a game or
+video goes full screen on the monitor it sits on, and comes back when you exit.
+
+#### Colors
+
+Orange for Claude, blue for Codex — click the color chip next to either tool in
+Settings to change it. Twelve presets cover most cases; **Custom** opens the Windows
+color picker for anything else, and **Reset** puts the original color back.
+
+<p align="center">
+  <img src="docs/images/color-picker.png" alt="Color picker with twelve presets" width="300">
+</p>
+
+The presets avoid very light shades on purpose, since the percentage is drawn in
+white on top of the filled bar.
+
 ### Popup
 
 Click the tray icon or the widget bar. Shows every limit in detail, along with each
@@ -122,11 +164,25 @@ Click again to close, or click anywhere else. Refresh sits next to the title,
 Settings is the gear at the top right. Quit lives in the tray icon's right-click
 menu.
 
-## Settings
+## Time display
+
+Every limit can show either **how long is left** (`3h 39m`) or **when it resets**
+(`at 6:40 PM`). Session and weekly limits are set separately, so you can count down
+the 5-hour window while reading the weekly one as a date.
 
 <p align="center">
-  <img src="docs/images/settings.png" alt="Settings window" width="440">
+  <img src="docs/images/display-settings.png" alt="Display settings: language, time display, and number format" width="440">
 </p>
+
+The format itself is a template you can edit — `dd"d" hh"h" mm"m" ss"s"` spells out
+which units appear and how they are labelled. The two numbers beside it cap how many
+units actually show: **Widget** for the bar, **Overlay** for the popup, so the bar
+can stay terse (`2d 4h`) while the popup spells it out (`2d 4h 30m 15s`).
+
+Showing seconds makes the display tick every second; otherwise it updates once a
+minute. The countdown is recalculated locally, so it keeps moving between refreshes.
+
+## Settings
 
 Changes apply the moment you make them — there is no Save button. **AllReset**
 returns everything to defaults.

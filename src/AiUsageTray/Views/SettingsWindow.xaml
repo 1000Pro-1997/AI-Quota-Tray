@@ -818,6 +818,31 @@
                 </StackPanel>
             </Border>
 
+            <!-- 동작 -->
+            <TextBlock x:Name="LblSectionBehavior" Style="{StaticResource SectionLabel}"/>
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+
+                    <StackPanel Margin="0,11,0,11">
+                        <TextBlock x:Name="LblInterval" Style="{StaticResource RowTitle}"/>
+                        <TextBlock x:Name="LblIntervalHint" Style="{StaticResource RowHint}"/>
+                        <Border Style="{StaticResource SegmentGroup}"
+                                HorizontalAlignment="Stretch" Margin="0,9,0,0">
+                            <UniformGrid x:Name="IntervalGroup" Rows="1"/>
+                        </Border>
+                    </StackPanel>
+
+                    <Border Style="{StaticResource RowDivider}"/>
+
+                    <Grid Margin="0,7,0,7">
+                        <TextBlock x:Name="LblStartup" Style="{StaticResource RowTitle}"/>
+                        <CheckBox x:Name="StartWithWindows" Style="{StaticResource Switch}"
+                                  Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
+                    </Grid>
+
+                </StackPanel>
+            </Border>
+
             <!-- 표시 -->
             <TextBlock x:Name="LblSectionDisplay" Style="{StaticResource SectionLabel}"/>
             <Border Style="{StaticResource Card}">
@@ -1027,30 +1052,6 @@
                 </StackPanel>
             </Border>
 
-            <!-- 동작 -->
-            <TextBlock x:Name="LblSectionBehavior" Style="{StaticResource SectionLabel}"/>
-            <Border Style="{StaticResource Card}">
-                <StackPanel>
-
-                    <StackPanel Margin="0,11,0,11">
-                        <TextBlock x:Name="LblInterval" Style="{StaticResource RowTitle}"/>
-                        <TextBlock x:Name="LblIntervalHint" Style="{StaticResource RowHint}"/>
-                        <Border Style="{StaticResource SegmentGroup}"
-                                HorizontalAlignment="Stretch" Margin="0,9,0,0">
-                            <UniformGrid x:Name="IntervalGroup" Rows="1"/>
-                        </Border>
-                    </StackPanel>
-
-                    <Border Style="{StaticResource RowDivider}"/>
-
-                    <Grid Margin="0,7,0,7">
-                        <TextBlock x:Name="LblStartup" Style="{StaticResource RowTitle}"/>
-                        <CheckBox x:Name="StartWithWindows" Style="{StaticResource Switch}"
-                                  Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
-                    </Grid>
-
-                </StackPanel>
-            </Border>
 
             <!-- 시스템 -->
             <TextBlock x:Name="LblSectionSystem" Style="{StaticResource SectionLabel}"/>
