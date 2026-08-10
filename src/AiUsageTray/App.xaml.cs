@@ -92,6 +92,10 @@ public partial class App : Application
         BuildWidgetBar();
         BuildTray();
 
+        // 트레이 아이콘도 캐시값으로 먼저 채운다. 빈 뱃지로 떴다가 몇 초 뒤
+        // 숫자가 나타나는 것보다, 지난 값이라도 바로 보여주는 편이 낫다.
+        if (_monitor.Latest.Count > 0) UpdateTrayIcon(_monitor.Latest);
+
         // 언어를 바꾸면 이미 만들어둔 UI도 새 말로 갈아끼워야 한다.
         Strings.Changed += OnLanguageChanged;
         RestartTimer();
@@ -199,6 +203,10 @@ public partial class App : Application
         _widgetBar = new WidgetBarWindow();
         _widgetBar.Clicked += ToggleFlyout;
         ApplyWidgetSettings();
+
+        // 지난 실행에서 남은 값이 있으면 첫 조회를 기다리지 않고 먼저 그린다.
+        // 여기서 그리지 않으면 조회가 끝날 때까지 빈 막대가 보인다.
+        if (_monitor.Latest.Count > 0) _widgetBar.Render(_monitor.Latest);
     }
 
     /// <summary>설정이 바뀌면 위젯바를 켜거나 끈다.</summary>

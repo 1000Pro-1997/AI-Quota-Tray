@@ -61,6 +61,14 @@ public sealed class UsageMonitor : IDisposable
         // 지난 실행에서 남긴 값을 불러온다. 첫 조회가 실패해도 보여줄 것이 생긴다.
         foreach (var kv in UsageCache.Load())
             _lastGood[kv.Key] = kv.Value;
+
+        // 불러온 값을 곧바로 화면용으로도 쓴다. Claude는 조회에 네트워크 왕복이
+        // 필요해 첫 결과까지 수 초가 걸리는데, 그동안 위젯바와 트레이가 비어 있으면
+        // 고장으로 보인다. _lastFetch는 MinValue 그대로 두어 시작 직후의 실제
+        // 조회가 캐시에 막히지 않게 한다.
+        Latest = _lastGood.Values
+            .Where(u => u.IsAvailable && u.Windows.Count > 0)
+            .ToList();
     }
 
     /// <summary>
@@ -108,33 +116,35 @@ public sealed class UsageMonitor : IDisposable
             // 상태 조회는 곁다리다. 실패해도 사용량 조회를 막지 않는다.
             var statusTask = SafeStatus(cts.Token);
 
-            var fetched = await Task.WhenAll(
-                providers.Select(p => SafeFetch(p, cts.Token))).ConfigureAwait(false);
+            // 이번 회차에서 조회할 대상만 담는다. 아직 안 끝난 것은 비어 있고,
+            // 그 자리는 화면을 만들 때 직전 값으로 메운다.
+            var fresh = new Dictionary<string, ProviderUsage>();
 
+            // 공급자마다 걸리는 시간이 크게 다르다. Codex는 로컬 파일이라 즉시
+            // 끝나는데 Claude는 네트워크 왕복이 필요하다. 함께 기다리면 빠른 쪽이
+            // 느린 쪽에 묶여 몇 초씩 늦어지므로, 끝나는 대로 각각 화면에 올린다.
+            var running = providers.Select(async p =>
+            {
+                var u = await SafeFetch(p, cts.Token).ConfigureAwait(false);
+                if (cts.IsCancellationRequested) return u;
+
+                lock (fresh)
+                {
+                    if (u.Error is null) _lastGood[u.Provider] = u;
+                    fresh[u.Provider] = u;
+
+                    // 아직 안 온 공급자는 직전 값으로 채워 자리를 지킨다.
+                    // 그러지 않으면 먼저 온 쪽을 그리는 순간 나머지가 사라진다.
+                    Publish(providers, fresh);
+                }
+
+                return u;
+            }).ToList();
+
+            var fetched = await Task.WhenAll(running).ConfigureAwait(false);
             await statusTask.ConfigureAwait(false);
 
             if (cts.IsCancellationRequested) return;
-
-            var results = new ProviderUsage[fetched.Length];
-            for (int i = 0; i < fetched.Length; i++)
-            {
-                var u = fetched[i];
-
-                if (u.Error is null)
-                {
-                    _lastGood[u.Provider] = u;
-                    results[i] = u;
-                }
-                else if (_lastGood.TryGetValue(u.Provider, out var previous))
-                {
-                    // 갱신은 못 했지만 직전 수치는 보여줄 수 있다.
-                    results[i] = previous.AsStale(u.Error);
-                }
-                else
-                {
-                    results[i] = u;
-                }
-            }
 
             // 전부 실패했다면 캐시 시각을 갱신하지 않는다.
             // 그래야 잠시 뒤 다시 시도할 수 있다. 성공값 하나라도 있으면 캐시한다.
@@ -148,8 +158,12 @@ public sealed class UsageMonitor : IDisposable
             // 사용자가 보기엔 방금 새로고침한 것이 맞다.
             LastRefreshAt = DateTime.Now;
 
-            Latest = results;
-            Updated?.Invoke(results);
+            // 마지막으로 한 번 더 알린다. 위의 중간 알림은 LastRefreshAt이
+            // 갱신되기 전에 나갔으므로, "방금 새로고침됨" 표시가 여기서 맞춰진다.
+            lock (fresh)
+            {
+                Publish(providers, fresh);
+            }
         }
         finally
         {
@@ -160,6 +174,42 @@ public sealed class UsageMonitor : IDisposable
             Interlocked.CompareExchange(ref _inflight, null, cts);
             cts.Dispose();
         }
+    }
+
+    /// <summary>
+    /// 지금까지 받은 결과로 화면용 목록을 만들어 알린다.
+    ///
+    /// 아직 응답이 오지 않은 공급자는 직전 성공값으로 자리를 지킨다. 그래야
+    /// 먼저 도착한 쪽을 그리는 동안 나머지가 화면에서 사라지지 않는다.
+    /// 조회 순서와 무관하게 늘 같은 자리에 오도록 공급자 순서를 따른다.
+    ///
+    /// 호출자가 fresh를 잠근 상태에서 부른다.
+    /// </summary>
+    private void Publish(List<IUsageProvider> providers, Dictionary<string, ProviderUsage> fresh)
+    {
+        var shown = new List<ProviderUsage>(providers.Count);
+
+        foreach (var p in providers)
+        {
+            if (fresh.TryGetValue(p.Name, out var u))
+            {
+                if (u.Error is null) shown.Add(u);
+
+                // 갱신은 못 했지만 직전 수치는 보여줄 수 있다.
+                else if (_lastGood.TryGetValue(p.Name, out var previous))
+                    shown.Add(previous.AsStale(u.Error));
+
+                else shown.Add(u);
+            }
+            else if (_lastGood.TryGetValue(p.Name, out var previous))
+            {
+                // 아직 조회 중이다. 직전 값을 그대로 두어 깜빡임을 막는다.
+                shown.Add(previous);
+            }
+        }
+
+        Latest = shown;
+        Updated?.Invoke(shown);
     }
 
     /// <summary>상태 조회 실패가 사용량 갱신을 막지 않게 한다.</summary>
