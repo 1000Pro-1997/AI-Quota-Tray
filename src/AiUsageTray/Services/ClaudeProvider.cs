@@ -22,6 +22,9 @@ public sealed class ClaudeProvider : IUsageProvider
     private readonly HttpClient _http;
     private readonly Func<string> _credentialsPath;
 
+    private static string BackoffFile =>
+        Path.Combine(AppSettings.SettingsDirectory, "claude-usage-backoff.json");
+
     /// <summary>429를 받으면 이 시각까지는 서버를 다시 부르지 않는다.</summary>
     private DateTime _blockedUntil = DateTime.MinValue;
 
@@ -31,6 +34,7 @@ public sealed class ClaudeProvider : IUsageProvider
     {
         _http = http;
         _credentialsPath = credentialsPath;
+        _blockedUntil = LoadBlockedUntil();
     }
 
     public async Task<ProviderUsage> FetchAsync(CancellationToken ct)
@@ -97,6 +101,7 @@ public sealed class ClaudeProvider : IUsageProvider
                 if (retry > TimeSpan.FromMinutes(15)) retry = TimeSpan.FromMinutes(15);
 
                 _blockedUntil = DateTime.Now + retry;
+                SaveBlockedUntil(_blockedUntil);
 
                 return ProviderUsage.Unavailable(Name,
                     Strings.Get("error.rateLimited", (int)retry.TotalSeconds));
@@ -107,6 +112,7 @@ public sealed class ClaudeProvider : IUsageProvider
 
             // 성공했으니 백오프를 푼다.
             _blockedUntil = DateTime.MinValue;
+            ClearBlockedUntil();
 
             string body = await res.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
             return Parse(body, plan);
@@ -234,4 +240,53 @@ public sealed class ClaudeProvider : IUsageProvider
 
     private static string Capitalize(string s) =>
         string.IsNullOrEmpty(s) ? "" : char.ToUpperInvariant(s[0]) + s[1..];
+
+    /// <summary>앱을 다시 켜도 서버가 지정한 재시도 시각을 어기지 않는다.</summary>
+    private static DateTime LoadBlockedUntil()
+    {
+        try
+        {
+            if (!File.Exists(BackoffFile)) return DateTime.MinValue;
+            using var doc = JsonDocument.Parse(File.ReadAllText(BackoffFile));
+            if (!doc.RootElement.TryGetProperty("blocked_until", out var value) ||
+                !DateTimeOffset.TryParse(value.GetString(), out var parsed))
+                return DateTime.MinValue;
+
+            DateTime local = parsed.LocalDateTime;
+            if (local <= DateTime.Now)
+            {
+                ClearBlockedUntil();
+                return DateTime.MinValue;
+            }
+            return local;
+        }
+        catch
+        {
+            return DateTime.MinValue;
+        }
+    }
+
+    private static void SaveBlockedUntil(DateTime blockedUntil)
+    {
+        try
+        {
+            Directory.CreateDirectory(AppSettings.SettingsDirectory);
+            string tmp = BackoffFile + ".tmp";
+            File.WriteAllText(tmp, JsonSerializer.Serialize(new
+            {
+                blocked_until = new DateTimeOffset(blockedUntil).ToString("O"),
+            }));
+            File.Move(tmp, BackoffFile, overwrite: true);
+        }
+        catch
+        {
+            // 저장에 실패해도 현재 실행의 메모리 백오프는 계속 지킨다.
+        }
+    }
+
+    private static void ClearBlockedUntil()
+    {
+        try { if (File.Exists(BackoffFile)) File.Delete(BackoffFile); }
+        catch { }
+    }
 }
