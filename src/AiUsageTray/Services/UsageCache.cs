@@ -66,40 +66,42 @@ public static class UsageCache
         {
             if (!File.Exists(CacheFile)) return result;
 
-            var entries = JsonSerializer.Deserialize<List<Entry>>(
-                File.ReadAllText(CacheFile), Options);
+            // 초창기 캐시는 Label을 저장했고 현재 캐시는 Kind/RawLabel을 저장한다.
+            // DTO 역직렬화 하나에 맡기면 한 항목의 형식 차이로 파일 전체가 사라지므로
+            // 속성별로 읽어 어느 버전의 로컬 값도 끝까지 살린다.
+            using var doc = JsonDocument.Parse(File.ReadAllText(CacheFile));
+            if (doc.RootElement.ValueKind != JsonValueKind.Array) return result;
 
-            if (entries is null) return result;
-
-            foreach (var e in entries)
+            foreach (var e in doc.RootElement.EnumerateArray())
             {
-                if (string.IsNullOrEmpty(e.Provider)) continue;
+                string provider = Text(e, "Provider");
+                if (string.IsNullOrEmpty(provider)) continue;
 
                 var windows = new List<UsageWindow>();
-                foreach (var w in e.Windows)
+                if (e.TryGetProperty("Windows", out var windowArray) &&
+                    windowArray.ValueKind == JsonValueKind.Array)
                 {
-                    windows.Add(new UsageWindow
+                    foreach (var w in windowArray.EnumerateArray())
                     {
-                        Kind = w.Kind,
-                        RawLabel = w.RawLabel,
-                        Percent = w.Percent,
-                        ResetsAt = w.ResetsAt,
-                    });
+                        string oldLabel = Text(w, "Label");
+                        WindowKind kind = ReadKind(w, oldLabel);
+                        windows.Add(new UsageWindow
+                        {
+                            Kind = kind,
+                            RawLabel = Text(w, "RawLabel"),
+                            Percent = Number(w, "Percent"),
+                            ResetsAt = Date(w, "ResetsAt"),
+                        });
+                    }
                 }
 
-                result[e.Provider] = new ProviderUsage
+                result[provider] = new ProviderUsage
                 {
-                    Provider = e.Provider,
-                    PlanName = e.PlanName,
+                    Provider = provider,
+                    PlanName = Text(e, "PlanName"),
                     Windows = windows,
-                    Tokens = e.Tokens is null ? null : new TokenTotals
-                    {
-                        Input = e.Tokens.Input,
-                        Output = e.Tokens.Output,
-                        CacheRead = e.Tokens.CacheRead,
-                        CacheWrite = e.Tokens.CacheWrite,
-                    },
-                    LastUpdated = e.LastUpdated,
+                    Tokens = ReadTokens(e),
+                    LastUpdated = Date(e, "LastUpdated"),
                 };
             }
         }
@@ -109,6 +111,48 @@ public static class UsageCache
         }
 
         return result;
+    }
+
+    private static string Text(JsonElement parent, string name) =>
+        parent.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString() ?? "" : "";
+
+    private static double Number(JsonElement parent, string name) =>
+        parent.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.Number
+            ? value.GetDouble() : 0;
+
+    private static DateTime? Date(JsonElement parent, string name) =>
+        parent.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String &&
+        DateTimeOffset.TryParse(value.GetString(), out var parsed) ? parsed.LocalDateTime : null;
+
+    private static WindowKind ReadKind(JsonElement window, string oldLabel)
+    {
+        if (window.TryGetProperty("Kind", out var value))
+        {
+            if (value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out int number) &&
+                Enum.IsDefined(typeof(WindowKind), number)) return (WindowKind)number;
+            if (value.ValueKind == JsonValueKind.String &&
+                Enum.TryParse(value.GetString(), true, out WindowKind parsed)) return parsed;
+        }
+
+        string label = oldLabel.ToLowerInvariant();
+        return label.Contains("주") || label.Contains("week") || label.Contains("sem") ||
+               label.Contains("wöch") || label.Contains("hebdo") || label.Contains("нед") ||
+               label.Contains("週") || label.Contains("周")
+            ? WindowKind.Weekly : WindowKind.Session;
+    }
+
+    private static TokenTotals? ReadTokens(JsonElement entry)
+    {
+        if (!entry.TryGetProperty("Tokens", out var tokens) ||
+            tokens.ValueKind != JsonValueKind.Object) return null;
+        return new TokenTotals
+        {
+            Input = (long)Number(tokens, "Input"),
+            Output = (long)Number(tokens, "Output"),
+            CacheRead = (long)Number(tokens, "CacheRead"),
+            CacheWrite = (long)Number(tokens, "CacheWrite"),
+        };
     }
 
     /// <summary>

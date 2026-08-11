@@ -62,6 +62,10 @@ public sealed class UsageMonitor : IDisposable
         foreach (var kv in UsageCache.Load())
             _lastGood[kv.Key] = kv.Value;
 
+        EnsureLocalBaseline("Claude", _settings.ClaudeEnabled,
+            WindowKind.Session, WindowKind.Weekly);
+        EnsureLocalBaseline("Codex", _settings.CodexEnabled, WindowKind.Weekly);
+
         // 불러온 값을 곧바로 화면용으로도 쓴다. Claude는 조회에 네트워크 왕복이
         // 필요해 첫 결과까지 수 초가 걸리는데, 그동안 위젯바와 트레이가 비어 있으면
         // 고장으로 보인다. _lastFetch는 MinValue 그대로 두어 시작 직후의 실제
@@ -69,6 +73,28 @@ public sealed class UsageMonitor : IDisposable
         Latest = _lastGood.Values
             .Where(u => u.IsAvailable && u.Windows.Count > 0)
             .ToList();
+    }
+
+    /// <summary>
+    /// 설치 직후이거나 구형 캐시가 깨졌어도 공급자 카드 자체는 반드시 보여준다.
+    /// 서버에서 처음 성공하면 이 0% 기준값은 즉시 실제 값으로 교체된다.
+    /// </summary>
+    private void EnsureLocalBaseline(string provider, bool enabled, params WindowKind[] kinds)
+    {
+        if (!enabled || _lastGood.TryGetValue(provider, out var existing) &&
+            existing.Windows.Count > 0) return;
+
+        _lastGood[provider] = new ProviderUsage
+        {
+            Provider = provider,
+            Windows = kinds.Select(kind => new UsageWindow
+            {
+                Kind = kind,
+                Percent = 0,
+            }).ToList(),
+            LastUpdated = DateTime.Now,
+        };
+        UsageCache.Save(_lastGood.Values);
     }
 
     /// <summary>
