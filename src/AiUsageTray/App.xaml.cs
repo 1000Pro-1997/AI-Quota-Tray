@@ -76,6 +76,8 @@ public partial class App : Application
         Strings.Current = _settings.Language;
         _monitor = new UsageMonitor(_settings);
         _primer = new WindowPrimer(_settings);
+        _primer.WindowStarted += (provider, kind, startedAt) =>
+            _monitor.ApplyLocalWindowStart(provider, kind, startedAt);
         _primer.PredictedResetApplied += () => Dispatcher.Invoke(() =>
         {
             if (_flyout.IsVisible) _flyout.Render(_monitor.Latest);

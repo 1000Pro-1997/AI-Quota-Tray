@@ -12,7 +12,7 @@
     <ApplicationIcon>Assets/app.ico</ApplicationIcon>
     <Product>AI Quota Tray</Product>
     <AssemblyTitle>AI Quota Tray</AssemblyTitle>
-    <Version>1.15.4</Version>
+    <Version>1.15.5</Version>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>false</SelfContained>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>

@@ -275,6 +275,19 @@ public sealed class UsageMonitor : IDisposable
         Updated?.Invoke(Latest);
     }
 
+    /// <summary>성공한 자동 메시지로 바뀐 로컬 구간을 화면과 디스크에 함께 반영한다.</summary>
+    public void ApplyLocalWindowStart(string provider, WindowKind kind, DateTime startedAt)
+    {
+        var cached = UsageCache.ApplyWindowStarted(provider, kind, startedAt);
+        if (!cached.TryGetValue(provider, out var updated)) return;
+
+        _lastGood[provider] = updated;
+        var shown = Latest.Select(u => u.Provider == provider ? updated : u).ToList();
+        if (shown.All(u => u.Provider != provider)) shown.Add(updated);
+        Latest = shown;
+        Updated?.Invoke(Latest);
+    }
+
     /// <summary>
     /// 프로바이더는 한 번만 만들어 재사용한다. 매번 새로 만들면
     /// 429 백오프 같은 내부 상태가 사라져 제한을 계속 두드리게 된다.

@@ -20,7 +20,6 @@ public sealed class WindowPrimer : IDisposable
     // 리셋 시각의 초 단위 오차와 로컬 시계 어긋남을 함께 덮으려고 30초를 둔다.
     // 늦어서 잃는 건 창 시작이 그만큼 밀리는 것뿐이라 여유를 크게 잡는 편이 낫다.
     private static readonly TimeSpan TriggerDelay = TimeSpan.FromSeconds(30);
-    private static readonly TimeSpan MaxLate = TimeSpan.FromMinutes(10);
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
     private const string StateMutexName = "Local\\AiQuotaTray.WindowPrimerState";
 
@@ -30,6 +29,7 @@ public sealed class WindowPrimer : IDisposable
     private IReadOnlyList<ProviderUsage> _observed = Array.Empty<ProviderUsage>();
 
     public event Action? PredictedResetApplied;
+    public event Action<string, WindowKind, DateTime>? WindowStarted;
 
     private static string StateFile => Path.Combine(AppSettings.SettingsDirectory, "window-primer.json");
     private static string PredictionsFile => Path.Combine(AppSettings.SettingsDirectory, "window-primer-predictions.json");
@@ -84,7 +84,8 @@ public sealed class WindowPrimer : IDisposable
             {
                 if (!TryParseScheduleKey(key, out string provider, out WindowKind kind) ||
                     !PrimerEnabled(_settings, provider, kind)) { state.Remove(key); continue; }
-                state[key] = NormalizeFuture(state[key], DateTime.Now, WindowLength(kind));
+                // 지난 시각을 여기서 미래로 넘기면 부팅 중 놓친 메시지를 영영 보내지
+                // 못한다. TickAsync가 성공 여부를 확인한 뒤 다음 시각으로 넘긴다.
                 schedules.Add((provider, kind, state[key]));
             }
         });
@@ -108,7 +109,8 @@ public sealed class WindowPrimer : IDisposable
             DeleteWakeTask(provider, kind);
             return;
         }
-        await ClaimAndPrimeAsync(settings, provider, kind, new DateTime(scheduledTicks, DateTimeKind.Local)).ConfigureAwait(false);
+        await ClaimAndPrimeAsync(settings, provider, kind,
+            new DateTime(scheduledTicks, DateTimeKind.Local)).ConfigureAwait(false);
     }
 
     private async Task TickAsync()
@@ -121,13 +123,16 @@ public sealed class WindowPrimer : IDisposable
                             TryParseScheduleKey(p.Key, out string provider, out WindowKind kind) &&
                             PrimerEnabled(_settings, provider, kind))
                 .Select(p => { TryParseScheduleKey(p.Key, out string provider, out WindowKind kind); return (provider, kind, p.Value); }).ToList(), save: false);
-            foreach (var item in due) await ClaimAndPrimeAsync(_settings, item.Provider, item.Kind, item.Scheduled).ConfigureAwait(false);
+            foreach (var item in due)
+                await ClaimAndPrimeAsync(_settings, item.Provider, item.Kind, item.Scheduled,
+                    started => WindowStarted?.Invoke(item.Provider, item.Kind, started)).ConfigureAwait(false);
             if (ApplyPredictedResets(_observed)) PredictedResetApplied?.Invoke();
         }
         finally { Interlocked.Exchange(ref _running, 0); }
     }
 
-    private static async Task ClaimAndPrimeAsync(AppSettings settings, string provider, WindowKind kind, DateTime scheduled)
+    private static async Task ClaimAndPrimeAsync(AppSettings settings, string provider,
+        WindowKind kind, DateTime scheduled, Action<DateTime>? windowStarted = null)
     {
         bool shouldPrime = false;
         DateTime next = default;
@@ -136,7 +141,8 @@ public sealed class WindowPrimer : IDisposable
             string key = ScheduleKey(provider, kind);
             if (!state.TryGetValue(key, out var current) || current.Ticks != scheduled.Ticks) return;
             DateTime now = DateTime.Now;
-            shouldPrime = now >= current + TriggerDelay && now - (current + TriggerDelay) <= MaxLate;
+            // PC가 꺼져 있었더라도 다음 실행에서 놓친 구간을 한 번은 시작한다.
+            shouldPrime = now >= current + TriggerDelay;
             next = AdvanceToFuture(current, now, WindowLength(kind));
             state[key] = next;
         });
@@ -146,19 +152,19 @@ public sealed class WindowPrimer : IDisposable
         {
             DateTime started = DateTime.Now;
             if (await PrimeAsync(provider).ConfigureAwait(false))
+            {
                 SavePrediction(provider, kind, started + WindowLength(kind));
+                if (windowStarted is null)
+                    UsageCache.ApplyWindowStarted(provider, kind, started);
+                else
+                    windowStarted(started);
+            }
         }
     }
 
     private static DateTime AdvanceToFuture(DateTime scheduled, DateTime now, TimeSpan length)
     {
         do { scheduled += length; } while (scheduled + TriggerDelay <= now);
-        return scheduled;
-    }
-
-    private static DateTime NormalizeFuture(DateTime scheduled, DateTime now, TimeSpan length)
-    {
-        while (scheduled + TriggerDelay <= now) scheduled += length;
         return scheduled;
     }
 
