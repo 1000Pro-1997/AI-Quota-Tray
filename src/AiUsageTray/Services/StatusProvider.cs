@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Text.Json;
@@ -30,6 +30,20 @@ public sealed class StatusProvider
             "https://status.openai.com/api/v2/components.json",
             new[] { "Codex in ChatGPT Desktop", "Responses", "API" }),
     };
+
+    /// <summary>
+    /// 사람이 열어 보는 상태 페이지. 위의 Url은 JSON API라 브라우저로
+    /// 열면 날것의 데이터만 나오므로, 보여줄 주소를 따로 둔다.
+    /// </summary>
+    private static readonly Dictionary<string, string> Pages = new()
+    {
+        ["Claude"] = "https://status.claude.com/",
+        ["Codex"] = "https://status.openai.com/",
+    };
+
+    /// <summary>공급자의 상태 페이지 주소. 모르는 공급자면 null.</summary>
+    public static string? PageFor(string provider) =>
+        Pages.TryGetValue(provider, out var url) ? url : null;
 
     /// <summary>상태는 자주 바뀌지 않는다. 이 간격 안에는 캐시를 쓴다.</summary>
     private static readonly TimeSpan MinInterval = TimeSpan.FromMinutes(5);

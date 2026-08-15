@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
@@ -308,7 +308,7 @@ public partial class FlyoutWindow : Window
                 Margin = new Thickness(8, 1, 4, 0),
             });
 
-            left.Children.Add(new TextBlock
+            var statusText = new TextBlock
             {
                 Text = status.Label,
                 FontSize = 10.5,
@@ -319,7 +319,30 @@ public partial class FlyoutWindow : Window
                 Foreground = status.NeedsAttention
                     ? new SolidColorBrush(dotColor)
                     : (Brush)Resources["SubtleBrush"],
-            });
+            };
+
+            // 상태를 누르면 그 서비스의 상태 페이지를 연다. 여기 뜬 한 줄만으로는
+            // 무엇이 얼마나 고장났는지 알 수 없어서, 자세히 볼 곳으로 보내준다.
+            string? page = StatusProvider.PageFor(u.Provider);
+            if (page is not null)
+            {
+                statusText.Cursor = Cursors.Hand;
+                statusText.ToolTip = page;
+
+                // 밑줄은 누를 수 있다는 표시다. 평소에는 조용히 두고
+                // 마우스를 올렸을 때만 보여준다.
+                statusText.MouseEnter += (_, _) => statusText.TextDecorations = TextDecorations.Underline;
+                statusText.MouseLeave += (_, _) => statusText.TextDecorations = null;
+
+                statusText.MouseLeftButtonUp += (_, e) =>
+                {
+                    // 팝업 전체의 클릭 처리로 번지지 않게 한다.
+                    e.Handled = true;
+                    OpenLink(page);
+                };
+            }
+
+            left.Children.Add(statusText);
         }
 
         header.Children.Add(left);
@@ -453,6 +476,27 @@ public partial class FlyoutWindow : Window
         catch
         {
             return new SolidColorBrush(Color.FromRgb(0x8B, 0x8B, 0x8B));
+        }
+    }
+
+    /// <summary>
+    /// 기본 브라우저로 주소를 연다.
+    ///
+    /// 열지 못해도 알리지 않는다. 사용량 확인이라는 본래 일은 그대로 되고,
+    /// 팝업은 포커스를 잃으면 닫히는 창이라 여기서 오류를 띄울 자리가 없다.
+    /// </summary>
+    private static void OpenLink(string url)
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = url,
+                UseShellExecute = true,
+            });
+        }
+        catch
+        {
         }
     }
 
