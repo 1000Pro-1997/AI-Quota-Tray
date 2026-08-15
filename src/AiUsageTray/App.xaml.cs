@@ -178,6 +178,9 @@ public partial class App : Application
             _settings.Save();
             SyncWidgetBar();
 
+            // 위젯 유무에 따라 보장 주기가 달라진다. 타이머를 다시 잡아준다.
+            RestartTimer();
+
             // 설정창이 열려 있으면 같은 값을 보게 한다. 두 토글이 어긋나 보이면
             // 어느 쪽이 진짜인지 알 수 없다.
             if (_settingsWindow is { IsLoaded: true }) _settingsWindow.SyncWidgetBarToggle();
@@ -358,16 +361,34 @@ public partial class App : Application
         return size <= 0 ? 16 : size;
     }
 
+    /// <summary>
+    /// 위젯이 켜져 있을 때 보장하는 최대 주기(초).
+    ///
+    /// 위젯은 항상 화면에 떠 있어서 값이 낡으면 바로 티가 난다. 팝업은
+    /// 열 때 새로 조회하지만 위젯에는 그런 계기가 없으므로, 설정 주기가
+    /// 이보다 길거나 수동이어도 최소한 1분에 한 번은 돌려준다.
+    /// UsageMonitor의 MinInterval도 60초라 더 줄여봐야 캐시만 돌아온다.
+    /// </summary>
+    private const int WidgetMaxIntervalSeconds = 60;
+
     private void RestartTimer()
     {
         _timer?.Stop();
         _timer = null;
 
-        if (_settings.RefreshIntervalSeconds <= 0) return;
+        int seconds = _settings.RefreshIntervalSeconds;
+
+        // 위젯이 떠 있으면 수동(0)이어도 주기 갱신을 붙인다.
+        if (_settings.ShowWidgetBar)
+            seconds = seconds <= 0
+                ? WidgetMaxIntervalSeconds
+                : Math.Min(seconds, WidgetMaxIntervalSeconds);
+
+        if (seconds <= 0) return;
 
         _timer = new DispatcherTimer
         {
-            Interval = TimeSpan.FromSeconds(_settings.RefreshIntervalSeconds),
+            Interval = TimeSpan.FromSeconds(seconds),
         };
         _timer.Tick += (_, _) => _ = _monitor.RefreshAsync();
         _timer.Start();

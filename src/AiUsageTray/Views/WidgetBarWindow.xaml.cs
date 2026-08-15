@@ -485,9 +485,9 @@ public partial class WidgetBarWindow : Window
             Text = ShowPercent ? $"{shown:F0}%" : "",
             FontSize = PercentFontSize,
             FontWeight = FontWeights.Bold,
-            // 문제가 있을 때만 빨강. 남은 시간은 평소 색을 유지한다.
-            Foreground = health is ServiceHealth.Degraded
-                or ServiceHealth.PartialOutage
+            // 성능 저하보다 심한 장애만 빨강으로 고정한다. 성능 저하는
+            // 아래에서 깜빡이게 하므로 여기서 색을 정해두면 안 된다.
+            Foreground = health is ServiceHealth.PartialOutage
                 or ServiceHealth.MajorOutage
                 ? new SolidColorBrush(Alert)
                 : (Brush)Resources["BarTextBrush"],
@@ -562,7 +562,22 @@ public partial class WidgetBarWindow : Window
             RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever,
         };
 
-        brush.BeginAnimation(SolidColorBrush.ColorProperty, blink);
+        // Render()가 줄을 통째로 다시 만들기 때문에, 창에 붙기 전에 건
+        // 애니메이션은 시계가 돌기 전에 버려질 수 있다. 화면에 올라온
+        // 뒤에 걸어야 확실히 돈다.
+        if (target.IsLoaded)
+        {
+            brush.BeginAnimation(SolidColorBrush.ColorProperty, blink);
+            return;
+        }
+
+        void OnLoaded(object sender, RoutedEventArgs e)
+        {
+            target.Loaded -= OnLoaded;
+            brush.BeginAnimation(SolidColorBrush.ColorProperty, blink);
+        }
+
+        target.Loaded += OnLoaded;
     }
 
     /// <summary>
