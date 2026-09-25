@@ -224,6 +224,20 @@ public partial class WidgetBarWindow : Window
     }
 
     /// <summary>
+    /// 표시할 내용이 있을 때 위젯을 띄우되 전체화면 숨김 판정을 우선한다.
+    /// 갱신 이벤트가 숨겨진 창에 직접 Show()를 호출하면 다음 타이머 틱에서
+    /// 다시 숨겨져 전체화면 위에서 나타났다 사라지는 현상이 생긴다.
+    /// </summary>
+    public void ShowWhenAllowed()
+    {
+        if (SyncFullScreenVisibility()) return;
+        if (IsVisible) return;
+
+        Show();
+        Reposition();
+    }
+
+    /// <summary>
     /// 위젯이 놓인 모니터를 통째로 덮은 창이 맨 앞에 있는가.
     ///
     /// 모니터를 하나만 보므로 다른 화면에서 게임을 해도 위젯이 있는 쪽이

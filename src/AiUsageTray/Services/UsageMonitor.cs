@@ -156,7 +156,30 @@ public sealed class UsageMonitor : IDisposable
 
                 lock (fresh)
                 {
-                    if (u.Error is null) _lastGood[u.Provider] = u;
+                    if (u.Error is null)
+                    {
+                        // Codex의 최신 token_count 이벤트에는 토큰 합계만 있고
+                        // rate_limits가 빠질 수 있다. 이것을 그대로 성공값으로
+                        // 저장하면 오랫동안 Codex를 쓰지 않은 뒤 직전 quota 창이
+                        // 빈 목록으로 덮여 UI에서 사라진다. 새 응답이 생략한 창은
+                        // 마지막 정상 기록에서 이어받고, 새 토큰/시각은 살린다.
+                        if (u.Windows.Count == 0 &&
+                            _lastGood.TryGetValue(u.Provider, out var previous) &&
+                            previous.Windows.Count > 0)
+                        {
+                            u = new ProviderUsage
+                            {
+                                Provider = u.Provider,
+                                PlanName = string.IsNullOrEmpty(u.PlanName)
+                                    ? previous.PlanName : u.PlanName,
+                                Windows = previous.Windows,
+                                Tokens = u.Tokens ?? previous.Tokens,
+                                LastUpdated = u.LastUpdated ?? previous.LastUpdated,
+                            };
+                        }
+
+                        _lastGood[u.Provider] = u;
+                    }
                     fresh[u.Provider] = u;
 
                     // 아직 안 온 공급자는 직전 값으로 채워 자리를 지킨다.

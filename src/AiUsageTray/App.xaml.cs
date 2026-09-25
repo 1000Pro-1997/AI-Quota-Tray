@@ -228,8 +228,7 @@ public partial class App : Application
             // 사라지는데 켜는 쪽만 다음 새로고침까지 안 보이면 고장으로 보인다.
             if (_widgetBar is { IsVisible: false })
             {
-                _widgetBar.Show();
-                _widgetBar.Reposition();
+                _widgetBar.ShowWhenAllowed();
             }
         }
         else if (_widgetBar is not null)
@@ -436,8 +435,7 @@ public partial class App : Application
             // 보여줄 것이 생겼는데 아직 숨어 있으면 띄운다.
             if (!_widgetBar.IsVisible && usages.Any(u => u.IsAvailable && u.Windows.Count > 0))
             {
-                _widgetBar.Show();
-                _widgetBar.Reposition();
+                _widgetBar.ShowWhenAllowed();
             }
         }
 

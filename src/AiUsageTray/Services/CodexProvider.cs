@@ -54,14 +54,21 @@ public sealed class CodexProvider : IUsageProvider
         if (files.Count == 0)
             return ProviderUsage.Unavailable(Name, Strings.Get("error.codexNoHistory"));
 
+        ProviderUsage? tokenOnly = null;
         foreach (var file in files)
         {
             ct.ThrowIfCancellationRequested();
             var usage = TryReadLatest(file, ct);
-            if (usage is not null) return usage;
+            if (usage is null) continue;
+
+            // 최신 token_count가 토큰 합계만 담고 rate_limits를 생략한 경우가
+            // 있다. 그것만 보고 탐색을 끝내면 더 이전 파일에 남아 있는 마지막
+            // quota 기록을 놓치므로, 창이 있는 기록을 찾을 때까지 계속 본다.
+            if (usage.Windows.Count > 0) return usage;
+            tokenOnly ??= usage;
         }
 
-        return ProviderUsage.Unavailable(Name, Strings.Get("error.codexNoUsage"));
+        return tokenOnly ?? ProviderUsage.Unavailable(Name, Strings.Get("error.codexNoUsage"));
     }
 
     /// <summary>파일 끝부분만 읽어 가장 마지막 rate_limits / token_count 이벤트를 찾는다.</summary>
