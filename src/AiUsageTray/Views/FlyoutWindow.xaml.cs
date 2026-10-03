@@ -506,6 +506,9 @@ public partial class FlyoutWindow : Window
 
     /// <summary>직전 로그인 시도가 실패했거나 시간 안에 끝나지 않았다.</summary>
     private bool _loginFailed;
+    private StackPanel? _loginCodePanel;
+    private bool _loginUrlOpened;
+    private bool _loginRequiresCode;
 
     /// <summary>브라우저 로그인을 기다려 주는 최대 시간. 넘기면 정리하고 다시 누르게 한다.</summary>
     private static readonly TimeSpan LoginTimeout = TimeSpan.FromMinutes(10);
@@ -550,10 +553,54 @@ public partial class FlyoutWindow : Window
                 // 팝업을 다시 그리기 전에도 눌렸다는 것이 보이게 바로 바꾼다.
                 label.Text = Strings.Get("popup.signingIn");
                 button.Opacity = 0.6;
-                if (wrap.Children.Count > 1) wrap.Children.RemoveAt(1);
+                if (wrap.Children.Count > 2) wrap.Children.RemoveAt(2);
             }
+            else label.Text = Strings.Get("popup.signInFailed");
         };
+        var codePanel = new StackPanel
+        {
+            Visibility = LoginRunning && _loginRequiresCode ? Visibility.Visible : Visibility.Collapsed,
+            Margin = new Thickness(0, 8, 0, 0),
+        };
+        codePanel.Children.Add(new TextBlock
+        {
+            Text = Strings.Get("popup.loginCode"),
+            FontSize = 10.5,
+            TextWrapping = TextWrapping.Wrap,
+            Foreground = (Brush)Resources["SubtleBrush"],
+        });
+        var code = new TextBox { Margin = new Thickness(0, 5, 0, 0), MaxLength = 512 };
+        var submit = new Button
+        {
+            Content = Strings.Get("popup.submitCode"),
+            Margin = new Thickness(0, 5, 0, 0),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Padding = new Thickness(10, 3, 10, 3),
+        };
+        async void SendCode(object? sender, RoutedEventArgs e)
+        {
+            if (!LoginRunning || string.IsNullOrWhiteSpace(code.Text)) return;
+            try
+            {
+                await _loginProcess!.StandardInput.WriteLineAsync(code.Text.Trim());
+                await _loginProcess.StandardInput.FlushAsync();
+                code.Clear();
+                submit.IsEnabled = false;
+            }
+            catch { _loginFailed = true; }
+        }
+        submit.Click += SendCode;
+        code.KeyDown += (sender, e) =>
+        {
+            if (e.Key != Key.Enter) return;
+            e.Handled = true;
+            SendCode(sender, e);
+        };
+        codePanel.Children.Add(code);
+        codePanel.Children.Add(submit);
+        _loginCodePanel = codePanel;
         wrap.Children.Add(button);
+        wrap.Children.Add(codePanel);
 
         // 창 없이 돌리므로 실패해도 사용자가 볼 곳이 없다. 여기서 알려 준다.
         if (_loginFailed && !LoginRunning)
@@ -572,9 +619,9 @@ public partial class FlyoutWindow : Window
     }
 
     /// <summary>
-    /// 보이지 않는 프로세스로 `claude auth login`을 돌린다. 이 명령이 브라우저를 열고
-    /// 로그인이 끝나면 자격증명 파일을 채운 뒤 스스로 끝난다. 터미널 창은 일반
-    /// 사용자에게 겁만 주므로 띄우지 않고, 10분 안에 끝나지 않으면 정리한다.
+    /// CLI가 출력한 이번 시도의 인증 URL을 기본 브라우저로 직접 연다.
+    /// 코드 입력이 필요한 로그인 페이지라면 팝업에서 코드를 받아 CLI에 전달한다.
+    /// 10분 안에 끝나지 않으면 프로세스 트리를 정리한다.
     /// </summary>
     private bool StartClaudeLogin()
     {
@@ -588,6 +635,9 @@ public partial class FlyoutWindow : Window
                 Arguments = "/c claude auth login",
                 UseShellExecute = false,
                 CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                RedirectStandardInput = true,
             });
         }
         catch
@@ -603,11 +653,69 @@ public partial class FlyoutWindow : Window
 
         _loginProcess = process;
         _loginFailed = false;
-        _ = WaitForLoginAsync(process);
+        _loginUrlOpened = false;
+        _loginRequiresCode = false;
+        var stdout = ReadLoginOutputAsync(process, process.StandardOutput);
+        var stderr = ReadLoginOutputAsync(process, process.StandardError);
+        _ = WaitForLoginAsync(process, stdout, stderr);
         return true;
     }
 
-    private async System.Threading.Tasks.Task WaitForLoginAsync(System.Diagnostics.Process process)
+    private async System.Threading.Tasks.Task ReadLoginOutputAsync(
+        System.Diagnostics.Process process, System.IO.StreamReader output)
+    {
+        try
+        {
+            while (await output.ReadLineAsync() is { } line)
+            {
+                int start = line.IndexOf("https://", StringComparison.Ordinal);
+                if (start < 0) continue;
+                string text = line[start..].Split(' ', '\t', '\r', '\n')[0];
+                if (!Uri.TryCreate(text, UriKind.Absolute, out var url) ||
+                    url.Scheme != Uri.UriSchemeHttps ||
+                    (url.Host != "claude.com" && url.Host != "platform.claude.com"))
+                    continue;
+
+                await Dispatcher.InvokeAsync(() =>
+                {
+                    if (_loginProcess != process || _loginUrlOpened) return;
+                    if (!OpenLoginLink(url.AbsoluteUri))
+                    {
+                        _loginFailed = true;
+                        try { process.Kill(entireProcessTree: true); } catch { }
+                        return;
+                    }
+                    _loginUrlOpened = true;
+                    _loginRequiresCode = url.Query.Contains("code=true", StringComparison.OrdinalIgnoreCase);
+                    if (_loginRequiresCode && _loginCodePanel is not null)
+                        _loginCodePanel.Visibility = Visibility.Visible;
+                });
+            }
+        }
+        catch (Exception)
+        {
+            // 프로세스 종료 시 닫힌 출력 스트림은 정상이다.
+        }
+    }
+
+    private static bool OpenLoginLink(string url)
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = url,
+                UseShellExecute = true,
+            });
+            // ShellExecute는 이미 실행 중인 브라우저로 전달하면 null을 돌려줄 수 있다.
+            return true;
+        }
+        catch { return false; }
+    }
+
+    private async System.Threading.Tasks.Task WaitForLoginAsync(
+        System.Diagnostics.Process process, System.Threading.Tasks.Task stdout,
+        System.Threading.Tasks.Task stderr)
     {
         bool ok;
         using (var cts = new System.Threading.CancellationTokenSource(LoginTimeout))
@@ -615,7 +723,8 @@ public partial class FlyoutWindow : Window
             try
             {
                 await process.WaitForExitAsync(cts.Token);
-                ok = process.ExitCode == 0;
+                await System.Threading.Tasks.Task.WhenAll(stdout, stderr).WaitAsync(cts.Token);
+                ok = process.ExitCode == 0 && _loginUrlOpened;
             }
             catch (OperationCanceledException)
             {
@@ -628,6 +737,7 @@ public partial class FlyoutWindow : Window
         process.Dispose();
         _loginProcess = null;
         _loginFailed = !ok;
+        _loginCodePanel = null;
 
         // 성공이면 새 값이, 실패면 실패 안내가 그려지도록 새로고침한다.
         RefreshRequested?.Invoke();

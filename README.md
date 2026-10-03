@@ -73,6 +73,11 @@ reads the file again. So it can never log you out.
 If you have not run Claude Code in a while and the token has expired, you will see
 "Waiting for token refresh". Running Claude Code once fixes it.
 
+If Claude Code is signed out, the flyout offers **Sign in**. The app starts
+`claude auth login` in the background and opens that attempt's authorization URL
+in your default browser. If the browser displays a code, reopen the flyout and
+paste it into the code field; the login attempt ends after 10 minutes if unfinished.
+
 Usage lookups are read-only, so **they do not consume any of your quota**.
 
 ### Privacy

@@ -170,6 +170,8 @@ public static class Strings
             // 오류
             ["error.notLoggedIn"] = "Sign in to Claude to see your usage",
             ["popup.signIn"] = "Sign in",
+            ["popup.loginCode"] = "If the browser shows a code, paste it here:",
+            ["popup.submitCode"] = "Continue",
             ["popup.signingIn"] = "Finish signing in your browser…",
             ["popup.signInFailed"] = "Sign-in didn't finish. Try again. If it keeps failing, check that Claude Code is installed",
             ["error.credentialsUnreadable"] = "Cannot read credentials: {0}",
@@ -367,6 +369,8 @@ public static class Strings
 
             ["error.notLoggedIn"] = "사용량을 보려면 Claude에 로그인하세요",
             ["popup.signIn"] = "로그인",
+            ["popup.loginCode"] = "브라우저에 코드가 나오면 여기에 붙여넣으세요:",
+            ["popup.submitCode"] = "계속",
             ["popup.signingIn"] = "브라우저에서 로그인을 마쳐 주세요…",
             ["popup.signInFailed"] = "로그인이 끝나지 않았습니다. 다시 눌러 보세요. 계속 안 되면 Claude Code가 설치돼 있는지 확인하세요",
             ["error.credentialsUnreadable"] = "자격증명을 읽을 수 없습니다: {0}",
@@ -557,6 +561,8 @@ public static class Strings
 
             ["error.notLoggedIn"] = "使用量を見るには Claude にサインインしてください",
             ["popup.signIn"] = "サインイン",
+            ["popup.loginCode"] = "ブラウザーにコードが表示されたら、ここに貼り付けてください:",
+            ["popup.submitCode"] = "続行",
             ["popup.signingIn"] = "ブラウザーでサインインを完了してください…",
             ["popup.signInFailed"] = "サインインが完了しませんでした。もう一度お試しください。続く場合は Claude Code がインストールされているか確認してください",
             ["error.credentialsUnreadable"] = "認証情報を読み取れません: {0}",
@@ -722,6 +728,8 @@ public static class Strings
 
             ["error.notLoggedIn"] = "登录 Claude 后即可查看用量",
             ["popup.signIn"] = "登录",
+            ["popup.loginCode"] = "如果浏览器显示代码，请粘贴到这里：",
+            ["popup.submitCode"] = "继续",
             ["popup.signingIn"] = "请在浏览器中完成登录…",
             ["popup.signInFailed"] = "登录未完成。请重试。如果一直失败，请确认已安装 Claude Code",
             ["error.credentialsUnreadable"] = "无法读取凭据：{0}",
@@ -887,6 +895,8 @@ public static class Strings
 
             ["error.notLoggedIn"] = "登入 Claude 後即可查看用量",
             ["popup.signIn"] = "登入",
+            ["popup.loginCode"] = "若瀏覽器顯示代碼，請貼在這裡：",
+            ["popup.submitCode"] = "繼續",
             ["popup.signingIn"] = "請在瀏覽器中完成登入…",
             ["popup.signInFailed"] = "登入未完成。請再試一次。若持續失敗，請確認已安裝 Claude Code",
             ["error.credentialsUnreadable"] = "無法讀取憑證：{0}",
@@ -1052,6 +1062,8 @@ public static class Strings
 
             ["error.notLoggedIn"] = "Inicia sesión en Claude para ver tu uso",
             ["popup.signIn"] = "Iniciar sesión",
+            ["popup.loginCode"] = "Si el navegador muestra un código, pégalo aquí:",
+            ["popup.submitCode"] = "Continuar",
             ["popup.signingIn"] = "Termina de iniciar sesión en el navegador…",
             ["popup.signInFailed"] = "No se completó el inicio de sesión. Inténtalo de nuevo. Si sigue fallando, comprueba que Claude Code esté instalado",
             ["error.credentialsUnreadable"] = "No se pueden leer las credenciales: {0}",
@@ -1217,6 +1229,8 @@ public static class Strings
 
             ["error.notLoggedIn"] = "Faça login no Claude para ver seu uso",
             ["popup.signIn"] = "Entrar",
+            ["popup.loginCode"] = "Se o navegador mostrar um código, cole-o aqui:",
+            ["popup.submitCode"] = "Continuar",
             ["popup.signingIn"] = "Conclua o login no navegador…",
             ["popup.signInFailed"] = "O login não foi concluído. Tente novamente. Se continuar falhando, verifique se o Claude Code está instalado",
             ["error.credentialsUnreadable"] = "Não é possível ler as credenciais: {0}",
@@ -1382,6 +1396,8 @@ public static class Strings
 
             ["error.notLoggedIn"] = "Bei Claude anmelden, um die Nutzung zu sehen",
             ["popup.signIn"] = "Anmelden",
+            ["popup.loginCode"] = "Falls der Browser einen Code anzeigt, hier einfügen:",
+            ["popup.submitCode"] = "Weiter",
             ["popup.signingIn"] = "Anmeldung im Browser abschließen…",
             ["popup.signInFailed"] = "Anmeldung nicht abgeschlossen. Erneut versuchen. Falls es weiter scheitert, prüfen, ob Claude Code installiert ist",
             ["error.credentialsUnreadable"] = "Anmeldedaten nicht lesbar: {0}",
@@ -1547,6 +1563,8 @@ public static class Strings
 
             ["error.notLoggedIn"] = "Connectez-vous à Claude pour voir votre utilisation",
             ["popup.signIn"] = "Se connecter",
+            ["popup.loginCode"] = "Si le navigateur affiche un code, collez-le ici :",
+            ["popup.submitCode"] = "Continuer",
             ["popup.signingIn"] = "Terminez la connexion dans le navigateur…",
             ["popup.signInFailed"] = "La connexion n'a pas abouti. Réessayez. Si l'échec persiste, vérifiez que Claude Code est installé",
             ["error.credentialsUnreadable"] = "Impossible de lire les identifiants : {0}",
@@ -1712,6 +1730,8 @@ public static class Strings
 
             ["error.notLoggedIn"] = "Войдите в Claude, чтобы видеть использование",
             ["popup.signIn"] = "Войти",
+            ["popup.loginCode"] = "Если браузер покажет код, вставьте его сюда:",
+            ["popup.submitCode"] = "Продолжить",
             ["popup.signingIn"] = "Завершите вход в браузере…",
             ["popup.signInFailed"] = "Вход не завершён. Попробуйте снова. Если не получается, проверьте, установлен ли Claude Code",
             ["error.credentialsUnreadable"] = "Не удалось прочитать учётные данные: {0}",
