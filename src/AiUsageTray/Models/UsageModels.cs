@@ -117,6 +117,12 @@ public sealed class ProviderUsage
     /// </summary>
     public bool IsStale { get; init; }
 
+    /// <summary>
+    /// 로그인이 풀려 조회할 수 없는 상태. 이때 직전 수치는 언제 것인지 알 수 없어
+    /// 보여주지 않고, 화면은 로그인 버튼을 띄운다.
+    /// </summary>
+    public bool NeedsLogin { get; init; }
+
     /// <summary>보여줄 수치가 있는가. 값이 낡았어도 없는 것보다는 낫다.</summary>
     public bool IsAvailable => Error is null || IsStale;
 
@@ -149,6 +155,9 @@ public sealed class ProviderUsage
 
     public static ProviderUsage Unavailable(string provider, string reason) =>
         new() { Provider = provider, Error = reason };
+
+    public static ProviderUsage SignedOut(string provider) =>
+        new() { Provider = provider, Error = Strings.Get("error.notLoggedIn"), NeedsLogin = true };
 }
 
 /// <summary>기간 내 토큰 합계.</summary>

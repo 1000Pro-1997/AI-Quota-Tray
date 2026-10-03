@@ -796,9 +796,10 @@ public partial class SettingsWindow : Window
     /// <summary>경로가 실제로 존재하는지 즉시 알려준다. 저장 전에 확인할 수 있게.</summary>
     private void UpdatePathStatus()
     {
-        bool claudeOk = File.Exists(ClaudePath.Text);
-        ClaudeStatus.Text = Strings.Get(claudeOk
-            ? "settings.claudeFound"
+        bool claudeFile = File.Exists(ClaudePath.Text);
+        bool claudeOk = claudeFile && ClaudeProvider.HasToken(ClaudePath.Text);
+        ClaudeStatus.Text = Strings.Get(claudeOk ? "settings.claudeFound"
+            : claudeFile ? "settings.claudeSignedOut"
             : "settings.claudeMissing");
         ClaudeDot.Background = StatusDot(claudeOk);
 

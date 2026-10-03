@@ -370,6 +370,7 @@ public partial class FlyoutWindow : Window
                 TextWrapping = TextWrapping.Wrap,
                 Foreground = (Brush)Resources["SubtleBrush"],
             });
+            if (u.NeedsLogin) panel.Children.Add(BuildLoginButton());
             return panel;
         }
 
@@ -497,6 +498,74 @@ public partial class FlyoutWindow : Window
         }
         catch
         {
+        }
+    }
+
+    /// <summary>로그인 창이 이미 떠 있으면 버튼을 또 눌러도 하나만 띄운다.</summary>
+    private System.Diagnostics.Process? _loginProcess;
+
+    /// <summary>
+    /// 로그아웃 상태에서 누르는 로그인 버튼.
+    /// 일반 사용자는 터미널 명령을 모르므로 클릭 한 번으로 로그인 흐름을 연다.
+    /// </summary>
+    private UIElement BuildLoginButton()
+    {
+        var label = new TextBlock
+        {
+            Text = Strings.Get("popup.signIn"),
+            FontSize = 11.5,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = Brushes.White,
+        };
+
+        var button = new Border
+        {
+            Child = label,
+            Background = (Brush)Resources["AccentBrush"],
+            CornerRadius = new CornerRadius(5),
+            Padding = new Thickness(12, 5, 12, 5),
+            Margin = new Thickness(0, 8, 0, 0),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Cursor = Cursors.Hand,
+        };
+        button.MouseEnter += (_, _) => button.Opacity = 0.85;
+        button.MouseLeave += (_, _) => button.Opacity = 1;
+        button.MouseLeftButtonUp += (_, e) =>
+        {
+            e.Handled = true;
+            StartClaudeLogin();
+        };
+        return button;
+    }
+
+    /// <summary>
+    /// 콘솔 창에서 `claude auth login`을 돌린다. 이 명령이 브라우저 로그인을 열고
+    /// 자격증명 파일을 채운다. 실패하면 사유를 읽을 수 있게 창을 멈춰 두고,
+    /// 끝나면 바로 새로고침해 사용량이 곧장 보이게 한다.
+    /// </summary>
+    private void StartClaudeLogin()
+    {
+        if (_loginProcess is { HasExited: false }) return;
+
+        try
+        {
+            // claude는 npm(.cmd)으로도 네이티브 exe로도 깔리므로 cmd가 PATH에서 찾게 한다.
+            var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "cmd.exe",
+                Arguments = "/c claude auth login || pause",
+                UseShellExecute = true,
+            });
+            if (process is null) return;
+
+            _loginProcess = process;
+            process.EnableRaisingEvents = true;
+            process.Exited += (_, _) =>
+                Dispatcher.BeginInvoke(() => RefreshRequested?.Invoke());
+        }
+        catch
+        {
+            // cmd조차 못 띄우는 환경이면 할 수 있는 게 없다. 안내 문구는 이미 보인다.
         }
     }
 

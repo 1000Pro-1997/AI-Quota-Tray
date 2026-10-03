@@ -43,7 +43,7 @@ public sealed class ClaudeProvider : IUsageProvider
         if (!File.Exists(path))
         {
             if (ClaudeStatusLineBridge.TryReadFresh("") is { } cached) return cached;
-            return ProviderUsage.Unavailable(Name, Strings.Get("error.notLoggedIn"));
+            return ProviderUsage.SignedOut(Name);
         }
 
         string token, plan;
@@ -63,9 +63,8 @@ public sealed class ClaudeProvider : IUsageProvider
             return bridged;
 
         // Claude Code는 로그아웃할 때 파일을 지우지 않고 토큰만 비워 둔다.
-        // "토큰 없음"으로는 사용자가 무엇을 해야 할지 모르니 로그인 안내로 보인다.
         if (string.IsNullOrEmpty(token))
-            return ProviderUsage.Unavailable(Name, Strings.Get("error.notLoggedIn"));
+            return ProviderUsage.SignedOut(Name);
 
         // 아직 백오프 중이면 아예 부르지 않는다. 부르면 429만 더 쌓인다.
         if (DateTime.Now < _blockedUntil)
@@ -142,6 +141,22 @@ public sealed class ClaudeProvider : IUsageProvider
         string token = oauth.TryGetProperty("accessToken", out var t) ? t.GetString() ?? "" : "";
         string plan = oauth.TryGetProperty("subscriptionType", out var s) ? s.GetString() ?? "" : "";
         return (token, Capitalize(plan));
+    }
+
+    /// <summary>
+    /// 설정 창 표시용. 파일이 있어도 로그아웃하면 토큰이 비어 있으므로
+    /// 파일 존재만으로 "찾았다"고 하면 안 된다.
+    /// </summary>
+    public static bool HasToken(string path)
+    {
+        try
+        {
+            return File.Exists(path) && !string.IsNullOrEmpty(ReadCredentials(path).token);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     /// <summary>

@@ -242,7 +242,9 @@ public sealed class UsageMonitor : IDisposable
         {
             if (fresh.TryGetValue(p.Name, out var u))
             {
-                if (u.Error is null) shown.Add(u);
+                // 로그아웃이면 직전 수치는 이미 초기화가 지났을 수도 있어 믿을 수 없다.
+                // 낡은 숫자 대신 로그인하라는 안내만 보여준다.
+                if (u.Error is null || u.NeedsLogin) shown.Add(u);
 
                 // 갱신은 못 했지만 직전 수치는 보여줄 수 있다.
                 else if (_lastGood.TryGetValue(p.Name, out var previous))
