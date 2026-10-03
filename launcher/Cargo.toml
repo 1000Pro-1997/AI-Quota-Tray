@@ -1,6 +1,6 @@
 [package]
 name = "ai-quota-tray-launcher"
-version = "1.15.10"
+version = "1.15.11"
 edition = "2024"
 
 [dependencies]

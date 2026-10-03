@@ -62,8 +62,10 @@ public sealed class ClaudeProvider : IUsageProvider
         if (ClaudeStatusLineBridge.TryReadFresh(plan) is { } bridged)
             return bridged;
 
+        // Claude Code는 로그아웃할 때 파일을 지우지 않고 토큰만 비워 둔다.
+        // "토큰 없음"으로는 사용자가 무엇을 해야 할지 모르니 로그인 안내로 보인다.
         if (string.IsNullOrEmpty(token))
-            return ProviderUsage.Unavailable(Name, Strings.Get("error.noToken"));
+            return ProviderUsage.Unavailable(Name, Strings.Get("error.notLoggedIn"));
 
         // 아직 백오프 중이면 아예 부르지 않는다. 부르면 429만 더 쌓인다.
         if (DateTime.Now < _blockedUntil)
