@@ -501,18 +501,28 @@ public partial class FlyoutWindow : Window
         }
     }
 
-    /// <summary>로그인 창이 이미 떠 있으면 버튼을 또 눌러도 하나만 띄운다.</summary>
+    /// <summary>진행 중인 로그인. 버튼을 또 눌러도 하나만 돌린다.</summary>
     private System.Diagnostics.Process? _loginProcess;
+
+    /// <summary>직전 로그인 시도가 실패했거나 시간 안에 끝나지 않았다.</summary>
+    private bool _loginFailed;
+
+    /// <summary>브라우저 로그인을 기다려 주는 최대 시간. 넘기면 정리하고 다시 누르게 한다.</summary>
+    private static readonly TimeSpan LoginTimeout = TimeSpan.FromMinutes(10);
+
+    private bool LoginRunning => _loginProcess is { HasExited: false };
 
     /// <summary>
     /// 로그아웃 상태에서 누르는 로그인 버튼.
-    /// 일반 사용자는 터미널 명령을 모르므로 클릭 한 번으로 로그인 흐름을 연다.
+    /// 일반 사용자는 터미널 명령을 모르므로 클릭 한 번으로 브라우저 로그인을 연다.
     /// </summary>
     private UIElement BuildLoginButton()
     {
+        var wrap = new StackPanel();
+
         var label = new TextBlock
         {
-            Text = Strings.Get("popup.signIn"),
+            Text = Strings.Get(LoginRunning ? "popup.signingIn" : "popup.signIn"),
             FontSize = 11.5,
             FontWeight = FontWeights.SemiBold,
             Foreground = Brushes.White,
@@ -527,46 +537,106 @@ public partial class FlyoutWindow : Window
             Margin = new Thickness(0, 8, 0, 0),
             HorizontalAlignment = HorizontalAlignment.Left,
             Cursor = Cursors.Hand,
+            Opacity = LoginRunning ? 0.6 : 1,
         };
-        button.MouseEnter += (_, _) => button.Opacity = 0.85;
-        button.MouseLeave += (_, _) => button.Opacity = 1;
+        button.MouseEnter += (_, _) => { if (!LoginRunning) button.Opacity = 0.85; };
+        button.MouseLeave += (_, _) => { if (!LoginRunning) button.Opacity = 1; };
         button.MouseLeftButtonUp += (_, e) =>
         {
             e.Handled = true;
-            StartClaudeLogin();
+            if (LoginRunning) return;
+            if (StartClaudeLogin())
+            {
+                // 팝업을 다시 그리기 전에도 눌렸다는 것이 보이게 바로 바꾼다.
+                label.Text = Strings.Get("popup.signingIn");
+                button.Opacity = 0.6;
+                if (wrap.Children.Count > 1) wrap.Children.RemoveAt(1);
+            }
         };
-        return button;
+        wrap.Children.Add(button);
+
+        // 창 없이 돌리므로 실패해도 사용자가 볼 곳이 없다. 여기서 알려 준다.
+        if (_loginFailed && !LoginRunning)
+        {
+            wrap.Children.Add(new TextBlock
+            {
+                Text = Strings.Get("popup.signInFailed"),
+                FontSize = 10.5,
+                Margin = new Thickness(0, 5, 0, 0),
+                TextWrapping = TextWrapping.Wrap,
+                Foreground = (Brush)Resources["SubtleBrush"],
+            });
+        }
+
+        return wrap;
     }
 
     /// <summary>
-    /// 콘솔 창에서 `claude auth login`을 돌린다. 이 명령이 브라우저 로그인을 열고
-    /// 자격증명 파일을 채운다. 실패하면 사유를 읽을 수 있게 창을 멈춰 두고,
-    /// 끝나면 바로 새로고침해 사용량이 곧장 보이게 한다.
+    /// 보이지 않는 프로세스로 `claude auth login`을 돌린다. 이 명령이 브라우저를 열고
+    /// 로그인이 끝나면 자격증명 파일을 채운 뒤 스스로 끝난다. 터미널 창은 일반
+    /// 사용자에게 겁만 주므로 띄우지 않고, 10분 안에 끝나지 않으면 정리한다.
     /// </summary>
-    private void StartClaudeLogin()
+    private bool StartClaudeLogin()
     {
-        if (_loginProcess is { HasExited: false }) return;
-
+        System.Diagnostics.Process? process;
         try
         {
             // claude는 npm(.cmd)으로도 네이티브 exe로도 깔리므로 cmd가 PATH에서 찾게 한다.
-            var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
             {
                 FileName = "cmd.exe",
-                Arguments = "/c claude auth login || pause",
-                UseShellExecute = true,
+                Arguments = "/c claude auth login",
+                UseShellExecute = false,
+                CreateNoWindow = true,
             });
-            if (process is null) return;
-
-            _loginProcess = process;
-            process.EnableRaisingEvents = true;
-            process.Exited += (_, _) =>
-                Dispatcher.BeginInvoke(() => RefreshRequested?.Invoke());
         }
         catch
         {
-            // cmd조차 못 띄우는 환경이면 할 수 있는 게 없다. 안내 문구는 이미 보인다.
+            process = null;
         }
+
+        if (process is null)
+        {
+            _loginFailed = true;
+            return false;
+        }
+
+        _loginProcess = process;
+        _loginFailed = false;
+        _ = WaitForLoginAsync(process);
+        return true;
+    }
+
+    private async System.Threading.Tasks.Task WaitForLoginAsync(System.Diagnostics.Process process)
+    {
+        bool ok;
+        using (var cts = new System.Threading.CancellationTokenSource(LoginTimeout))
+        {
+            try
+            {
+                await process.WaitForExitAsync(cts.Token);
+                ok = process.ExitCode == 0;
+            }
+            catch (OperationCanceledException)
+            {
+                // 브라우저를 닫았거나 잊은 경우다. 남겨 두면 claude가 계속 기다리며 남는다.
+                try { process.Kill(entireProcessTree: true); } catch { }
+                ok = false;
+            }
+        }
+
+        process.Dispose();
+        _loginProcess = null;
+        _loginFailed = !ok;
+
+        // 성공이면 새 값이, 실패면 실패 안내가 그려지도록 새로고침한다.
+        RefreshRequested?.Invoke();
+    }
+
+    /// <summary>앱이 꺼질 때 기다리던 로그인도 함께 정리한다.</summary>
+    public void CancelLogin()
+    {
+        try { _loginProcess?.Kill(entireProcessTree: true); } catch { }
     }
 
     /// <summary>#RRGGBB 문자열을 색으로. 잘못된 값이면 회색.</summary>

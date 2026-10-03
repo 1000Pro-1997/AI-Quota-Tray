@@ -657,6 +657,7 @@ public partial class App : Application
             _tray.Dispose();
         }
 
+        _flyout?.CancelLogin();
         _widgetBar?.Close();
         _currentIcon?.Dispose();
         _singleInstance?.Dispose();
