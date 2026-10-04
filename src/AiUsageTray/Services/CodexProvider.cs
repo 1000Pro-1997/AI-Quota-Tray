@@ -27,6 +27,10 @@ public sealed class CodexProvider : IUsageProvider
     /// <summary>ChatGPT 웹의 "사용 내역" 화면이 쓰는 것과 같은 값을 돌려준다. 비공식이다.</summary>
     private const string UsageUrl = "https://chatgpt.com/backend-api/wham/usage";
 
+    /// <summary>초기화권 목록과 사용. 공식 Codex 클라이언트가 쓰는 경로다.</summary>
+    private const string ResetCreditsUrl = "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits";
+    private const string ConsumeUrl = ResetCreditsUrl + "/consume";
+
     private readonly HttpClient _http;
     private readonly Func<string> _sessionsRoot;
 
@@ -52,6 +56,7 @@ public sealed class CodexProvider : IUsageProvider
             Windows = remote.Windows,
             Tokens = local.Tokens,
             LastUpdated = remote.LastUpdated,
+            ResetCredits = remote.ResetCredits,
         };
     }
 
@@ -64,25 +69,10 @@ public sealed class CodexProvider : IUsageProvider
     {
         try
         {
-            string? authPath = FindAuthFile();
-            if (authPath is null) return null;
+            var auth = await ReadAuthAsync(ct).ConfigureAwait(false);
+            if (auth is null) return null;
 
-            string token, account;
-            using (var auth = JsonDocument.Parse(await File.ReadAllTextAsync(authPath, ct).ConfigureAwait(false)))
-            {
-                if (!auth.RootElement.TryGetProperty("tokens", out var tokens) ||
-                    tokens.ValueKind != JsonValueKind.Object)
-                    return null;
-                token = ReadString(tokens, "access_token");
-                account = ReadString(tokens, "account_id");
-            }
-            if (token.Length == 0) return null;
-
-            using var req = new HttpRequestMessage(HttpMethod.Get, UsageUrl);
-            req.Headers.TryAddWithoutValidation("Authorization", "Bearer " + token);
-            if (account.Length > 0)
-                req.Headers.TryAddWithoutValidation("ChatGPT-Account-Id", account);
-
+            using var req = NewRequest(HttpMethod.Get, UsageUrl, auth.Value);
             using var res = await _http.SendAsync(req, ct).ConfigureAwait(false);
             if (!res.IsSuccessStatusCode) return null;
 
@@ -97,12 +87,21 @@ public sealed class CodexProvider : IUsageProvider
             AddRemoteWindow(rl, "secondary_window", windows);
             if (windows.Count == 0) return null;
 
+            // 요약에 남은 개수가 있을 때만 목록을 부른다. 대부분은 0개라 왕복 하나를 아낀다.
+            long available = root.TryGetProperty("rate_limit_reset_credits", out var rc) &&
+                             rc.ValueKind == JsonValueKind.Object
+                ? ReadLong(rc, "available_count") : 0;
+            var credits = available > 0
+                ? await FetchResetCreditsAsync(auth.Value, ct).ConfigureAwait(false)
+                : Array.Empty<ResetCredit>();
+
             return new ProviderUsage
             {
                 Provider = Name,
                 PlanName = Capitalize(ReadString(root, "plan_type")),
                 Windows = windows,
                 LastUpdated = DateTime.Now,
+                ResetCredits = credits,
             };
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -115,6 +114,125 @@ public sealed class CodexProvider : IUsageProvider
             return null;
         }
     }
+
+    /// <summary>
+    /// 쓸 수 있는 초기화권을 만료가 이른 순으로. 목록 조회가 실패해도 사용량은
+    /// 보여야 하므로 빈 목록으로 돌린다.
+    /// </summary>
+    private async Task<IReadOnlyList<ResetCredit>> FetchResetCreditsAsync(Auth auth, CancellationToken ct)
+    {
+        try
+        {
+            using var req = NewRequest(HttpMethod.Get, ResetCreditsUrl, auth);
+            using var res = await _http.SendAsync(req, ct).ConfigureAwait(false);
+            if (!res.IsSuccessStatusCode) return Array.Empty<ResetCredit>();
+
+            using var doc = JsonDocument.Parse(await res.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
+            if (!doc.RootElement.TryGetProperty("credits", out var arr) || arr.ValueKind != JsonValueKind.Array)
+                return Array.Empty<ResetCredit>();
+
+            var list = new List<ResetCredit>();
+            foreach (var c in arr.EnumerateArray())
+            {
+                // 사용 중이거나 이미 쓴 것도 섞여 올 수 있다. 누를 수 있는 것만 남긴다.
+                if (ReadString(c, "status") != "available") continue;
+                if (c.TryGetProperty("is_supported_by_plan", out var sp) && sp.ValueKind == JsonValueKind.False)
+                    continue;
+
+                string id = ReadString(c, "id");
+                if (id.Length == 0) continue;
+
+                DateTime? expires = DateTimeOffset.TryParse(ReadString(c, "expires_at"), out var dto)
+                    ? dto.LocalDateTime : null;
+
+                list.Add(new ResetCredit
+                {
+                    Id = id,
+                    ResetType = ReadString(c, "reset_type"),
+                    Title = ReadString(c, "title"),
+                    ExpiresAt = expires,
+                });
+            }
+
+            return list.OrderBy(c => c.ExpiresAt ?? DateTime.MaxValue).ToList();
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch
+        {
+            return Array.Empty<ResetCredit>();
+        }
+    }
+
+    /// <summary>
+    /// 초기화권 하나를 쓴다. 되돌릴 수 없으므로 자동 재시도는 하지 않는다.
+    /// redeem_request_id는 서버가 중복 요청을 걸러내는 열쇠라 매번 새로 만든다.
+    /// </summary>
+    public async Task<ResetOutcome> ConsumeResetAsync(string creditId, CancellationToken ct = default)
+    {
+        try
+        {
+            var auth = await ReadAuthAsync(ct).ConfigureAwait(false);
+            if (auth is null) return ResetOutcome.Failed;
+
+            using var req = NewRequest(HttpMethod.Post, ConsumeUrl, auth.Value);
+            req.Content = JsonContent(new Dictionary<string, string>
+            {
+                ["redeem_request_id"] = Guid.NewGuid().ToString(),
+                ["credit_id"] = creditId,
+            });
+
+            using var res = await _http.SendAsync(req, ct).ConfigureAwait(false);
+            if (!res.IsSuccessStatusCode) return ResetOutcome.Failed;
+
+            using var doc = JsonDocument.Parse(await res.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
+            return ReadString(doc.RootElement, "code") switch
+            {
+                // already_redeemed는 같은 요청이 이미 처리됐다는 뜻이라 성공과 같다.
+                "reset" or "already_redeemed" => ResetOutcome.Reset,
+                "nothing_to_reset" => ResetOutcome.NothingToReset,
+                "no_credit" => ResetOutcome.NoCredit,
+                _ => ResetOutcome.Failed,
+            };
+        }
+        catch
+        {
+            return ResetOutcome.Failed;
+        }
+    }
+
+    private readonly record struct Auth(string Token, string Account);
+
+    /// <summary>
+    /// Codex CLI가 남긴 auth.json에서 토큰을 읽는다. 읽기만 한다. 갱신해서 다시 쓰면
+    /// CLI와 경쟁하다 로그인이 풀릴 수 있다.
+    /// </summary>
+    private async Task<Auth?> ReadAuthAsync(CancellationToken ct)
+    {
+        string? authPath = FindAuthFile();
+        if (authPath is null) return null;
+
+        using var doc = JsonDocument.Parse(await File.ReadAllTextAsync(authPath, ct).ConfigureAwait(false));
+        if (!doc.RootElement.TryGetProperty("tokens", out var tokens) || tokens.ValueKind != JsonValueKind.Object)
+            return null;
+
+        string token = ReadString(tokens, "access_token");
+        return token.Length == 0 ? null : new Auth(token, ReadString(tokens, "account_id"));
+    }
+
+    private static HttpRequestMessage NewRequest(HttpMethod method, string url, Auth auth)
+    {
+        var req = new HttpRequestMessage(method, url);
+        req.Headers.TryAddWithoutValidation("Authorization", "Bearer " + auth.Token);
+        if (auth.Account.Length > 0)
+            req.Headers.TryAddWithoutValidation("ChatGPT-Account-Id", auth.Account);
+        return req;
+    }
+
+    private static StringContent JsonContent(Dictionary<string, string> body) =>
+        new(JsonSerializer.Serialize(body), System.Text.Encoding.UTF8, "application/json");
 
     /// <summary>
     /// auth.json은 세션 폴더의 부모(~/.codex)에 있다. 세션 폴더를 직접 지정했어도

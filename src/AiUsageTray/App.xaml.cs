@@ -172,6 +172,7 @@ public partial class App : Application
         _flyout = new FlyoutWindow();
         _flyout.RefreshRequested += () => _ = _monitor.RefreshAsync(force: true);
         _flyout.SettingsRequested += OpenSettings;
+        _flyout.ResetConsumer = _monitor.ConsumeCodexResetAsync;
         _flyout.WidgetBarToggled += enabled =>
         {
             _settings.ShowWidgetBar = enabled;

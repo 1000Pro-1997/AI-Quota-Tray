@@ -175,6 +175,7 @@ public sealed class UsageMonitor : IDisposable
                                 Windows = previous.Windows,
                                 Tokens = u.Tokens ?? previous.Tokens,
                                 LastUpdated = u.LastUpdated ?? previous.LastUpdated,
+                                ResetCredits = u.ResetCredits,
                             };
                         }
 
@@ -337,6 +338,20 @@ public sealed class UsageMonitor : IDisposable
         if (shown.All(u => u.Provider != provider)) shown.Add(updated);
         Latest = shown;
         Updated?.Invoke(Latest);
+    }
+
+    /// <summary>
+    /// Codex 사용 한도 초기화권을 쓰고, 바뀐 한도와 남은 개수를 곧바로 다시 읽는다.
+    /// 결과를 미리 짐작해 그리면 서버와 어긋날 수 있어 새로 받아온 값만 믿는다.
+    /// </summary>
+    public async Task<ResetOutcome> ConsumeCodexResetAsync(string creditId)
+    {
+        _codex ??= new CodexProvider(_http, () => _settings.EffectiveCodexPath);
+        var outcome = await _codex.ConsumeResetAsync(creditId).ConfigureAwait(false);
+
+        // 실패했더라도 그새 누가 다른 곳에서 썼을 수 있어 목록을 맞춘다.
+        await RefreshAsync(force: true).ConfigureAwait(false);
+        return outcome;
     }
 
     /// <summary>

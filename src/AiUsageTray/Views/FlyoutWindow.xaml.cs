@@ -28,6 +28,18 @@ public partial class FlyoutWindow : Window
     /// <summary>공급자 이름 → 서비스 장애 상태.</summary>
     public Func<string, ServiceStatus>? StatusResolver { get; set; }
 
+    /// <summary>초기화권 id → 사용 결과. 앱이 UsageMonitor로 넘긴다.</summary>
+    public Func<string, System.Threading.Tasks.Task<ResetOutcome>>? ResetConsumer { get; set; }
+
+    /// <summary>
+    /// 마지막 초기화 결과 문구. 사용 직후 새로고침이 카드를 새로 그리므로 버튼 옆에
+    /// 두면 사라진다. 팝업이 닫힐 때까지 카드 아래에 남겨 둔다.
+    /// </summary>
+    private string? _resetMessage;
+
+    /// <summary>초기화를 서버에 보내는 중. 그사이 다른 초기화권을 누르지 못하게 막는다.</summary>
+    private bool _resetting;
+
     /// <summary>마지막으로 숨겨진 시각. 클릭 한 번이 닫고 다시 여는 것을 막는 데 쓴다.</summary>
     public DateTime HiddenAt { get; private set; } = DateTime.MinValue;
 
@@ -59,7 +71,11 @@ public partial class FlyoutWindow : Window
         IsVisibleChanged += (_, e) =>
         {
             bool shown = (bool)e.NewValue;
-            if (!shown) HiddenAt = DateTime.Now;
+            if (!shown)
+            {
+                HiddenAt = DateTime.Now;
+                _resetMessage = null;
+            }
 
             if (shown)
             {
@@ -130,8 +146,12 @@ public partial class FlyoutWindow : Window
 
     // ---- 내용 갱신 ----
 
+    /// <summary>초기화 결과 문구를 덧붙여 다시 그릴 때 쓰는 직전 목록.</summary>
+    private IReadOnlyList<ProviderUsage>? _lastRendered;
+
     public void Render(IReadOnlyList<ProviderUsage> usages)
     {
+        _lastRendered = usages;
         ProviderList.Items.Clear();
         _timeLabels.Clear();
 
@@ -378,6 +398,9 @@ public partial class FlyoutWindow : Window
         foreach (var w in u.Windows)
             panel.Children.Add(BuildWindowRow(w, barBrush));
 
+        if (u.ResetCredits.Count > 0 || _resetMessage is not null && u.Provider == "Codex")
+            panel.Children.Add(BuildResetSection(u.ResetCredits));
+
         // 갱신하지 못한 이유가 있으면 수치 아래에 덧붙인다.
         if (u.IsStale && u.Error is { } why)
         {
@@ -454,6 +477,157 @@ public partial class FlyoutWindow : Window
         }
 
         return wrap;
+    }
+
+    /// <summary>
+    /// 사용 한도 초기화권 목록. 되돌릴 수 없는 동작이라 한 번 눌러서는 쓰지 않고,
+    /// 버튼이 확인 문구로 바뀐 뒤 한 번 더 눌러야 쓴다. 대화상자를 띄우면 팝업이
+    /// 포커스를 잃고 닫혀 버리므로 버튼 안에서 확인을 받는다.
+    /// </summary>
+    private UIElement BuildResetSection(IReadOnlyList<ResetCredit> credits)
+    {
+        var section = new StackPanel { Margin = new Thickness(0, 10, 0, 0) };
+
+        var head = new Grid();
+        head.Children.Add(new TextBlock
+        {
+            Text = Strings.Get("reset.title"),
+            FontSize = 11.5,
+            Foreground = (Brush)Resources["TextBrush"],
+        });
+        head.Children.Add(new TextBlock
+        {
+            Text = Strings.Get("reset.available", credits.Count),
+            FontSize = 11,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Center,
+            Foreground = (Brush)Resources["SubtleBrush"],
+        });
+        section.Children.Add(head);
+
+        foreach (var credit in credits)
+            section.Children.Add(BuildResetRow(credit));
+
+        if (_resetMessage is not null)
+        {
+            section.Children.Add(new TextBlock
+            {
+                Text = _resetMessage,
+                FontSize = 10.5,
+                Margin = new Thickness(0, 6, 0, 0),
+                TextWrapping = TextWrapping.Wrap,
+                Foreground = (Brush)Resources["SubtleBrush"],
+            });
+        }
+
+        return section;
+    }
+
+    private UIElement BuildResetRow(ResetCredit credit)
+    {
+        var row = new Grid { Margin = new Thickness(0, 6, 0, 0) };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        text.Children.Add(new TextBlock
+        {
+            Text = credit.Label,
+            FontSize = 11,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            Foreground = (Brush)Resources["TextBrush"],
+        });
+        if (credit.ExpiresAt is { } expires)
+        {
+            text.Children.Add(new TextBlock
+            {
+                Text = Strings.Get("reset.expires", expires),
+                FontSize = 10.5,
+                Margin = new Thickness(0, 1, 0, 0),
+                Foreground = (Brush)Resources["SubtleBrush"],
+            });
+        }
+        row.Children.Add(text);
+
+        var label = new TextBlock
+        {
+            Text = Strings.Get("reset.use"),
+            FontSize = 11,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = (Brush)Resources["TextBrush"],
+        };
+        var button = new Border
+        {
+            Child = label,
+            Background = (Brush)Resources["BorderBrush2"],
+            CornerRadius = new CornerRadius(5),
+            Padding = new Thickness(10, 4, 10, 4),
+            Margin = new Thickness(8, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            Cursor = Cursors.Hand,
+            Opacity = _resetting ? 0.5 : 1,
+        };
+        Grid.SetColumn(button, 1);
+
+        bool armed = false;
+        button.MouseEnter += (_, _) => { if (!_resetting) button.Opacity = 0.85; };
+        button.MouseLeave += (_, _) =>
+        {
+            if (_resetting) return;
+            button.Opacity = 1;
+
+            // 확인 문구를 띄운 채 손을 떼면 다음에 무심코 누른 것이 확정되지 않게 되돌린다.
+            if (!armed) return;
+            armed = false;
+            label.Text = Strings.Get("reset.use");
+            label.Foreground = (Brush)Resources["TextBrush"];
+            button.Background = (Brush)Resources["BorderBrush2"];
+        };
+        button.MouseLeftButtonUp += async (_, e) =>
+        {
+            e.Handled = true;
+            if (_resetting || ResetConsumer is null) return;
+
+            if (!armed)
+            {
+                armed = true;
+                label.Text = Strings.Get("reset.confirm");
+                label.Foreground = Brushes.White;
+                button.Background = (Brush)Resources["AccentBrush"];
+                return;
+            }
+
+            _resetting = true;
+            label.Text = Strings.Get("reset.working");
+            button.Opacity = 0.5;
+
+            ResetOutcome outcome;
+            try
+            {
+                outcome = await ResetConsumer(credit.Id);
+            }
+            catch
+            {
+                outcome = ResetOutcome.Failed;
+            }
+            finally
+            {
+                _resetting = false;
+            }
+
+            // 새로고침이 이미 카드를 다시 그렸다. 결과 문구만 남기고 한 번 더 그린다.
+            _resetMessage = Strings.Get(outcome switch
+            {
+                ResetOutcome.Reset => "reset.done",
+                ResetOutcome.NothingToReset => "reset.nothing",
+                ResetOutcome.NoCredit => "reset.noCredit",
+                _ => "reset.failed",
+            });
+            if (_lastRendered is not null) Render(_lastRendered);
+        };
+        row.Children.Add(button);
+
+        return row;
     }
 
     private void UpdateCountdowns()

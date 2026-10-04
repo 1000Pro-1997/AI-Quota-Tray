@@ -108,6 +108,12 @@ public sealed class ProviderUsage
     /// <summary>이 수치를 마지막으로 확인한 시각(로컬).</summary>
     public DateTime? LastUpdated { get; init; }
 
+    /// <summary>
+    /// 당장 쓸 수 있는 사용 한도 초기화권. Codex만 있다. 디스크 캐시에는 남기지 않는다.
+    /// 이미 써 버린 권리를 되살려 보여주면 누르는 순간 실패하기 때문이다.
+    /// </summary>
+    public IReadOnlyList<ResetCredit> ResetCredits { get; init; } = Array.Empty<ResetCredit>();
+
     /// <summary>조회에 실패했을 때의 사유. 성공이면 null.</summary>
     public string? Error { get; init; }
 
@@ -137,6 +143,7 @@ public sealed class ProviderUsage
         Windows = Windows,
         Tokens = Tokens,
         LastUpdated = LastUpdated,
+        ResetCredits = ResetCredits,
         Error = reason,
         IsStale = true,
     };
@@ -158,6 +165,33 @@ public sealed class ProviderUsage
 
     public static ProviderUsage SignedOut(string provider) =>
         new() { Provider = provider, Error = Strings.Get("error.notLoggedIn"), NeedsLogin = true };
+}
+
+/// <summary>서버가 준 사용 한도 초기화권 하나.</summary>
+public sealed class ResetCredit
+{
+    /// <summary>사용 요청에 그대로 돌려보내는 식별자.</summary>
+    public string Id { get; init; } = "";
+
+    /// <summary>codex_rate_limits면 주간 + 5시간을 함께 되돌린다. 그 밖의 값은 Title을 보여준다.</summary>
+    public string ResetType { get; init; } = "";
+
+    /// <summary>서버가 준 영어 이름. 모르는 종류일 때만 쓴다.</summary>
+    public string Title { get; init; } = "";
+
+    /// <summary>만료 시각(로컬). 알 수 없으면 null.</summary>
+    public DateTime? ExpiresAt { get; init; }
+
+    public string Label => ResetType == "codex_rate_limits" ? Strings.Get("reset.full") : Title;
+}
+
+/// <summary>초기화권 사용 결과. 서버의 code 값을 그대로 옮겼다.</summary>
+public enum ResetOutcome
+{
+    Reset,
+    NothingToReset,
+    NoCredit,
+    Failed,
 }
 
 /// <summary>기간 내 토큰 합계.</summary>
