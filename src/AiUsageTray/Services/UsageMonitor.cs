@@ -146,9 +146,9 @@ public sealed class UsageMonitor : IDisposable
             // 그 자리는 화면을 만들 때 직전 값으로 메운다.
             var fresh = new Dictionary<string, ProviderUsage>();
 
-            // 공급자마다 걸리는 시간이 크게 다르다. Codex는 로컬 파일이라 즉시
-            // 끝나는데 Claude는 네트워크 왕복이 필요하다. 함께 기다리면 빠른 쪽이
-            // 느린 쪽에 묶여 몇 초씩 늦어지므로, 끝나는 대로 각각 화면에 올린다.
+            // 공급자마다 걸리는 시간이 크게 다르다. 둘 다 네트워크를 타지만 Codex는
+            // API가 막히면 로컬 로그로 물러서는 등 경로가 제각각이다. 함께 기다리면
+            // 빠른 쪽이 느린 쪽에 묶여 몇 초씩 늦어지므로, 끝나는 대로 각각 화면에 올린다.
             var running = providers.Select(async p =>
             {
                 var u = await SafeFetch(p, cts.Token).ConfigureAwait(false);
@@ -347,7 +347,7 @@ public sealed class UsageMonitor : IDisposable
     private List<IUsageProvider> BuildProviders()
     {
         _claude ??= new ClaudeProvider(_http, () => _settings.EffectiveClaudePath);
-        _codex ??= new CodexProvider(() => _settings.EffectiveCodexPath);
+        _codex ??= new CodexProvider(_http, () => _settings.EffectiveCodexPath);
 
         var list = new List<IUsageProvider>();
         if (_settings.ClaudeEnabled) list.Add(_claude);

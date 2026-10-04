@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,9 +11,10 @@ using AiUsageTray.Models;
 namespace AiUsageTray.Services;
 
 /// <summary>
-/// Codex 세션 로그(~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl)에서 사용량을 읽는다.
-/// 로그에는 서버가 내려준 rate_limits가 그대로 들어있어 추정이 필요 없다.
-/// 네트워크 호출도, 토큰 접근도 하지 않는다.
+/// Codex 사용량을 읽는다. ChatGPT 서버의 사용량 API를 먼저 묻고, 실패하면
+/// 세션 로그(~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl)의 마지막 rate_limits로 물러선다.
+/// 로그는 이 PC에서 Codex CLI를 돌릴 때만 갱신되므로 웹·Work·다른 PC에서 쓴 양이
+/// 빠지고 며칠씩 낡을 수 있다. 그래서 웹 화면과 같은 값을 주는 API를 우선한다.
 /// </summary>
 public sealed class CodexProvider : IUsageProvider
 {
@@ -22,14 +24,139 @@ public sealed class CodexProvider : IUsageProvider
     /// <summary>파일 끝에서부터 읽어들일 최대 바이트. 세션 로그는 수십 MB가 될 수 있다.</summary>
     private const int TailBytes = 512 * 1024;
 
+    /// <summary>ChatGPT 웹의 "사용 내역" 화면이 쓰는 것과 같은 값을 돌려준다. 비공식이다.</summary>
+    private const string UsageUrl = "https://chatgpt.com/backend-api/wham/usage";
+
+    private readonly HttpClient _http;
     private readonly Func<string> _sessionsRoot;
 
     public string Name => "Codex";
 
-    public CodexProvider(Func<string> sessionsRoot) => _sessionsRoot = sessionsRoot;
+    public CodexProvider(HttpClient http, Func<string> sessionsRoot)
+    {
+        _http = http;
+        _sessionsRoot = sessionsRoot;
+    }
 
-    public Task<ProviderUsage> FetchAsync(CancellationToken ct) =>
-        Task.Run(() => Fetch(ct), ct);
+    public async Task<ProviderUsage> FetchAsync(CancellationToken ct)
+    {
+        // 토큰 합계는 API가 주지 않으므로 로그는 API가 성공해도 읽는다.
+        var local = await Task.Run(() => Fetch(ct), ct).ConfigureAwait(false);
+        var remote = await FetchRemoteAsync(ct).ConfigureAwait(false);
+        if (remote is null) return local;
+
+        return new ProviderUsage
+        {
+            Provider = Name,
+            PlanName = remote.PlanName.Length > 0 ? remote.PlanName : local.PlanName,
+            Windows = remote.Windows,
+            Tokens = local.Tokens,
+            LastUpdated = remote.LastUpdated,
+        };
+    }
+
+    /// <summary>
+    /// Codex CLI가 남긴 auth.json의 access_token으로 사용량 API를 부른다.
+    /// 토큰은 읽기만 한다. 갱신해서 다시 쓰면 CLI와 경쟁하다 로그인이 풀릴 수 있고,
+    /// 만료됐으면 로그로 물러서면 되므로 실패는 모두 null로 돌린다.
+    /// </summary>
+    private async Task<ProviderUsage?> FetchRemoteAsync(CancellationToken ct)
+    {
+        try
+        {
+            string? authPath = FindAuthFile();
+            if (authPath is null) return null;
+
+            string token, account;
+            using (var auth = JsonDocument.Parse(await File.ReadAllTextAsync(authPath, ct).ConfigureAwait(false)))
+            {
+                if (!auth.RootElement.TryGetProperty("tokens", out var tokens) ||
+                    tokens.ValueKind != JsonValueKind.Object)
+                    return null;
+                token = ReadString(tokens, "access_token");
+                account = ReadString(tokens, "account_id");
+            }
+            if (token.Length == 0) return null;
+
+            using var req = new HttpRequestMessage(HttpMethod.Get, UsageUrl);
+            req.Headers.TryAddWithoutValidation("Authorization", "Bearer " + token);
+            if (account.Length > 0)
+                req.Headers.TryAddWithoutValidation("ChatGPT-Account-Id", account);
+
+            using var res = await _http.SendAsync(req, ct).ConfigureAwait(false);
+            if (!res.IsSuccessStatusCode) return null;
+
+            string body = await res.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            using var doc = JsonDocument.Parse(body);
+            var root = doc.RootElement;
+            if (!root.TryGetProperty("rate_limit", out var rl) || rl.ValueKind != JsonValueKind.Object)
+                return null;
+
+            var windows = new List<UsageWindow>();
+            AddRemoteWindow(rl, "primary_window", windows);
+            AddRemoteWindow(rl, "secondary_window", windows);
+            if (windows.Count == 0) return null;
+
+            return new ProviderUsage
+            {
+                Provider = Name,
+                PlanName = Capitalize(ReadString(root, "plan_type")),
+                Windows = windows,
+                LastUpdated = DateTime.Now,
+            };
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch
+        {
+            // 네트워크 오류, 타임아웃, 응답 형식 변경 모두 로그로 물러선다.
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// auth.json은 세션 폴더의 부모(~/.codex)에 있다. 세션 폴더를 직접 지정했어도
+    /// 같은 구조일 가능성이 높아 먼저 보고, 없으면 기본 위치를 본다.
+    /// </summary>
+    private string? FindAuthFile()
+    {
+        string? parent = Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(_sessionsRoot()));
+        if (parent is not null)
+        {
+            string near = Path.Combine(parent, "auth.json");
+            if (File.Exists(near)) return near;
+        }
+
+        string fallback = Path.Combine(Path.GetDirectoryName(AppSettings.DefaultCodexPath)!, "auth.json");
+        return File.Exists(fallback) ? fallback : null;
+    }
+
+    private static void AddRemoteWindow(JsonElement rateLimit, string key, List<UsageWindow> into)
+    {
+        // 5시간 한도가 적용되지 않는 기간에는 primary_window가 null로 온다.
+        if (!rateLimit.TryGetProperty(key, out var w) || w.ValueKind != JsonValueKind.Object)
+            return;
+
+        double pct = w.TryGetProperty("used_percent", out var up) && up.ValueKind == JsonValueKind.Number
+            ? up.GetDouble() : 0;
+
+        long seconds = ReadLong(w, "limit_window_seconds");
+        int minutes = (int)(seconds / 60);
+
+        DateTime? reset = null;
+        if (w.TryGetProperty("reset_at", out var ra) && ra.ValueKind == JsonValueKind.Number)
+            reset = DateTimeOffset.FromUnixTimeSeconds(ra.GetInt64()).LocalDateTime;
+
+        into.Add(new UsageWindow
+        {
+            Kind = KindFor(minutes),
+            RawLabel = DescribeWindow(minutes),
+            Percent = pct,
+            ResetsAt = reset,
+        });
+    }
 
     private ProviderUsage Fetch(CancellationToken ct)
     {
@@ -230,6 +357,9 @@ public sealed class CodexProvider : IUsageProvider
 
     private static long ReadLong(JsonElement el, string prop) =>
         el.TryGetProperty(prop, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt64() : 0;
+
+    private static string ReadString(JsonElement el, string prop) =>
+        el.TryGetProperty(prop, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
 
     private static string Capitalize(string s) =>
         string.IsNullOrEmpty(s) ? "" : char.ToUpperInvariant(s[0]) + s[1..];
