@@ -121,15 +121,24 @@ public partial class WidgetBarWindow : Window
     /// <summary>공급자 이름 → 서비스 장애 상태.</summary>
     public Func<string, ServiceStatus>? StatusResolver { get; set; }
 
-    /// <summary>
-    /// 작업표시줄도 topmost 창이라, 사용자가 여기저기 클릭하면 Windows가
-    /// Z순서를 재배치하면서 이 창을 작업표시줄 뒤로 밀어버린다. 주기적으로
-    /// 맨 위를 되찾아야 계속 보인다.
-    /// </summary>
-    private readonly System.Windows.Threading.DispatcherTimer _keepOnTop = new()
+    /// <summary>전체화면 종료를 빨리 감지하려고 복구 주기와 무관하게 1초마다 확인한다.</summary>
+    private readonly System.Windows.Threading.DispatcherTimer _fullScreenCheck = new()
     {
         Interval = TimeSpan.FromSeconds(1),
     };
+
+    /// <summary>작업표시줄의 Z순서가 바뀌어도 위젯이 다시 앞으로 오도록 한다.</summary>
+    private readonly System.Windows.Threading.DispatcherTimer _bringToFront = new()
+    {
+        Interval = TimeSpan.FromSeconds(1),
+    };
+
+    public double BringToFrontSeconds
+    {
+        get => _bringToFront.Interval.TotalSeconds;
+        set => _bringToFront.Interval = TimeSpan.FromSeconds(
+            double.IsFinite(value) ? Math.Clamp(value, 0.1, 3600) : 1);
+    }
 
     /// <summary>남은 시간이 줄어드는 것을 보여주려면 조회와 무관하게 다시 그려야 한다.</summary>
     private readonly System.Windows.Threading.DispatcherTimer _tick = new()
@@ -158,13 +167,8 @@ public partial class WidgetBarWindow : Window
         Items.MouseEnter += (_, _) => Items.Opacity = 0.88;
         Items.MouseLeave += (_, _) => Items.Opacity = 1.0;
 
-        _keepOnTop.Tick += (_, _) =>
-        {
-            // 숨어 있는 동안에도 이 타이머는 계속 돌아야 한다. 전체화면이
-            // 끝난 것을 알아채고 다시 나올 사람이 이것 말고는 없다.
-            if (SyncFullScreenVisibility()) return;
-            BringToTop();
-        };
+        _fullScreenCheck.Tick += (_, _) => SyncFullScreenVisibility();
+        _bringToFront.Tick += (_, _) => BringToTop();
 
         // 사용량은 그대로여도 남은 시간은 계속 줄어든다.
         _tick.Tick += (_, _) => UpdateCountdowns();
@@ -174,18 +178,20 @@ public partial class WidgetBarWindow : Window
             if ((bool)e.NewValue)
             {
                 _hiddenByFullScreen = false;
-                _keepOnTop.Start();
+                _fullScreenCheck.Start();
+                _bringToFront.Start();
                 _tick.Start();
             }
             else
             {
-                // 전체화면 때문에 숨은 것이라면 감시를 멈추면 안 된다.
-                if (!_hiddenByFullScreen) _keepOnTop.Stop();
+                // 전체화면 때문에 숨겼다면 감시 타이머는 계속 돌아 복귀를 감지한다.
+                if (!_hiddenByFullScreen) _fullScreenCheck.Stop();
+                _bringToFront.Stop();
                 _tick.Stop();
             }
         };
 
-        Closed += (_, _) => { _keepOnTop.Stop(); _tick.Stop(); };
+        Closed += (_, _) => { _fullScreenCheck.Stop(); _bringToFront.Stop(); _tick.Stop(); };
     }
 
     /// <summary>

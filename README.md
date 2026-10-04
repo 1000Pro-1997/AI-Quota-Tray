@@ -147,6 +147,11 @@ with the Left and Up offsets.
 **Hide on full screen** is on by default: the bar gets out of the way when a game or
 video goes full screen on the monitor it sits on, and comes back when you exit.
 
+**Bring widget to front every** accepts a number of seconds, including decimals
+(0.1–3600; 1 by default). It restores the bar above the taskbar without
+stealing keyboard focus or changing the usage refresh interval. Full-screen
+visibility is still checked every second, regardless of this setting.
+
 #### Colors
 
 Orange for Claude, blue for Codex — click the color chip next to either tool in

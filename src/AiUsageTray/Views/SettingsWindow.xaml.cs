@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -33,6 +34,10 @@ public partial class SettingsWindow : Window
 
     /// <summary>고를 수 있는 새로고침 주기(초). 0은 자동 갱신 없음.</summary>
     private static readonly int[] Intervals = { 60, 300, 600, 1800, 0 };
+
+    /// <summary>최대 10번/초까지만 Z순서를 바꿔 불필요한 Windows 호출을 막는다.</summary>
+    private const double MinWidgetFrontSeconds = 0.1;
+    private const double MaxWidgetFrontSeconds = 3600;
 
     private readonly UpdateChecker? _updates;
 
@@ -133,6 +138,7 @@ public partial class SettingsWindow : Window
         WidgetHeight.Text = _settings.WidgetHeight.ToString();
         WidgetModelsHorizontal.IsChecked = _settings.WidgetModelsHorizontal;
         WidgetHideOnFullScreen.IsChecked = _settings.WidgetHideOnFullScreen;
+        WidgetBringToFrontInput.Text = _settings.WidgetBringToFrontSeconds.ToString(CultureInfo.CurrentCulture);
         WidgetAutoOffset.IsChecked = _settings.WidgetAutoOffset;
         WidgetOffsetX.Text = _settings.WidgetOffsetX.ToString();
         WidgetOffsetY.Text = _settings.WidgetOffsetY.ToString();
@@ -676,6 +682,9 @@ public partial class SettingsWindow : Window
         LblWidgetOrientationHint.Text = Strings.Get("settings.widgetOrientationHint");
         LblWidgetHideOnFullScreen.Text = Strings.Get("settings.widgetHideOnFullScreen");
         LblWidgetHideOnFullScreenHint.Text = Strings.Get("settings.widgetHideOnFullScreenHint");
+        LblWidgetBringToFront.Text = Strings.Get("settings.widgetBringToFront");
+        LblWidgetBringToFrontHint.Text = Strings.Get("settings.widgetBringToFrontHint");
+        LblWidgetBringToFrontUnit.Text = Strings.Get("age.seconds", "");
         LblWidgetMonitor.Text = Strings.Get("settings.widgetMonitor");
         LblWidgetMonitorHint.Text = Strings.Get("settings.widgetMonitorHint");
         LblWidgetAutoOffset.Text = Strings.Get("settings.widgetAutoOffset");
@@ -735,6 +744,32 @@ public partial class SettingsWindow : Window
     {
         foreach (RadioButton chip in IntervalGroup.Children)
             chip.Content = IntervalLabel((int)chip.Tag);
+    }
+
+    /// <summary>입력을 마치기 전에는 임시 문자열을 설정에 저장하지 않는다.</summary>
+    private void OnWidgetBringToFrontCommit(object sender, RoutedEventArgs e)
+    {
+        if (_loading) return;
+
+        string text = WidgetBringToFrontInput.Text.Trim();
+        bool valid = double.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out double seconds)
+            || double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out seconds);
+        if (valid && double.IsFinite(seconds)
+            && seconds >= MinWidgetFrontSeconds && seconds <= MaxWidgetFrontSeconds
+            && seconds != _settings.WidgetBringToFrontSeconds)
+        {
+            _settings.WidgetBringToFrontSeconds = seconds;
+            ApplyNow();
+        }
+        // 잘못된 입력은 현재 유효한 값으로 되돌린다. 0초/NaN은 타이머를 멈추게 한다.
+        WidgetBringToFrontInput.Text = _settings.WidgetBringToFrontSeconds.ToString(CultureInfo.CurrentCulture);
+    }
+
+    private void OnWidgetBringToFrontKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key != System.Windows.Input.Key.Enter) return;
+        e.Handled = true;
+        OnWidgetBringToFrontCommit(sender, e);
     }
 
     /// <summary>0은 자동 갱신 없음, 나머지는 분 단위로.</summary>
@@ -886,6 +921,8 @@ public partial class SettingsWindow : Window
         _settings.WidgetHeight = ParseWidgetDimension(WidgetHeight.Text, 36, 24, 600);
         _settings.WidgetModelsHorizontal = WidgetModelsHorizontal.IsChecked == true;
         _settings.WidgetHideOnFullScreen = WidgetHideOnFullScreen.IsChecked == true;
+        // 이 칸은 입력을 마친 시점에 별도로 저장한다. 다른 설정을 바꾼 순간에
+        // 미완성 소수("0.")를 자동 저장하면 의도하지 않은 간격이 된다.
         _settings.SessionTimeDisplayMode = SessionTimeModeBox.SelectedIndex == 1 ? TimeDisplayMode.ResetAt : TimeDisplayMode.Remaining;
         _settings.WeeklyTimeDisplayMode = WeeklyTimeModeBox.SelectedIndex == 1 ? TimeDisplayMode.ResetAt : TimeDisplayMode.Remaining;
         _settings.SessionTimeFormat = SessionTimeFormat.Text.Trim();
@@ -976,6 +1013,7 @@ public partial class SettingsWindow : Window
         WidgetHeight.Text = _settings.WidgetHeight.ToString();
         WidgetModelsHorizontal.IsChecked = _settings.WidgetModelsHorizontal;
         WidgetHideOnFullScreen.IsChecked = _settings.WidgetHideOnFullScreen;
+        WidgetBringToFrontInput.Text = _settings.WidgetBringToFrontSeconds.ToString(CultureInfo.CurrentCulture);
         WidgetAutoOffset.IsChecked = _settings.WidgetAutoOffset;
         WidgetOffsetX.Text = _settings.WidgetOffsetX.ToString();
         WidgetOffsetY.Text = _settings.WidgetOffsetY.ToString();

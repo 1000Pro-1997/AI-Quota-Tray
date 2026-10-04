@@ -77,6 +77,9 @@ public sealed class AppSettings
     /// </summary>
     public bool WidgetHideOnFullScreen { get; set; } = true;
 
+    /// <summary>위젯 Z순서를 다시 올리는 간격(초). 전체화면 감시는 별도로 1초마다 한다.</summary>
+    public double WidgetBringToFrontSeconds { get; set; } = 1;
+
     public bool WidgetShowPercent { get; set; } = true;
     public bool WidgetShowResetTime { get; set; } = true;
     public int WidgetPercentFontSize { get; set; } = 11;
@@ -221,6 +224,7 @@ public sealed class AppSettings
         WidgetHeight = fresh.WidgetHeight;
         WidgetModelsHorizontal = fresh.WidgetModelsHorizontal;
         WidgetHideOnFullScreen = fresh.WidgetHideOnFullScreen;
+        WidgetBringToFrontSeconds = fresh.WidgetBringToFrontSeconds;
         WidgetShowPercent = fresh.WidgetShowPercent;
         WidgetShowResetTime = fresh.WidgetShowResetTime;
         WidgetPercentFontSize = fresh.WidgetPercentFontSize;
@@ -271,6 +275,8 @@ public sealed class AppSettings
                     if (loaded.RefreshIntervalSeconds < 30) loaded.RefreshIntervalSeconds = 30;
                     loaded.WidgetWidth = Math.Clamp(loaded.WidgetWidth, 80, 1200);
                     loaded.WidgetHeight = Math.Clamp(loaded.WidgetHeight, 24, 600);
+                    loaded.WidgetBringToFrontSeconds = double.IsFinite(loaded.WidgetBringToFrontSeconds)
+                        ? Math.Clamp(loaded.WidgetBringToFrontSeconds, 0.1, 3600) : 1;
                     loaded.WidgetPercentFontSize = Math.Clamp(loaded.WidgetPercentFontSize, 6, 30);
                     loaded.WidgetResetTimeFontSize = Math.Clamp(loaded.WidgetResetTimeFontSize, 6, 30);
                     loaded.SessionTimeMaxParts = Math.Clamp(loaded.SessionTimeMaxParts, 1, 4);

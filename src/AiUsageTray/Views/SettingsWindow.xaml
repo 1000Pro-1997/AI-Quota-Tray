@@ -1012,6 +1012,22 @@
                                   Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
                     </Grid>
 
+                    <Border Style="{StaticResource RowDivider}"/>
+                    <Grid Margin="0,7,0,7">
+                        <StackPanel VerticalAlignment="Center" Margin="0,0,112,0">
+                            <TextBlock x:Name="LblWidgetBringToFront" Style="{StaticResource RowTitle}"/>
+                            <TextBlock x:Name="LblWidgetBringToFrontHint" Style="{StaticResource RowHint}"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <TextBox x:Name="WidgetBringToFrontInput" Style="{StaticResource CompactNumberBox}"
+                                     Width="66" TextAlignment="Right"
+                                     LostFocus="OnWidgetBringToFrontCommit"
+                                     KeyDown="OnWidgetBringToFrontKeyDown"/>
+                            <TextBlock x:Name="LblWidgetBringToFrontUnit" Style="{StaticResource RowHint}"
+                                       Margin="4,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Grid>
+
                     <Border x:Name="WidgetMonitorDivider" Style="{StaticResource RowDivider}"/>
                     <Grid x:Name="WidgetMonitorRow" Margin="0,7,0,7">
                         <StackPanel VerticalAlignment="Center" Margin="0,0,190,0">
