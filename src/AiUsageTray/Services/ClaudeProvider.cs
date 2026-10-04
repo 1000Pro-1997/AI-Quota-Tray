@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
@@ -27,6 +28,12 @@ public sealed class ClaudeProvider : IUsageProvider
 
     /// <summary>429를 받으면 이 시각까지는 서버를 다시 부르지 않는다.</summary>
     private DateTime _blockedUntil = DateTime.MinValue;
+
+    /// <summary>
+    /// 마지막 OAuth 응답의 추가 사용량. statusLine에는 이 값이 없어서,
+    /// 그쪽 값을 쓸 때도 사라지지 않도록 덧붙이는 데 쓴다.
+    /// </summary>
+    private UsageWindow? _lastExtra;
 
     public string Name => "Claude";
 
@@ -60,7 +67,7 @@ public sealed class ClaudeProvider : IUsageProvider
         // Claude Code가 방금 실제 응답에서 받은 값이 가장 최신이다.
         // 없거나 오래됐으면 아래의 기존 OAuth usage 조회를 그대로 사용한다.
         if (ClaudeStatusLineBridge.TryReadFresh(plan) is { } bridged)
-            return bridged;
+            return WithExtra(bridged);
 
         // Claude Code는 로그아웃할 때 파일을 지우지 않고 토큰만 비워 둔다.
         if (string.IsNullOrEmpty(token))
@@ -198,12 +205,46 @@ public sealed class ClaudeProvider : IUsageProvider
             AddLegacy(root, "seven_day", WindowKind.Weekly, windows);
         }
 
+        // 추가 사용량은 limits에 들어오지 않고 별도 필드로만 온다.
+        _lastExtra = ReadExtra(root);
+        if (_lastExtra is not null) windows.Add(_lastExtra);
+
         return new ProviderUsage
         {
             Provider = Name,
             PlanName = plan,
             Windows = windows,
             LastUpdated = DateTime.Now,
+        };
+    }
+
+    /// <summary>
+    /// 켜 둔 경우에만 보여준다. 꺼 둔 계정에 바를 그리면 쓸 수 없는 한도가
+    /// 있는 것처럼 보인다. 리셋 시각은 응답에 없다 (청구 주기 기준이라
+    /// 달력 월말로 추정하면 틀릴 수 있어 비워 둔다).
+    /// </summary>
+    private static UsageWindow? ReadExtra(JsonElement root)
+    {
+        if (!root.TryGetProperty("extra_usage", out var el) || el.ValueKind != JsonValueKind.Object)
+            return null;
+        if (!el.TryGetProperty("is_enabled", out var on) || on.ValueKind != JsonValueKind.True)
+            return null;
+        if (!el.TryGetProperty("utilization", out var u) || u.ValueKind != JsonValueKind.Number)
+            return null;
+
+        return new UsageWindow { Kind = WindowKind.Extra, Percent = u.GetDouble() };
+    }
+
+    private ProviderUsage WithExtra(ProviderUsage u)
+    {
+        if (_lastExtra is null) return u;
+        return new ProviderUsage
+        {
+            Provider = u.Provider,
+            PlanName = u.PlanName,
+            Windows = u.Windows.Append(_lastExtra).ToList(),
+            Tokens = u.Tokens,
+            LastUpdated = u.LastUpdated,
         };
     }
 

@@ -447,8 +447,8 @@ public partial class WidgetBarWindow : Window
         var session = u.Windows.FirstOrDefault(w => w.Kind == WindowKind.Session);
         var weekly = u.Windows.FirstOrDefault(w => w.Kind == WindowKind.Weekly);
 
-        // 어느 쪽에도 속하지 않는 한도는 뒤에 덧붙인다.
-        var others = u.Windows.Where(w => w.Kind == WindowKind.Other).ToList();
+        // 어느 쪽에도 속하지 않는 한도와 추가 사용량은 뒤에 덧붙인다.
+        var others = u.Windows.Where(w => w.Kind is WindowKind.Other or WindowKind.Extra).ToList();
 
         // 위 칸: 세션. 없으면 빈 자리로 남겨 주간이 아래에 오게 한다.
         if (session is not null)

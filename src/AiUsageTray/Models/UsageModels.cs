@@ -18,6 +18,12 @@ public enum WindowKind
 
     /// <summary>둘 중 어느 쪽도 아닌 것.</summary>
     Other,
+
+    /// <summary>
+    /// 요금제 한도를 넘긴 뒤 쓰는 유료 추가 사용량(Claude extra usage).
+    /// 캐시가 숫자로 저장하므로 기존 값 뒤에 붙인다.
+    /// </summary>
+    Extra,
 }
 
 /// <summary>한도 창(window) 하나의 사용 현황.</summary>
@@ -40,6 +46,7 @@ public sealed class UsageWindow
     {
         WindowKind.Session => Strings.Get("window.session"),
         WindowKind.Weekly => Strings.Get("window.weekly"),
+        WindowKind.Extra => Strings.Get("window.extra"),
         _ => string.IsNullOrEmpty(RawLabel) ? Strings.Get("window.usage") : RawLabel,
     };
 
@@ -148,14 +155,18 @@ public sealed class ProviderUsage
         IsStale = true,
     };
 
-    /// <summary>가장 압박이 심한 창의 사용률. 트레이 아이콘 색상 결정에 사용.</summary>
+    /// <summary>
+    /// 가장 압박이 심한 창의 사용률. 트레이 아이콘 색상 결정에 사용.
+    /// 추가 사용량은 요금제 한도가 찬 뒤에야 쓰이는 별도 지출 상한이라 뺀다.
+    /// 넣으면 세션·주간이 여유로워도 월 지출만으로 아이콘이 경고색이 된다.
+    /// </summary>
     public double PeakPercent
     {
         get
         {
             double peak = 0;
             foreach (var w in Windows)
-                if (w.Percent > peak) peak = w.Percent;
+                if (w.Kind != WindowKind.Extra && w.Percent > peak) peak = w.Percent;
             return peak;
         }
     }

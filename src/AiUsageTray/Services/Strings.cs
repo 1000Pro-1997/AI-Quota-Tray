@@ -145,6 +145,7 @@ public static class Strings
             ["window.weeklyOpus"] = "Weekly Opus",
             ["window.weeklySonnet"] = "Weekly Sonnet",
             ["window.usage"] = "Usage",
+            ["window.extra"] = "Extra usage",
 
             // 수치 표기
             ["value.remaining"] = "{0}% left",
@@ -361,6 +362,7 @@ public static class Strings
             ["window.weeklyOpus"] = "주간 Opus",
             ["window.weeklySonnet"] = "주간 Sonnet",
             ["window.usage"] = "사용량",
+            ["window.extra"] = "추가 사용량",
 
             ["value.remaining"] = "{0}% 남음",
             ["value.used"] = "{0}% 사용",
@@ -567,6 +569,7 @@ public static class Strings
             ["window.weeklyOpus"] = "週間 Opus",
             ["window.weeklySonnet"] = "週間 Sonnet",
             ["window.usage"] = "使用量",
+            ["window.extra"] = "追加使用量",
 
             ["value.remaining"] = "残り {0}%",
             ["value.used"] = "{0}% 使用",
@@ -748,6 +751,7 @@ public static class Strings
             ["window.weeklyOpus"] = "每周 Opus",
             ["window.weeklySonnet"] = "每周 Sonnet",
             ["window.usage"] = "用量",
+            ["window.extra"] = "额外用量",
 
             ["value.remaining"] = "剩余 {0}%",
             ["value.used"] = "已用 {0}%",
@@ -929,6 +933,7 @@ public static class Strings
             ["window.weeklyOpus"] = "每週 Opus",
             ["window.weeklySonnet"] = "每週 Sonnet",
             ["window.usage"] = "用量",
+            ["window.extra"] = "額外用量",
 
             ["value.remaining"] = "剩餘 {0}%",
             ["value.used"] = "已用 {0}%",
@@ -1110,6 +1115,7 @@ public static class Strings
             ["window.weeklyOpus"] = "Semanal Opus",
             ["window.weeklySonnet"] = "Semanal Sonnet",
             ["window.usage"] = "Uso",
+            ["window.extra"] = "Uso adicional",
 
             ["value.remaining"] = "{0}% restante",
             ["value.used"] = "{0}% usado",
@@ -1291,6 +1297,7 @@ public static class Strings
             ["window.weeklyOpus"] = "Semanal Opus",
             ["window.weeklySonnet"] = "Semanal Sonnet",
             ["window.usage"] = "Uso",
+            ["window.extra"] = "Uso adicional",
 
             ["value.remaining"] = "{0}% restante",
             ["value.used"] = "{0}% usado",
@@ -1472,6 +1479,7 @@ public static class Strings
             ["window.weeklyOpus"] = "Wöchentlich Opus",
             ["window.weeklySonnet"] = "Wöchentlich Sonnet",
             ["window.usage"] = "Nutzung",
+            ["window.extra"] = "Zusatznutzung",
 
             ["value.remaining"] = "{0}% übrig",
             ["value.used"] = "{0}% genutzt",
@@ -1653,6 +1661,7 @@ public static class Strings
             ["window.weeklyOpus"] = "Hebdomadaire Opus",
             ["window.weeklySonnet"] = "Hebdomadaire Sonnet",
             ["window.usage"] = "Utilisation",
+            ["window.extra"] = "Utilisation supplémentaire",
 
             ["value.remaining"] = "{0}% restant",
             ["value.used"] = "{0}% utilisé",
@@ -1834,6 +1843,7 @@ public static class Strings
             ["window.weeklyOpus"] = "Неделя Opus",
             ["window.weeklySonnet"] = "Неделя Sonnet",
             ["window.usage"] = "Использование",
+            ["window.extra"] = "Доп. использование",
 
             ["value.remaining"] = "осталось {0}%",
             ["value.used"] = "использовано {0}%",
