@@ -258,6 +258,10 @@ option creates its own Windows wake task, so sleeping or hibernating PCs can wak
 at the scheduled time. All options are off by default because each request
 consumes a small amount of quota.
 
+The request is only `hi`: Claude uses Haiku at low effort; Codex uses
+GPT-6 Luna with reasoning disabled. The app waits for the request to finish
+before treating a new window as started.
+
 Claude's weekly reset currently does not need a priming request, but the option is
 available in case the policy changes. Codex's 5-hour option is also retained while
 that limit is temporarily not applied. If the PC sleeps through a scheduled time,

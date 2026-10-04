@@ -207,16 +207,29 @@ public sealed class WindowPrimer : IDisposable
                 RedirectStandardOutput = true, RedirectStandardError = true,
             };
             string[] args = provider == "Claude"
-                ? new[] { "--bg", "--safe-mode", "--no-chrome", "--tools", "", "--effort", "low", "--permission-mode", "plan", "--name", "AI Quota Tray window start", "Reply with OK only. Do not use tools." }
-                : new[] { "exec", "--ephemeral", "--ignore-user-config", "--skip-git-repo-check", "--sandbox", "read-only", "-c", "model_reasoning_effort=\"low\"", "Reply with OK only. Do not use tools." };
+                ? new[] { "--print", "--no-session-persistence", "--safe-mode", "--no-chrome",
+                    "--tools", "", "--model", "haiku", "--effort", "low",
+                    "--permission-mode", "plan", "hi" }
+                : new[] { "exec", "--ephemeral", "--ignore-user-config", "--skip-git-repo-check",
+                    "--sandbox", "read-only", "--model", "gpt-6-luna",
+                    "-c", "model_reasoning_effort=\"none\"", "hi" };
             foreach (string arg in args) start.ArgumentList.Add(arg);
             using var process = Process.Start(start);
             if (process is null) return false;
             Task stdout = process.StandardOutput.ReadToEndAsync();
             Task stderr = process.StandardError.ReadToEndAsync();
             using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(3));
-            await process.WaitForExitAsync(timeout.Token).ConfigureAwait(false);
-            await Task.WhenAll(stdout, stderr).ConfigureAwait(false);
+            try
+            {
+                await process.WaitForExitAsync(timeout.Token).ConfigureAwait(false);
+                await Task.WhenAll(stdout, stderr).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                // 요청 시간이 지나도 자식 CLI가 계속 토큰을 쓰지 않도록 종료한다.
+                try { process.Kill(entireProcessTree: true); } catch (InvalidOperationException) { }
+                return false;
+            }
             return process.ExitCode == 0;
         }
         catch { return false; }
