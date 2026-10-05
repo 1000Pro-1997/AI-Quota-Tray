@@ -199,9 +199,19 @@ public partial class FlyoutWindow : Window
     {
         _updateTag = tag;
         UpdateButton.Visibility = tag is null ? Visibility.Collapsed : Visibility.Visible;
-        UpdateButton.Content = Strings.Get("popup.update");
+        UpdateButton.Content = _updateProgress ?? Strings.Get("popup.update");
+        UpdateButton.IsEnabled = _updateProgress is null;
         UpdateButton.ToolTip = tag is null ? null : Strings.Get("update.available", tag.TrimStart('v', 'V'));
     }
+
+    /// <summary>받는 중이면 버튼 글자를 진행 상황으로 바꾸고 다시 누르지 못하게 한다. null이면 원래대로.</summary>
+    public void SetUpdateProgress(string? text)
+    {
+        _updateProgress = text;
+        ShowUpdate(_updateTag);
+    }
+
+    private string? _updateProgress;
 
     public void SetBusy(bool busy)
     {
@@ -1049,10 +1059,7 @@ public partial class FlyoutWindow : Window
         SettingsRequested?.Invoke();
     }
 
-    private void OnUpdateClick(object sender, RoutedEventArgs e)
-    {
-        Hide();
-        UpdateRequested?.Invoke();
-    }
+    // 진행률을 이 버튼에서 보여주므로 팝업은 닫지 않는다.
+    private void OnUpdateClick(object sender, RoutedEventArgs e) => UpdateRequested?.Invoke();
 
 }

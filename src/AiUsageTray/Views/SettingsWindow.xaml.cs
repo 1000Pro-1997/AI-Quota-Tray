@@ -414,12 +414,6 @@ public partial class SettingsWindow : Window
         }
     }
 
-    /// <summary>팝업의 업데이트 버튼이 부른다. 진행률이 이 창의 버튼에 보이도록 같은 흐름을 탄다.</summary>
-    public void StartUpdate()
-    {
-        if (UpdateButton.IsEnabled) OnUpdateClick(UpdateButton, new RoutedEventArgs());
-    }
-
     /// <summary>
     /// 버튼 하나가 상태에 따라 세 가지 일을 한다.
     /// 확인 → 내려받기 → 재시작. 사용자가 다음에 할 일만 보이게 하려는 것이다.

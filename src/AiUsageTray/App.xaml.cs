@@ -158,7 +158,9 @@ public partial class App : Application
             // 이미 받아 둔 것이 있으면 두 번 받지 않는다.
             if (UpdateDownloader.PendingReady) return;
 
-            await downloader.DownloadAsync(info, progress: null);
+            _stagingDownload = downloader.DownloadAsync(info, progress: null);
+            try { await _stagingDownload; }
+            finally { _stagingDownload = null; }
         }
         catch
         {
@@ -588,14 +590,74 @@ public partial class App : Application
     }
 
     /// <summary>
-    /// 진행률과 재시작 처리는 설정 창의 업데이트 버튼에 이미 있다. 같은 흐름을 두 벌
-    /// 두지 않으려고 설정 창을 열어 그 버튼을 대신 누른다.
+    /// 설정 창을 띄우지 않고 팝업에서 바로 받아 갈아끼운다. 진행률은 팝업의 버튼 글자로
+    /// 보여준다. 버튼을 누른 것 자체가 동의라 다 받으면 묻지 않고 재시작한다.
     /// </summary>
-    private void StartUpdateFromFlyout()
+    private async void StartUpdateFromFlyout()
     {
-        OpenSettings();
-        _settingsWindow?.StartUpdate();
+        if (_updatingFromFlyout) return;
+        _updatingFromFlyout = true;
+        try
+        {
+            // 켤 때 시작한 배경 내려받기가 아직 돌고 있으면 같은 파일을 두 번 쓰지 않게 기다린다.
+            if (_stagingDownload is { } staging)
+            {
+                _flyout.SetUpdateProgress(Strings.Get("update.checking"));
+                try { await staging; } catch { }
+            }
+
+            // 이미 받아 둔 것이 있으면 남은 일은 재시작뿐이다.
+            if (!(UpdateDownloader.PendingReady && UpdateDownloader.LauncherInstalled))
+            {
+                // 찾은 뒤 확인이 네트워크 오류로 덮였을 수 있다. 받을 주소가 필요하니 다시 묻는다.
+                var info = _updates.Last is { HasUpdate: true } known ? known : await _updates.CheckAsync();
+                if (!info.HasUpdate) return;
+
+                // 릴리스에 받을 파일이 없으면 손으로 받게 한다.
+                if (!info.CanDownload)
+                {
+                    OpenUrl(info.PageUrl);
+                    return;
+                }
+
+                var downloader = new UpdateDownloader(new HttpClient
+                {
+                    // 자립형 exe는 75MB쯤 된다. 기본 100초로는 느린 회선에서 끊긴다.
+                    Timeout = TimeSpan.FromMinutes(10),
+                });
+                _flyout.SetUpdateProgress(Strings.Get("update.downloading", 0));
+
+                // 교체를 맡을 런처가 없으면 먼저 갖춘다. 2MB라 금방 끝난다.
+                await downloader.EnsureLauncherAsync(info);
+                await downloader.DownloadAsync(info, new Progress<DownloadProgress>(p =>
+                    _flyout.SetUpdateProgress(Strings.Get("update.downloading", (int)p.Percent))));
+            }
+
+            _flyout.SetUpdateProgress(Strings.Get("update.restarting"));
+            if (UpdateDownloader.RestartToApply())
+            {
+                Shutdown();
+                return;
+            }
+
+            // 런처를 못 띄웠다. 받아 둔 것은 다음 실행에 적용되니 릴리스 페이지만 열어 둔다.
+            if (_updates.Last is { PageUrl.Length: > 0 } page) OpenUrl(page.PageUrl);
+        }
+        catch
+        {
+            // 내려받기·검증 실패. 버튼을 원래대로 돌려 다시 누를 수 있게 한다.
+        }
+        finally
+        {
+            _updatingFromFlyout = false;
+            _flyout.SetUpdateProgress(null);
+        }
     }
+
+    private bool _updatingFromFlyout;
+
+    /// <summary>켤 때 자동 업데이트가 배경에서 받는 중인 작업. 팝업에서 누르면 이것부터 기다린다.</summary>
+    private Task? _stagingDownload;
 
     private void OnUsageUpdated(IReadOnlyList<ProviderUsage> usages)
     {

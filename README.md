@@ -226,7 +226,8 @@ The current version sits at the bottom. The app checks GitHub Releases each time
 starts, and again in the background when you open the popup (at most every 5
 minutes, to stay under GitHub's rate limit). Once a newer version is found, an
 **Update** button appears next to the settings gear in the popup and the app stops
-asking. Pressing it opens Settings and starts the same update described below.
+asking. Pressing it updates right there — the button shows download progress,
+then the app restarts into the new version. Settings does not open.
 On multi-monitor systems, Settings also lets you choose which display hosts the
 widget bar. A GitHub shortcut opens the project homepage directly.
 
