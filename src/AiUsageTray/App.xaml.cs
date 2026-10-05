@@ -135,7 +135,9 @@ public partial class App : Application
             // 앱을 켠 횟수를 넘지 않는다. 시간당 60회인 GitHub 제한에 닿을 일이
             // 없으니, 간격을 두어 "새 판이 나왔는데 오늘은 안 알려주는" 날을
             // 만드는 편이 손해였다.
+            _lastUpdateCheckOnOpen = DateTime.Now;
             await _updates.CheckAsync();
+            SyncUpdateButton();
 
             if (_updates.Last is not { Error: null } info) return;
 
@@ -172,6 +174,7 @@ public partial class App : Application
         _flyout = new FlyoutWindow();
         _flyout.RefreshRequested += () => _ = _monitor.RefreshAsync(force: true);
         _flyout.SettingsRequested += OpenSettings;
+        _flyout.UpdateRequested += StartUpdateFromFlyout;
         _flyout.ResetConsumer = _monitor.ConsumeCodexResetAsync;
         _flyout.WidgetBarToggled += enabled =>
         {
@@ -419,10 +422,64 @@ public partial class App : Application
 
         // 값이 오래됐을 때만 다시 가져온다. 연달아 열어도 서버를 두드리지 않는다.
         _ = _monitor.RefreshAsync();
+        _ = CheckUpdateOnOpenAsync();
     }
 
     /// <summary>이 시간 안에 닫힌 팝업은 같은 클릭으로 닫힌 것으로 본다.</summary>
     private static readonly TimeSpan FlyoutReopenGuard = TimeSpan.FromMilliseconds(250);
+
+    /// <summary>
+    /// 팝업을 열 때 새 버전을 묻는 최소 간격. GitHub API는 인증 없이 시간당 60회라
+    /// 팝업을 자주 여닫으면 금세 막히고, 그러면 설정 창의 확인 버튼까지 실패한다.
+    /// </summary>
+    private static readonly TimeSpan UpdateCheckOnOpenGap = TimeSpan.FromMinutes(5);
+    private DateTime _lastUpdateCheckOnOpen = DateTime.MinValue;
+    private bool _checkingUpdateOnOpen;
+
+    /// <summary>
+    /// 한 번 찾은 새 버전 태그. 그 뒤 확인이 네트워크 오류로 실패해도 새 버전이
+    /// 사라진 것은 아니므로 버튼을 거두지 않는다. 찾은 뒤로는 다시 묻지도 않는다.
+    /// </summary>
+    private string? _foundUpdateTag;
+
+    /// <summary>팝업을 열 때마다 배경에서 새 버전을 확인해 헤더에 업데이트 버튼을 띄운다.</summary>
+    private async Task CheckUpdateOnOpenAsync()
+    {
+        if (_foundUpdateTag is not null || _checkingUpdateOnOpen) return;
+        if (DateTime.Now - _lastUpdateCheckOnOpen < UpdateCheckOnOpenGap) return;
+
+        _checkingUpdateOnOpen = true;
+        _lastUpdateCheckOnOpen = DateTime.Now;
+        try
+        {
+            await _updates.CheckAsync();
+        }
+        catch
+        {
+            // 확인 실패는 버튼을 띄우지 않는 것으로 충분하다. 다음에 열 때 다시 묻는다.
+        }
+        finally
+        {
+            _checkingUpdateOnOpen = false;
+        }
+        SyncUpdateButton();
+    }
+
+    private void SyncUpdateButton()
+    {
+        if (_updates.Last is { HasUpdate: true } info) _foundUpdateTag ??= info.TagName;
+        _flyout.ShowUpdate(_foundUpdateTag);
+    }
+
+    /// <summary>
+    /// 진행률과 재시작 처리는 설정 창의 업데이트 버튼에 이미 있다. 같은 흐름을 두 벌
+    /// 두지 않으려고 설정 창을 열어 그 버튼을 대신 누른다.
+    /// </summary>
+    private void StartUpdateFromFlyout()
+    {
+        OpenSettings();
+        _settingsWindow?.StartUpdate();
+    }
 
     private void OnUsageUpdated(IReadOnlyList<ProviderUsage> usages)
     {

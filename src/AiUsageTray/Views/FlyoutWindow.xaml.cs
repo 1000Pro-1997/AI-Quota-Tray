@@ -45,7 +45,11 @@ public partial class FlyoutWindow : Window
 
     public event Action? RefreshRequested;
     public event Action? SettingsRequested;
+    public event Action? UpdateRequested;
     public event Action<bool>? WidgetBarToggled;
+
+    /// <summary>찾아 둔 새 버전 태그. 없으면 null이고 버튼은 숨는다.</summary>
+    private string? _updateTag;
 
     public bool WidgetBarEnabled
     {
@@ -187,6 +191,16 @@ public partial class FlyoutWindow : Window
         TitleText.Text = Strings.Get("app.name");
         RefreshButton.ToolTip = Strings.Get("tip.refresh");
         SettingsButton.ToolTip = Strings.Get("tip.settings");
+        ShowUpdate(_updateTag);
+    }
+
+    /// <summary>새 버전이 있으면 설정 톱니 옆에 업데이트 버튼을 띄운다. null이면 숨긴다.</summary>
+    public void ShowUpdate(string? tag)
+    {
+        _updateTag = tag;
+        UpdateButton.Visibility = tag is null ? Visibility.Collapsed : Visibility.Visible;
+        UpdateButton.Content = Strings.Get("popup.update");
+        UpdateButton.ToolTip = tag is null ? null : Strings.Get("update.available", tag.TrimStart('v', 'V'));
     }
 
     public void SetBusy(bool busy)
@@ -1033,6 +1047,12 @@ public partial class FlyoutWindow : Window
     {
         Hide();
         SettingsRequested?.Invoke();
+    }
+
+    private void OnUpdateClick(object sender, RoutedEventArgs e)
+    {
+        Hide();
+        UpdateRequested?.Invoke();
     }
 
 }

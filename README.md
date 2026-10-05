@@ -216,7 +216,11 @@ minute. The countdown is recalculated locally, so it keeps moving between refres
 Changes apply the moment you make them — there is no Save button. **AllReset**
 returns everything to defaults.
 
-The current version sits at the bottom. The app checks GitHub Releases once a day.
+The current version sits at the bottom. The app checks GitHub Releases each time it
+starts, and again in the background when you open the popup (at most every 5
+minutes, to stay under GitHub's rate limit). Once a newer version is found, an
+**Update** button appears next to the settings gear in the popup and the app stops
+asking. Pressing it opens Settings and starts the same update described below.
 On multi-monitor systems, Settings also lets you choose which display hosts the
 widget bar. A GitHub shortcut opens the project homepage directly.
 

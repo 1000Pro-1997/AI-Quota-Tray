@@ -108,6 +108,34 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- 새 버전이 있을 때만 보이는 알약 버튼. 놓치지 않게 강조색으로 채운다. -->
+        <Style x:Key="UpdatePill" TargetType="Button">
+            <Setter Property="Height" Value="20"/>
+            <Setter Property="Padding" Value="8,0"/>
+            <Setter Property="FontSize" Value="10.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="{DynamicResource AccentBrush}"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
+                                CornerRadius="10" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.85"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <!-- 그림자를 위해 여백을 두고 그 안에 판을 그린다. 도구 카드는 이 위에 얹힌다. -->
@@ -152,6 +180,8 @@
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <TextBlock x:Name="StatusText" VerticalAlignment="Center"
                                FontSize="11" Foreground="{DynamicResource SubtleBrush}"/>
+                    <Button x:Name="UpdateButton" Style="{StaticResource UpdatePill}"
+                            Margin="6,0,0,0" Visibility="Collapsed" Click="OnUpdateClick"/>
                     <Button x:Name="SettingsButton" Style="{StaticResource IconButton}"
                             Margin="6,0,0,0" Click="OnSettingsClick">
                         <!-- 6개 돌기가 있는 톱니바퀴. 가운데는 뚫린 링. -->
