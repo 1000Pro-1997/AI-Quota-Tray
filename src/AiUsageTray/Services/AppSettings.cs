@@ -58,6 +58,14 @@ public sealed class AppSettings
     /// </summary>
     public bool CodexAutoRefreshLogin { get; set; } = true;
 
+    /// <summary>팝업의 Codex 초기화권 목록과 그 만료 표시. 모두 기본으로 보인다.</summary>
+    public bool ShowResetCredits { get; set; } = true;
+    public bool ShowResetCreditDate { get; set; } = true;
+    public bool ShowResetCreditTimeLeft { get; set; } = true;
+
+    /// <summary>만료가 일주일 안이면 노랑, 3일 안이면 빨강으로 칠한다.</summary>
+    public bool ResetCreditExpiryColors { get; set; } = true;
+
     /// <summary>이전 버전 설정을 읽기 위한 호환 필드. 새 UI에서는 사용하지 않는다.</summary>
     [Obsolete("Use the provider-specific primer settings.")]
     public bool KeepFiveHourWindowsAligned { get; set; }
@@ -222,6 +230,10 @@ public sealed class AppSettings
         CodexPrimeFiveHour = fresh.CodexPrimeFiveHour;
         CodexPrimeWeekly = fresh.CodexPrimeWeekly;
         CodexAutoRefreshLogin = fresh.CodexAutoRefreshLogin;
+        ShowResetCredits = fresh.ShowResetCredits;
+        ShowResetCreditDate = fresh.ShowResetCreditDate;
+        ShowResetCreditTimeLeft = fresh.ShowResetCreditTimeLeft;
+        ResetCreditExpiryColors = fresh.ResetCreditExpiryColors;
 #pragma warning disable CS0618
         KeepFiveHourWindowsAligned = fresh.KeepFiveHourWindowsAligned;
 #pragma warning restore CS0618

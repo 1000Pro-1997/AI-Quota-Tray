@@ -22,6 +22,12 @@ public partial class FlyoutWindow : Window
     public Func<UsageWindow, string>? TimeFormatter { get; set; }
     public Func<UsageWindow, bool>? SecondDisplayResolver { get; set; }
 
+    /// <summary>Codex 초기화권 목록과 그 만료 표시를 각각 켜고 끈다. 설정에서 바뀐다.</summary>
+    public bool ShowResetCredits { get; set; } = true;
+    public bool ShowResetCreditDate { get; set; } = true;
+    public bool ShowResetCreditTimeLeft { get; set; } = true;
+    public bool ResetCreditExpiryColors { get; set; } = true;
+
     /// <summary>공급자 이름 → 진행률 바 색(#RRGGBB)을 돌려준다.</summary>
     public Func<string, string>? ColorResolver { get; set; }
 
@@ -445,7 +451,7 @@ public partial class FlyoutWindow : Window
         foreach (var w in u.Windows)
             panel.Children.Add(BuildWindowRow(w, barBrush));
 
-        if (u.ResetCredits.Count > 0 || _resetMessage is not null && u.Provider == "Codex")
+        if (ShowResetCredits && (u.ResetCredits.Count > 0 || _resetMessage is not null && u.Provider == "Codex"))
             panel.Children.Add(BuildResetSection(u.ResetCredits));
 
         // 갱신하지 못한 이유가 있으면 수치 아래에 덧붙인다.
@@ -584,22 +590,26 @@ public partial class FlyoutWindow : Window
             TextTrimming = TextTrimming.CharacterEllipsis,
             Foreground = (Brush)Resources["TextBrush"],
         });
+        var expiryParts = new List<string>();
         if (credit.ExpiresAt is { } expires)
         {
+            if (ShowResetCreditDate) expiryParts.Add(Strings.Get("reset.expires", expires));
+            // 날짜만으로는 며칠 남았는지 셈해야 해서 남은 시간을 붙인다.
+            if (ShowResetCreditTimeLeft) expiryParts.Add(Strings.Get("reset.left", FormatLeft(expires - DateTime.Now)));
+        }
+        if (expiryParts.Count > 0)
+        {
+            var left = credit.ExpiresAt!.Value - DateTime.Now;
             text.Children.Add(new TextBlock
             {
-                // 날짜만으로는 며칠 남았는지 셈해야 해서 남은 시간을 붙인다.
-                Text = Strings.Get("reset.expires", expires) + " · " +
-                       Strings.Get("reset.left", FormatLeft(expires - DateTime.Now)),
+                Text = string.Join(" · ", expiryParts),
                 FontSize = 10.5,
                 Margin = new Thickness(0, 1, 0, 0),
                 // 곧 사라질 초기화권은 놓치기 쉬우니 일주일 안이면 노랗게, 3일 안이면 빨갛게.
-                Foreground = (expires - DateTime.Now) switch
-                {
-                    var left when left < TimeSpan.FromDays(3) => (Brush)Resources["DangerBrush"],
-                    var left when left < TimeSpan.FromDays(7) => (Brush)Resources["CautionBrush"],
-                    _ => (Brush)Resources["SubtleBrush"],
-                },
+                Foreground = !ResetCreditExpiryColors ? (Brush)Resources["SubtleBrush"]
+                    : left < TimeSpan.FromDays(3) ? (Brush)Resources["DangerBrush"]
+                    : left < TimeSpan.FromDays(7) ? (Brush)Resources["CautionBrush"]
+                    : (Brush)Resources["SubtleBrush"],
             });
         }
 

@@ -52,7 +52,9 @@ blue for Codex, both changeable.
 If your ChatGPT account has **Codex limit reset credits**, the Codex card lists
 them with their expiry date and how long is left (`Expires 10/23 · 17d 9h left`).
 The expiry turns yellow within a week and red within 3 days. **Use reset** asks
-for a second click to confirm, then spends the credit.
+for a second click to confirm, then spends the credit. Settings → Tools → Codex
+details can hide the list, the date, the time left, or the colors (all shown by
+default).
 
 ## Where the data comes from
 
@@ -224,10 +226,12 @@ minute. The countdown is recalculated locally, so it keeps moving between refres
 
 ## Settings
 
-Changes apply the moment you make them — there is no Save button. **AllReset**
-returns everything to defaults.
+Settings is split into four tabs — **Tools** (which tools to track and their
+details), **Display**, **Widget**, and **General** (refresh interval, startup,
+version and updates). Changes apply the moment you make them — there is no Save
+button. **AllReset** returns everything to defaults.
 
-The current version sits at the bottom. The app checks GitHub Releases each time it
+The current version sits in the General tab. The app checks GitHub Releases each time it
 starts, and again in the background every time you open the popup. The popup check
 only peeks at the latest release tag, which does not count against GitHub's API
 rate limit; the full release details are fetched only when the tag is newer. Once

@@ -199,6 +199,10 @@ public partial class App : Application
     {
         _flyout.DisplayMode = _settings.DisplayMode;
         _flyout.TimeFormatter = w => TimeDisplayFormatter.Format(w, _settings, overlay: true);
+        _flyout.ShowResetCredits = _settings.ShowResetCredits;
+        _flyout.ShowResetCreditDate = _settings.ShowResetCreditDate;
+        _flyout.ShowResetCreditTimeLeft = _settings.ShowResetCreditTimeLeft;
+        _flyout.ResetCreditExpiryColors = _settings.ResetCreditExpiryColors;
         _flyout.SecondDisplayResolver = w => TimeDisplayFormatter.ShowsSeconds(w, _settings, overlay: true);
         _flyout.ColorResolver = _settings.ColorFor;
         _flyout.StatusResolver = _monitor.Status.For;

@@ -124,6 +124,10 @@ public partial class SettingsWindow : Window
         CodexPrimeFive.IsChecked = _settings.CodexPrimeFiveHour;
         CodexPrimeWeekly.IsChecked = _settings.CodexPrimeWeekly;
         CodexAutoRefresh.IsChecked = _settings.CodexAutoRefreshLogin;
+        ShowResetCredits.IsChecked = _settings.ShowResetCredits;
+        ShowResetCreditDate.IsChecked = _settings.ShowResetCreditDate;
+        ShowResetCreditTimeLeft.IsChecked = _settings.ShowResetCreditTimeLeft;
+        ResetCreditExpiryColors.IsChecked = _settings.ResetCreditExpiryColors;
         AutoUpdateEnabled.IsChecked = _settings.AutoUpdate;
 
         // 실제 레지스트리 상태를 우선한다. 사용자가 Windows 설정에서
@@ -637,14 +641,33 @@ public partial class SettingsWindow : Window
         ApplyNow();
     }
 
+    /// <summary>
+    /// 고른 탭의 칸만 보이고 나머지는 접는다. '일반'은 동작과 시스템 두 칸을 함께 보인다.
+    /// 탭을 바꾸면 맨 위부터 보여야 어디를 보고 있는지 헷갈리지 않는다.
+    /// </summary>
+    private void OnTabChanged(object sender, RoutedEventArgs e)
+    {
+        // InitializeComponent 중 첫 탭이 체크되며 불린다. 아래 칸들은 아직 만들어지기 전이다.
+        if (PageTools is null || PageSystem is null) return;
+
+        static Visibility Show(bool on) => on ? Visibility.Visible : Visibility.Collapsed;
+        PageTools.Visibility = Show(TabTools.IsChecked == true);
+        PageDisplay.Visibility = Show(TabDisplay.IsChecked == true);
+        PageWidget.Visibility = Show(TabWidget.IsChecked == true);
+        PageBehavior.Visibility = Show(TabGeneral.IsChecked == true);
+        PageSystem.Visibility = Show(TabGeneral.IsChecked == true);
+        Scroller.ScrollToTop();
+    }
+
     /// <summary>현재 언어로 모든 문구를 다시 채운다.</summary>
     private void Retranslate()
     {
         Title = Strings.Get("settings.title");
 
-        LblSectionTools.Text = Strings.Get("settings.sectionTools");
-        LblSectionDisplay.Text = Strings.Get("settings.sectionDisplay");
-        LblSectionWidget.Text = Strings.Get("settings.sectionWidget");
+        LblTabTools.Text = Strings.Get("settings.tabTools");
+        LblTabDisplay.Text = Strings.Get("settings.tabDisplay");
+        LblTabWidget.Text = Strings.Get("settings.tabWidget");
+        LblTabGeneral.Text = Strings.Get("settings.tabGeneral");
         LblSectionBehavior.Text = Strings.Get("settings.sectionBehavior");
 
         ClaudeDetailsToggle.Content = Strings.Get("settings.details");
@@ -703,6 +726,10 @@ public partial class SettingsWindow : Window
         LblCodexPrimeFive.Text = PrimerLabel("settings.primeFive", "settings.codexPrimeFiveHint");
         LblCodexPrimeWeekly.Text = PrimerLabel("settings.primeWeekly", "settings.codexPrimeWeeklyHint");
         LblCodexAutoRefresh.Text = PrimerLabel("settings.codexAutoRefresh", "settings.codexAutoRefreshHint");
+        LblShowResetCredits.Text = Strings.Get("settings.showResetCredits");
+        LblShowResetCreditDate.Text = Strings.Get("settings.showResetCreditDate");
+        LblShowResetCreditTimeLeft.Text = Strings.Get("settings.showResetCreditTimeLeft");
+        LblResetCreditExpiryColors.Text = PrimerLabel("settings.resetCreditColors", "settings.resetCreditColorsHint");
 
         LblSectionSystem.Text = Strings.Get("settings.sectionSystem");
 
@@ -909,6 +936,10 @@ public partial class SettingsWindow : Window
         _settings.CodexPrimeFiveHour = CodexPrimeFive.IsChecked == true;
         _settings.CodexPrimeWeekly = CodexPrimeWeekly.IsChecked == true;
         _settings.CodexAutoRefreshLogin = CodexAutoRefresh.IsChecked == true;
+        _settings.ShowResetCredits = ShowResetCredits.IsChecked == true;
+        _settings.ShowResetCreditDate = ShowResetCreditDate.IsChecked == true;
+        _settings.ShowResetCreditTimeLeft = ShowResetCreditTimeLeft.IsChecked == true;
+        _settings.ResetCreditExpiryColors = ResetCreditExpiryColors.IsChecked == true;
         _settings.AutoUpdate = AutoUpdateEnabled.IsChecked == true;
         ApplyAutoStart(autoStart);
 
@@ -1005,6 +1036,10 @@ public partial class SettingsWindow : Window
         CodexPrimeFive.IsChecked = _settings.CodexPrimeFiveHour;
         CodexPrimeWeekly.IsChecked = _settings.CodexPrimeWeekly;
         CodexAutoRefresh.IsChecked = _settings.CodexAutoRefreshLogin;
+        ShowResetCredits.IsChecked = _settings.ShowResetCredits;
+        ShowResetCreditDate.IsChecked = _settings.ShowResetCreditDate;
+        ShowResetCreditTimeLeft.IsChecked = _settings.ShowResetCreditTimeLeft;
+        ResetCreditExpiryColors.IsChecked = _settings.ResetCreditExpiryColors;
         AutoUpdateEnabled.IsChecked = _settings.AutoUpdate;
         PinToTaskbar.IsChecked = _settings.ShowInTaskbar;
         ShowWidgetBar.IsChecked = _settings.ShowWidgetBar;

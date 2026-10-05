@@ -199,6 +199,57 @@
             <Setter Property="VerticalAlignment" Value="Center"/>
         </Style>
 
+        <!-- 설정 창 맨 위의 탭. 고른 탭은 흰 알약이 떠 있고 아래에 강조색 밑줄이 붙는다. -->
+        <Style x:Key="Tab" TargetType="RadioButton">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="GroupName" Value="SettingsTabs"/>
+            <Setter Property="Foreground" Value="{DynamicResource SubtleBrush}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Chip" CornerRadius="9" Background="Transparent"
+                                Padding="6,7,6,5" Margin="2">
+                            <StackPanel HorizontalAlignment="Center">
+                                <ContentPresenter HorizontalAlignment="Center"/>
+                                <Border x:Name="Underline" Height="2" Width="16" CornerRadius="1"
+                                        Margin="0,3,0,0" Background="{DynamicResource AccentBrush}"
+                                        Visibility="Hidden"/>
+                            </StackPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Chip" Property="Background"
+                                        Value="{DynamicResource HoverBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Chip" Property="Background"
+                                        Value="{DynamicResource CardBrush}"/>
+                                <Setter TargetName="Chip" Property="Effect">
+                                    <Setter.Value>
+                                        <DropShadowEffect BlurRadius="6" ShadowDepth="1"
+                                                          Direction="270" Opacity="0.15"/>
+                                    </Setter.Value>
+                                </Setter>
+                                <Setter TargetName="Underline" Property="Visibility" Value="Visible"/>
+                                <Setter Property="Foreground" Value="{DynamicResource TextBrush}"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 탭 글자. 고른 탭의 굵기·색을 따라간다. -->
+        <Style x:Key="TabText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground"
+                    Value="{Binding Foreground, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+            <Setter Property="FontWeight"
+                    Value="{Binding FontWeight, RelativeSource={RelativeSource AncestorType=RadioButton}}"/>
+        </Style>
+
         <!-- ===== 버튼 ===== -->
 
         <Style x:Key="GhostButton" TargetType="Button">
@@ -659,13 +710,37 @@
 
     <!-- ===================== 본문 ===================== -->
 
-    <Border Background="{DynamicResource WindowBrush}">
+    <Grid Background="{DynamicResource WindowBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- 한 화면에 다 늘어놓으니 너무 길어 성격별로 탭을 나눈다. 스크롤 밖에 두어 늘 보인다. -->
+        <Border Margin="20,13,22,4" CornerRadius="12" Padding="2"
+                Background="{DynamicResource TrackOffBrush}">
+            <UniformGrid Rows="1">
+                <RadioButton x:Name="TabTools" Style="{StaticResource Tab}" IsChecked="True"
+                             Checked="OnTabChanged">
+                    <TextBlock x:Name="LblTabTools" Style="{StaticResource TabText}"/>
+                </RadioButton>
+                <RadioButton x:Name="TabDisplay" Style="{StaticResource Tab}" Checked="OnTabChanged">
+                    <TextBlock x:Name="LblTabDisplay" Style="{StaticResource TabText}"/>
+                </RadioButton>
+                <RadioButton x:Name="TabWidget" Style="{StaticResource Tab}" Checked="OnTabChanged">
+                    <TextBlock x:Name="LblTabWidget" Style="{StaticResource TabText}"/>
+                </RadioButton>
+                <RadioButton x:Name="TabGeneral" Style="{StaticResource Tab}" Checked="OnTabChanged">
+                    <TextBlock x:Name="LblTabGeneral" Style="{StaticResource TabText}"/>
+                </RadioButton>
+            </UniformGrid>
+        </Border>
         <!--
             내용이 화면보다 길어질 수 있다. SizeToContent="Height"만 두면 창이
             작업 표시줄 밖까지 자라 아래쪽 항목에 손이 닿지 않는다. 창 높이는
             코드에서 화면에 맞게 묶고, 넘치는 만큼만 여기서 굴린다.
         -->
-        <ScrollViewer VerticalScrollBarVisibility="Auto"
+        <ScrollViewer x:Name="Scroller" Grid.Row="1" VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Disabled"
                       PanningMode="VerticalOnly">
             <ScrollViewer.Resources>
@@ -698,10 +773,10 @@
                     </Grid>
                 </ControlTemplate>
             </ScrollViewer.Template>
-            <StackPanel Margin="20,13,22,13">
+            <StackPanel Margin="20,9,22,13">
 
             <!-- 도구 -->
-            <TextBlock x:Name="LblSectionTools" Style="{StaticResource SectionLabel}"/>
+            <StackPanel x:Name="PageTools">
             <Border Style="{StaticResource Card}">
                 <StackPanel>
 
@@ -805,6 +880,31 @@
                                       Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
                         </Grid>
                         <Border Style="{StaticResource RowDivider}" Margin="0,3,0,7"/>
+                        <Grid Height="25">
+                            <TextBlock x:Name="LblShowResetCredits" Style="{StaticResource ChildSettingText}"
+                                       Margin="0,0,42,0"/>
+                            <CheckBox x:Name="ShowResetCredits" Style="{StaticResource CompactSwitch}"
+                                      Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
+                        </Grid>
+                        <Grid Height="25">
+                            <TextBlock x:Name="LblShowResetCreditDate" Style="{StaticResource ChildSettingText}"
+                                       Margin="0,0,42,0"/>
+                            <CheckBox x:Name="ShowResetCreditDate" Style="{StaticResource CompactSwitch}"
+                                      Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
+                        </Grid>
+                        <Grid Height="25">
+                            <TextBlock x:Name="LblShowResetCreditTimeLeft" Style="{StaticResource ChildSettingText}"
+                                       Margin="0,0,42,0"/>
+                            <CheckBox x:Name="ShowResetCreditTimeLeft" Style="{StaticResource CompactSwitch}"
+                                      Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
+                        </Grid>
+                        <Grid Height="25">
+                            <TextBlock x:Name="LblResetCreditExpiryColors" Style="{StaticResource ChildSettingText}"
+                                       Margin="0,0,42,0"/>
+                            <CheckBox x:Name="ResetCreditExpiryColors" Style="{StaticResource CompactSwitch}"
+                                      Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
+                        </Grid>
+                        <Border Style="{StaticResource RowDivider}" Margin="0,3,0,7"/>
                         <TextBlock x:Name="LblCodexFolder" Style="{StaticResource ChildSettingText}"
                                    Margin="0,0,0,5"/>
                         <Grid Margin="0,0,0,2">
@@ -823,8 +923,10 @@
 
                 </StackPanel>
             </Border>
+            </StackPanel>
 
-            <!-- 동작 -->
+            <!-- 일반(동작). 시스템 칸과 함께 '일반' 탭에 보인다. -->
+            <StackPanel x:Name="PageBehavior" Visibility="Collapsed">
             <TextBlock x:Name="LblSectionBehavior" Style="{StaticResource SectionLabel}"/>
             <Border Style="{StaticResource Card}">
                 <StackPanel>
@@ -848,9 +950,10 @@
 
                 </StackPanel>
             </Border>
+            </StackPanel>
 
             <!-- 표시 -->
-            <TextBlock x:Name="LblSectionDisplay" Style="{StaticResource SectionLabel}"/>
+            <StackPanel x:Name="PageDisplay" Visibility="Collapsed">
             <Border Style="{StaticResource Card}">
                 <StackPanel>
 
@@ -930,9 +1033,10 @@
 
                 </StackPanel>
             </Border>
+            </StackPanel>
 
             <!-- 위젯 -->
-            <TextBlock x:Name="LblSectionWidget" Style="{StaticResource SectionLabel}"/>
+            <StackPanel x:Name="PageWidget" Visibility="Collapsed">
             <Border Style="{StaticResource Card}">
                 <StackPanel>
                     <Grid Margin="0,7,0,7">
@@ -1073,9 +1177,10 @@
                     </Grid>
                 </StackPanel>
             </Border>
+            </StackPanel>
 
-
-            <!-- 시스템 -->
+            <!-- 일반(시스템) -->
+            <StackPanel x:Name="PageSystem" Visibility="Collapsed">
             <TextBlock x:Name="LblSectionSystem" Style="{StaticResource SectionLabel}"/>
             <Border Style="{StaticResource Card}">
                 <StackPanel>
@@ -1190,8 +1295,9 @@
 
                 </StackPanel>
             </Border>
+            </StackPanel>
 
             </StackPanel>
         </ScrollViewer>
-    </Border>
+    </Grid>
 </Window>
