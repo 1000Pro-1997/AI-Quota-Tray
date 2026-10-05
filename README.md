@@ -49,6 +49,11 @@ Numbers default to what is **left** (`18% left`). Switch to what was **used**
 (`82% used`) in Settings. Bar colors tell the tools apart — orange for Claude,
 blue for Codex, both changeable.
 
+If your ChatGPT account has **Codex limit reset credits**, the Codex card lists
+them with their expiry date and how long is left (`Expires 10/23 · 17d 9h left`).
+The expiry turns yellow within a week and red within 3 days. **Use reset** asks
+for a second click to confirm, then spends the credit.
+
 ## Where the data comes from
 
 | Tool | Method | Network |

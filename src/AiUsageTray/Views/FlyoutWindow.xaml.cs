@@ -119,6 +119,8 @@ public partial class FlyoutWindow : Window
             Set("TrackOffBrush", Color.FromArgb(0x32, 0xFF, 0xFF, 0xFF));
             Set("AccentBrush", Color.FromRgb(0x4C, 0x8E, 0xF0));
             Set("HoverBrush", Color.FromArgb(0x14, 0xFF, 0xFF, 0xFF));
+            Set("CautionBrush", Color.FromRgb(0xF2, 0xC1, 0x4E));
+            Set("DangerBrush", Color.FromRgb(0xFF, 0x6B, 0x6B));
         }
         else
         {
@@ -131,6 +133,9 @@ public partial class FlyoutWindow : Window
             Set("TrackOffBrush", Color.FromArgb(0x24, 0x00, 0x00, 0x00));
             Set("AccentBrush", Color.FromRgb(0x2F, 0x7C, 0xEA));
             Set("HoverBrush", Color.FromArgb(0x10, 0x00, 0x00, 0x00));
+            // 밝은 배경에서는 노랑이 잘 안 보여 짙은 호박색을 쓴다.
+            Set("CautionBrush", Color.FromRgb(0xB2, 0x6A, 0x00));
+            Set("DangerBrush", Color.FromRgb(0xD9, 0x30, 0x25));
         }
     }
 
@@ -565,11 +570,29 @@ public partial class FlyoutWindow : Window
         {
             text.Children.Add(new TextBlock
             {
-                Text = Strings.Get("reset.expires", expires),
+                // 날짜만으로는 며칠 남았는지 셈해야 해서 남은 시간을 붙인다.
+                Text = Strings.Get("reset.expires", expires) + " · " +
+                       Strings.Get("reset.left", FormatLeft(expires - DateTime.Now)),
                 FontSize = 10.5,
                 Margin = new Thickness(0, 1, 0, 0),
-                Foreground = (Brush)Resources["SubtleBrush"],
+                // 곧 사라질 초기화권은 놓치기 쉬우니 일주일 안이면 노랗게, 3일 안이면 빨갛게.
+                Foreground = (expires - DateTime.Now) switch
+                {
+                    var left when left < TimeSpan.FromDays(3) => (Brush)Resources["DangerBrush"],
+                    var left when left < TimeSpan.FromDays(7) => (Brush)Resources["CautionBrush"],
+                    _ => (Brush)Resources["SubtleBrush"],
+                },
             });
+        }
+
+        static string FormatLeft(TimeSpan span)
+        {
+            if (span < TimeSpan.Zero) span = TimeSpan.Zero;
+            if (span.TotalDays >= 1)
+                return Strings.Get("age.days", (int)span.TotalDays) + " " + Strings.Get("age.hours", span.Hours);
+            if (span.TotalHours >= 1)
+                return Strings.Get("age.hours", (int)span.TotalHours) + " " + Strings.Get("age.minutes", span.Minutes);
+            return Strings.Get("age.minutes", span.Minutes);
         }
         row.Children.Add(text);
 
