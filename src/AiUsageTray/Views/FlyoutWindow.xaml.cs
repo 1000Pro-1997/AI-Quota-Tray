@@ -957,7 +957,7 @@ public partial class FlyoutWindow : Window
     /// 경과 시간을 가장 큰 단위 하나로만 적는다. 1분이 안 됐으면 초 단위로.
     /// 시계가 뒤로 갔거나 하는 이유로 음수가 나오면 0초로 본다.
     /// </summary>
-    private static string FormatAge(TimeSpan age)
+    internal static string FormatAge(TimeSpan age)
     {
         if (age < TimeSpan.Zero) age = TimeSpan.Zero;
 

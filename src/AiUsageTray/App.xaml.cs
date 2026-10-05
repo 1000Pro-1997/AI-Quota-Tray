@@ -275,7 +275,8 @@ public partial class App : Application
         _tray = new Forms.NotifyIcon
         {
             Icon = _currentIcon,
-            Text = Strings.Get("app.name"),
+            // Windows 툴팁은 127자에서 잘려 직접 그린 툴팁을 쓴다. 둘이 겹쳐 뜨지 않게 비운다.
+            Text = "",
             Visible = true,
             ContextMenuStrip = BuildMenu(),
         };
@@ -283,9 +284,126 @@ public partial class App : Application
         // 좌클릭으로 열고 닫는다. 우클릭은 메뉴가 알아서 처리한다.
         _tray.MouseClick += (_, args) =>
         {
+            HideTrayTip();
             if (args.Button == Forms.MouseButtons.Left) ToggleFlyout();
         };
+        _tray.MouseDown += (_, _) => HideTrayTip();
+        _tray.MouseMove += (_, _) => OnTrayHover();
+
+        _trayTip = new TrayTooltipWindow();
+        _trayTipTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
+        _trayTipTimer.Tick += (_, _) => TickTrayTip();
     }
+
+    // ---- 트레이 툴팁 ----
+
+    private TrayTooltipWindow _trayTip = null!;
+    private DispatcherTimer _trayTipTimer = null!;
+    private System.Drawing.Point _trayHoverPoint;
+    private DateTime _trayHoverStart;
+    private DateTime _trayHoverLastMove;
+
+    /// <summary>아이콘 위를 스치기만 해도 뜨면 성가시다. 기본 툴팁과 비슷하게 잠깐 머물러야 띄운다.</summary>
+    private static readonly TimeSpan TrayTipDelay = TimeSpan.FromMilliseconds(400);
+
+    /// <summary>
+    /// 트레이 아이콘은 떠날 때 알려주지 않는다. 대신 아이콘 위에서 움직이면 매번
+    /// MouseMove가 오므로, 커서가 마지막 MouseMove 지점을 벗어났는데 새 MouseMove가
+    /// 없으면 아이콘 밖으로 나간 것이다. 메시지 지연을 덮으려고 이만큼 기다린다.
+    /// </summary>
+    private static readonly TimeSpan TrayLeaveGrace = TimeSpan.FromMilliseconds(150);
+
+    private void OnTrayHover()
+    {
+        var now = DateTime.Now;
+        if (!_trayTipTimer.IsEnabled) _trayHoverStart = now;
+        _trayHoverPoint = Forms.Cursor.Position;
+        _trayHoverLastMove = now;
+        _trayTipTimer.Start();
+    }
+
+    private void TickTrayTip()
+    {
+        var now = DateTime.Now;
+        bool left = Forms.Cursor.Position != _trayHoverPoint && now - _trayHoverLastMove > TrayLeaveGrace;
+        bool busy = _flyout.IsVisible || _tray?.ContextMenuStrip?.Visible == true;
+        if (left || busy)
+        {
+            HideTrayTip();
+            return;
+        }
+
+        if (now - _trayHoverStart < TrayTipDelay) return;
+
+        // 떠 있는 동안 남은 시간이 흐르므로 매 틱 내용을 맞춘다. 같은 글이면 다시 그리지 않는다.
+        _trayTip.SetLines(BuildTrayTipLines(_monitor.Latest));
+        if (!_trayTip.IsVisible) _trayTip.ShowNearCursor();
+    }
+
+    private void HideTrayTip()
+    {
+        _trayTipTimer?.Stop();
+        if (_trayTip is { IsVisible: true }) _trayTip.Hide();
+    }
+
+    /// <summary>팝업을 열지 않고도 볼 수 있게 공급자별 한도·리셋·토큰을 줄줄이 적는다.</summary>
+    private List<TooltipLine> BuildTrayTipLines(IReadOnlyList<ProviderUsage> usages)
+    {
+        bool remaining = _settings.DisplayMode == DisplayMode.Remaining;
+        var lines = new List<TooltipLine>();
+
+        foreach (var u in usages)
+        {
+            var head = new List<string> { u.Provider };
+            if (!string.IsNullOrEmpty(u.PlanName)) head.Add(u.PlanName);
+            if (_monitor.Status.For(u.Provider) is { Health: not ServiceHealth.Unknown } status) head.Add(status.Label);
+            lines.Add(new TooltipLine(string.Join(" · ", head), TooltipLineKind.Header));
+
+            if (!u.IsAvailable)
+            {
+                lines.Add(new TooltipLine(u.Error ?? "", TooltipLineKind.Subtle));
+                continue;
+            }
+
+            foreach (var w in u.Windows)
+            {
+                double used = Math.Clamp(w.Percent, 0, 100);
+                string value = remaining
+                    ? Strings.Get("value.remaining", $"{100 - used:F0}")
+                    : Strings.Get("value.used", $"{used:F0}");
+                string time = TimeDisplayFormatter.Format(w, _settings, overlay: true);
+                lines.Add(new TooltipLine($"{w.Label}  {value}" + (time.Length > 0 ? $" · {time}" : "")));
+            }
+
+            if (u.Tokens is { } t)
+                lines.Add(new TooltipLine(Strings.Get("tooltip.tokens",
+                    CompactNumber(t.Input), CompactNumber(t.Output), CompactNumber(t.CacheRead)),
+                    TooltipLineKind.Subtle));
+
+            if (u.IsStale && u.Error is { } why)
+                lines.Add(new TooltipLine(why, TooltipLineKind.Subtle));
+        }
+
+        if (lines.Count == 0) lines.Add(new TooltipLine(Strings.Get("app.name"), TooltipLineKind.Header));
+
+        if (_monitor.LastRefreshAt is { } at)
+            lines.Add(new TooltipLine(Strings.Get("popup.refreshed", FlyoutWindow.FormatAge(DateTime.Now - at)),
+                TooltipLineKind.Subtle));
+        if (_foundUpdateTag is { } tag)
+            lines.Add(new TooltipLine(Strings.Get("update.available", tag.TrimStart('v', 'V')),
+                TooltipLineKind.Subtle));
+
+        return lines;
+    }
+
+    /// <summary>토큰 수는 수백만 단위라 그대로 쓰면 줄이 길어진다. 1.2M, 340K처럼 줄인다.</summary>
+    private static string CompactNumber(long n) => n switch
+    {
+        >= 1_000_000_000 => $"{n / 1e9:0.#}B",
+        >= 1_000_000 => $"{n / 1e6:0.#}M",
+        >= 1_000 => $"{n / 1e3:0.#}K",
+        _ => n.ToString(),
+    };
 
     /// <summary>
     /// 설정에 맞춰 작업표시줄 고정을 적용한다.
@@ -350,8 +468,6 @@ public partial class App : Application
             _tray.ContextMenuStrip = BuildMenu();
             old.Dispose();
         }
-
-        if (_tray is not null) _tray.Text = BuildTooltip(_monitor.Latest);
 
         _flyout.Retranslate();
         _flyout.Render(_monitor.Latest);
@@ -511,8 +627,6 @@ public partial class App : Application
 
         DrawCurrentIcon();
         RestartIconRotation();
-
-        _tray.Text = BuildTooltip(usages);
     }
 
     /// <summary>지금 차례인 도구를 아이콘으로 그린다.</summary>
@@ -581,23 +695,6 @@ public partial class App : Application
         {
             return System.Drawing.Color.FromArgb(0x8B, 0x8B, 0x8B);
         }
-    }
-
-    /// <summary>툴팁은 63자 제한이 있어 짧게 만든다.</summary>
-    private string BuildTooltip(IReadOnlyList<ProviderUsage> usages)
-    {
-        bool remaining = _settings.DisplayMode == DisplayMode.Remaining;
-
-        var parts = usages
-            .Where(u => u.IsAvailable && u.Windows.Count > 0)
-            .Select(u => u.Provider + " " + (remaining
-                ? Strings.Get("value.remaining", $"{100 - u.PeakPercent:F0}")
-                : Strings.Get("value.used", $"{u.PeakPercent:F0}")));
-
-        string text = string.Join("  ", parts);
-        if (string.IsNullOrEmpty(text)) text = Strings.Get("app.name");
-
-        return text.Length > 62 ? text[..62] : text;
     }
 
     private void OpenSettings()

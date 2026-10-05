@@ -122,6 +122,12 @@ follows your display setting (remaining by default).
 
 With both tools enabled it alternates every 4 seconds. With one, it stays put.
 
+Hover over the icon to see everything without opening the popup: for each tool
+its plan and service status, every limit with what is left (or used) and when it
+resets, Codex token totals from the last session on this PC, and when it last
+refreshed. Windows cuts its own tray tooltips at 127 characters, so the app draws
+this one itself.
+
 Windows draws tray icons in a fixed 16×16 square, so it cannot be made wider.
 Use the widget bar below for more room.
 
