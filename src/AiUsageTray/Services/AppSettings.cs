@@ -51,6 +51,13 @@ public sealed class AppSettings
     public bool CodexPrimeFiveHour { get; set; }
     public bool CodexPrimeWeekly { get; set; } = true;
 
+    /// <summary>
+    /// Codex CLI 로그인(auth.json)이 만료됐으면 앱이 대신 갱신해 다시 쓴다. CLI는 실행될
+    /// 때만 갱신하므로 다른 PC·웹·omp로만 쓰면 만료된 채 남아 서버 값을 못 읽는다.
+    /// 대가: CLI가 같은 순간 갱신하면 한쪽 로그인이 풀릴 수 있다.
+    /// </summary>
+    public bool CodexAutoRefreshLogin { get; set; } = true;
+
     /// <summary>이전 버전 설정을 읽기 위한 호환 필드. 새 UI에서는 사용하지 않는다.</summary>
     [Obsolete("Use the provider-specific primer settings.")]
     public bool KeepFiveHourWindowsAligned { get; set; }
@@ -214,6 +221,7 @@ public sealed class AppSettings
         ClaudePrimeWeekly = fresh.ClaudePrimeWeekly;
         CodexPrimeFiveHour = fresh.CodexPrimeFiveHour;
         CodexPrimeWeekly = fresh.CodexPrimeWeekly;
+        CodexAutoRefreshLogin = fresh.CodexAutoRefreshLogin;
 #pragma warning disable CS0618
         KeepFiveHourWindowsAligned = fresh.KeepFiveHourWindowsAligned;
 #pragma warning restore CS0618

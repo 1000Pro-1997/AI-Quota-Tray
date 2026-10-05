@@ -43,7 +43,7 @@ background. If the network is unavailable, the installed version still starts.
 | Tool | Limits |
 |---|---|
 | **Claude** | 5-hour session limit, weekly limit, and when each resets |
-| **Codex** | Weekly limit, reset time, and plan |
+| **Codex** | 5-hour and weekly limits, reset times, and plan |
 
 Numbers default to what is **left** (`18% left`). Switch to what was **used**
 (`82% used`) in Settings. Bar colors tell the tools apart — orange for Claude,
@@ -54,9 +54,13 @@ blue for Codex, both changeable.
 | Tool | Method | Network |
 |---|---|---|
 | Claude | Reads the OAuth token from `~/.claude/.credentials.json`, then calls the official usage endpoint | Yes |
-| Codex | Parses `rate_limits` already recorded in `~/.codex/sessions/**/*.jsonl` | No |
+| Codex | Calls the same usage endpoint the ChatGPT web page uses, signed in with your Codex token. Falls back to `rate_limits` recorded in `~/.codex/sessions/**/*.jsonl` if the server cannot be reached | Yes |
 
 **No API key needed.** If you are signed in to either CLI, the app finds it.
+
+Because Codex numbers come from the server, usage from the web, other PCs, or a
+Mac is included — not just what this PC ran. If a session-log entry is older than
+its reset time, that window is shown as reset instead of a stale percentage.
 
 Claude also reports your limits to its own status line every time you use it. The
 app picks those up as a second source, so numbers can stay fresh even when the
@@ -73,6 +77,19 @@ reads the file again. So it can never log you out.
 If you have not run Claude Code in a while and the token has expired, you will see
 "Waiting for token refresh". Running Claude Code once fixes it.
 
+For Codex the app picks a token in this order:
+
+1. `~/.codex/auth.json`, if it has not expired.
+2. The Codex sign-in kept by omp (`~/.omp/agent/agent.db`), read-only. Useful if
+   you use Codex models through omp instead of the Codex CLI.
+3. **Renew expired Codex sign-in** (Settings → Codex, on by default): the app
+   renews `auth.json` the same way the Codex CLI does and writes it back. The Codex
+   CLI only renews when it runs, so if you mostly use Codex elsewhere the token
+   would otherwise stay expired. Before writing, the app re-reads the file and backs
+   off if the CLI renewed it first. Risk: if the CLI renews at exactly the same
+   moment, one side may be signed out. Turn the option off to keep the file
+   read-only.
+
 If Claude Code is signed out, the flyout offers **Sign in**. The app starts
 `claude auth login` in the background and opens that attempt's authorization URL
 in your default browser. If the browser displays a code, reopen the flyout and
@@ -86,7 +103,9 @@ Usage lookups are read-only, so **they do not consume any of your quota**.
   only for usage entries (`token_count`).
 - Nothing is collected or sent anywhere. Requests go only to each service's own
   official endpoint.
-- Tokens stay in memory and are never written down.
+- Tokens are never sent anywhere but the service that issued them. The only file
+  the app writes a token to is `~/.codex/auth.json`, and only when **Renew expired
+  Codex sign-in** is on.
 - The only things stored are your settings and the last known numbers, kept in
   `%APPDATA%\AiQuotaTray\`.
 
@@ -306,7 +325,7 @@ usage still shows.
 - Windows 11 (works on Windows 10, but taskbar pinning is Win11-only)
 - [.NET 10 SDK](https://dotnet.microsoft.com/download) to build
 - Rust toolchain to build the native launcher
-- Signed in to Claude Code or Codex CLI
+- Signed in to Claude Code or Codex (Codex CLI or omp)
 
 ## Build and run
 

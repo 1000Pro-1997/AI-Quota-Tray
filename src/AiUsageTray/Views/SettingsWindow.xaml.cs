@@ -123,6 +123,7 @@ public partial class SettingsWindow : Window
         ClaudePrimeWeekly.IsChecked = _settings.ClaudePrimeWeekly;
         CodexPrimeFive.IsChecked = _settings.CodexPrimeFiveHour;
         CodexPrimeWeekly.IsChecked = _settings.CodexPrimeWeekly;
+        CodexAutoRefresh.IsChecked = _settings.CodexAutoRefreshLogin;
         AutoUpdateEnabled.IsChecked = _settings.AutoUpdate;
 
         // 실제 레지스트리 상태를 우선한다. 사용자가 Windows 설정에서
@@ -701,6 +702,7 @@ public partial class SettingsWindow : Window
         LblClaudePrimeWeekly.Text = PrimerLabel("settings.primeWeekly", "settings.claudePrimeWeeklyHint");
         LblCodexPrimeFive.Text = PrimerLabel("settings.primeFive", "settings.codexPrimeFiveHint");
         LblCodexPrimeWeekly.Text = PrimerLabel("settings.primeWeekly", "settings.codexPrimeWeeklyHint");
+        LblCodexAutoRefresh.Text = PrimerLabel("settings.codexAutoRefresh", "settings.codexAutoRefreshHint");
 
         LblSectionSystem.Text = Strings.Get("settings.sectionSystem");
 
@@ -906,6 +908,7 @@ public partial class SettingsWindow : Window
         _settings.ClaudePrimeWeekly = ClaudePrimeWeekly.IsChecked == true;
         _settings.CodexPrimeFiveHour = CodexPrimeFive.IsChecked == true;
         _settings.CodexPrimeWeekly = CodexPrimeWeekly.IsChecked == true;
+        _settings.CodexAutoRefreshLogin = CodexAutoRefresh.IsChecked == true;
         _settings.AutoUpdate = AutoUpdateEnabled.IsChecked == true;
         ApplyAutoStart(autoStart);
 
@@ -1001,6 +1004,7 @@ public partial class SettingsWindow : Window
         ClaudePrimeWeekly.IsChecked = _settings.ClaudePrimeWeekly;
         CodexPrimeFive.IsChecked = _settings.CodexPrimeFiveHour;
         CodexPrimeWeekly.IsChecked = _settings.CodexPrimeWeekly;
+        CodexAutoRefresh.IsChecked = _settings.CodexAutoRefreshLogin;
         AutoUpdateEnabled.IsChecked = _settings.AutoUpdate;
         PinToTaskbar.IsChecked = _settings.ShowInTaskbar;
         ShowWidgetBar.IsChecked = _settings.ShowWidgetBar;

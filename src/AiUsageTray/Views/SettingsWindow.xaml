@@ -798,6 +798,12 @@
                             <CheckBox x:Name="CodexPrimeWeekly" Style="{StaticResource CompactSwitch}"
                                       Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
                         </Grid>
+                        <Grid Height="25">
+                            <TextBlock x:Name="LblCodexAutoRefresh" Style="{StaticResource ChildSettingText}"
+                                       Margin="0,0,42,0"/>
+                            <CheckBox x:Name="CodexAutoRefresh" Style="{StaticResource CompactSwitch}"
+                                      Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
+                        </Grid>
                         <Border Style="{StaticResource RowDivider}" Margin="0,3,0,7"/>
                         <TextBlock x:Name="LblCodexFolder" Style="{StaticResource ChildSettingText}"
                                    Margin="0,0,0,5"/>

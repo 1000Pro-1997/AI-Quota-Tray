@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using AiUsageTray.Models;
@@ -31,15 +32,31 @@ public sealed class CodexProvider : IUsageProvider
     private const string ResetCreditsUrl = "https://chatgpt.com/backend-api/wham/rate-limit-reset-credits";
     private const string ConsumeUrl = ResetCreditsUrl + "/consume";
 
+    /// <summary>Codex CLI가 로그인 갱신에 쓰는 주소와 클라이언트. auth.json 토큰의 client_id와 같다.</summary>
+    private const string TokenUrl = "https://auth.openai.com/oauth/token";
+    private const string ClientId = "app_EMoamEEZ73f0CkXaXp7hrann";
+
+    /// <summary>네트워크 오류로 갱신에 실패했을 때 다시 시도하기까지. 매 조회마다 두드리지 않는다.</summary>
+    private static readonly TimeSpan RefreshRetryDelay = TimeSpan.FromMinutes(10);
+
     private readonly HttpClient _http;
     private readonly Func<string> _sessionsRoot;
+    private readonly Func<bool> _autoRefresh;
+
+    // 조회와 초기화권 사용이 겹쳐도 갱신은 한 번만. 같은 refresh_token을 두 번 쓰면 무효가 된다.
+    private readonly SemaphoreSlim _refreshGate = new(1, 1);
+
+    // 서버가 거절한 토큰은 다시 써 봐야 같은 결과다. 사용자가 다시 로그인해 파일이 바뀔 때까지 쉰다.
+    private string? _rejectedRefreshToken;
+    private DateTime _refreshBlockedUntil = DateTime.MinValue;
 
     public string Name => "Codex";
 
-    public CodexProvider(HttpClient http, Func<string> sessionsRoot)
+    public CodexProvider(HttpClient http, Func<string> sessionsRoot, Func<bool> autoRefresh)
     {
         _http = http;
         _sessionsRoot = sessionsRoot;
+        _autoRefresh = autoRefresh;
     }
 
     public async Task<ProviderUsage> FetchAsync(CancellationToken ct)
@@ -206,39 +223,123 @@ public sealed class CodexProvider : IUsageProvider
     private readonly record struct Auth(string Token, string Account);
 
     /// <summary>
-    /// Codex CLI가 남긴 auth.json의 토큰을 먼저 쓰고, 만료됐으면 omp가 관리하는 토큰을 쓴다.
-    /// 둘 다 읽기만 한다. 갱신해서 다시 쓰면 CLI·omp와 경쟁하다 로그인이 풀릴 수 있다.
-    /// CLI는 실행될 때만 토큰을 갱신하므로, omp로만 Codex를 쓰면 auth.json은 만료된 채
-    /// 남고 API가 401을 돌려 며칠 묵은 로그로 물러서게 된다.
+    /// 토큰 출처를 안전한 순서로 고른다.
+    /// 1. auth.json이 유효하면 그대로 쓴다.
+    /// 2. 만료됐으면 omp가 관리하는 토큰을 읽어 쓴다. 아무것도 쓰지 않으니 위험이 없다.
+    /// 3. 그것도 없으면(설정이 켜져 있을 때) auth.json을 CLI 대신 갱신한다.
+    /// CLI는 실행될 때만 갱신하므로 맥·웹·다른 PC에서 쓰는 동안 이 PC의 auth.json은
+    /// 만료된 채 남고, 그러면 API가 401을 돌려 며칠 묵은 로그로 물러서게 된다.
     /// </summary>
     private async Task<Auth?> ReadAuthAsync(CancellationToken ct)
     {
-        var cli = await ReadCliAuthAsync(ct).ConfigureAwait(false);
-        if (cli is not null) return cli;
+        string? authPath = FindAuthFile();
+        var cli = authPath is null ? null : await ReadCliTokensAsync(authPath, ct).ConfigureAwait(false);
+        if (cli is { Expired: false }) return new Auth(cli.Access, cli.Account);
 
-        var omp = OmpCredentials.ReadCodex();
-        return omp is { } o ? new Auth(o.Token, o.Account) : null;
+        if (OmpCredentials.ReadCodex() is { } omp) return new Auth(omp.Token, omp.Account);
+
+        if (authPath is null || cli is null || cli.Refresh.Length == 0 || !_autoRefresh()) return null;
+        return await RefreshCliAsync(authPath, ct).ConfigureAwait(false);
     }
 
-    private async Task<Auth?> ReadCliAuthAsync(CancellationToken ct)
-    {
-        string? authPath = FindAuthFile();
-        if (authPath is null) return null;
+    private sealed record CliTokens(string Access, string Refresh, string Account, bool Expired);
 
+    private static async Task<CliTokens?> ReadCliTokensAsync(string path, CancellationToken ct)
+    {
         try
         {
-            using var doc = JsonDocument.Parse(await File.ReadAllTextAsync(authPath, ct).ConfigureAwait(false));
+            using var doc = JsonDocument.Parse(await File.ReadAllTextAsync(path, ct).ConfigureAwait(false));
             if (!doc.RootElement.TryGetProperty("tokens", out var tokens) || tokens.ValueKind != JsonValueKind.Object)
                 return null;
 
-            string token = ReadString(tokens, "access_token");
-            if (token.Length == 0 || IsExpired(token)) return null;
-            return new Auth(token, ReadString(tokens, "account_id"));
+            string access = ReadString(tokens, "access_token");
+            return new CliTokens(access, ReadString(tokens, "refresh_token"), ReadString(tokens, "account_id"),
+                access.Length == 0 || IsExpired(access));
         }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
         {
             // CLI가 쓰는 중이거나 형식이 바뀌었으면 다른 출처로 물러선다.
             return null;
+        }
+    }
+
+    /// <summary>
+    /// CLI와 같은 방식으로 토큰을 갱신해 auth.json에 되쓴다. refresh_token은 한 번 쓰면
+    /// 바뀌므로 새 값을 저장하지 않으면 CLI 로그인이 풀린다. 쓰기 직전에 파일을 다시 읽어
+    /// 그사이 CLI가 먼저 갱신했으면 그쪽 값을 존중하고 덮어쓰지 않는다.
+    /// </summary>
+    private async Task<Auth?> RefreshCliAsync(string path, CancellationToken ct)
+    {
+        await _refreshGate.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            // 기다리는 동안 다른 호출이나 CLI가 이미 갱신했을 수 있다.
+            var before = await ReadCliTokensAsync(path, ct).ConfigureAwait(false);
+            if (before is null || before.Refresh.Length == 0) return null;
+            if (!before.Expired) return new Auth(before.Access, before.Account);
+            if (before.Refresh == _rejectedRefreshToken || DateTime.Now < _refreshBlockedUntil) return null;
+
+            using var req = new HttpRequestMessage(HttpMethod.Post, TokenUrl)
+            {
+                Content = JsonContent(new Dictionary<string, string>
+                {
+                    ["client_id"] = ClientId,
+                    ["grant_type"] = "refresh_token",
+                    ["refresh_token"] = before.Refresh,
+                    ["scope"] = "openid profile email",
+                }),
+            };
+            using var res = await _http.SendAsync(req, ct).ConfigureAwait(false);
+            if (!res.IsSuccessStatusCode)
+            {
+                // 4xx는 토큰 자체가 무효(이미 쓰였거나 로그아웃)다. 같은 토큰으로 다시 두드리지 않는다.
+                if ((int)res.StatusCode is >= 400 and < 500) _rejectedRefreshToken = before.Refresh;
+                else _refreshBlockedUntil = DateTime.Now + RefreshRetryDelay;
+                return null;
+            }
+
+            using var doc = JsonDocument.Parse(await res.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
+            string access = ReadString(doc.RootElement, "access_token");
+            if (access.Length == 0)
+            {
+                _refreshBlockedUntil = DateTime.Now + RefreshRetryDelay;
+                return null;
+            }
+            string idToken = ReadString(doc.RootElement, "id_token");
+            string refresh = ReadString(doc.RootElement, "refresh_token");
+
+            var root = JsonNode.Parse(await File.ReadAllTextAsync(path, ct).ConfigureAwait(false)) as JsonObject;
+            if (root?["tokens"] is not JsonObject tokens) return new Auth(access, before.Account);
+
+            // 요청하는 사이 CLI가 먼저 갱신했다. 그쪽이 쥔 새 refresh_token이 정답이므로 덮지 않는다.
+            if (tokens["refresh_token"]?.GetValue<string>() != before.Refresh)
+                return new Auth(access, before.Account);
+
+            tokens["access_token"] = access;
+            if (idToken.Length > 0) tokens["id_token"] = idToken;
+            if (refresh.Length > 0) tokens["refresh_token"] = refresh;
+            root["last_refresh"] = DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss.fffffff'Z'");
+
+            // 쓰다 끊겨 CLI가 반쪽 파일을 읽지 않도록 옆에 쓴 뒤 바꿔 끼운다.
+            string temp = path + ".aiquotatray.tmp";
+            await File.WriteAllTextAsync(temp, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }), ct)
+                .ConfigureAwait(false);
+            File.Move(temp, path, overwrite: true);
+            return new Auth(access, before.Account);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch
+        {
+            // 네트워크·파일 오류. 잠시 뒤 다시 시도하고, 그동안은 로그로 물러선다.
+            _refreshBlockedUntil = DateTime.Now + RefreshRetryDelay;
+            return null;
+        }
+        finally
+        {
+            _refreshGate.Release();
         }
     }
 

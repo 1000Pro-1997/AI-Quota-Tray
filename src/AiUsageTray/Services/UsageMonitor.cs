@@ -346,7 +346,7 @@ public sealed class UsageMonitor : IDisposable
     /// </summary>
     public async Task<ResetOutcome> ConsumeCodexResetAsync(string creditId)
     {
-        _codex ??= new CodexProvider(_http, () => _settings.EffectiveCodexPath);
+        _codex ??= new CodexProvider(_http, () => _settings.EffectiveCodexPath, () => _settings.CodexAutoRefreshLogin);
         var outcome = await _codex.ConsumeResetAsync(creditId).ConfigureAwait(false);
 
         // 실패했더라도 그새 누가 다른 곳에서 썼을 수 있어 목록을 맞춘다.
@@ -362,7 +362,7 @@ public sealed class UsageMonitor : IDisposable
     private List<IUsageProvider> BuildProviders()
     {
         _claude ??= new ClaudeProvider(_http, () => _settings.EffectiveClaudePath);
-        _codex ??= new CodexProvider(_http, () => _settings.EffectiveCodexPath);
+        _codex ??= new CodexProvider(_http, () => _settings.EffectiveCodexPath, () => _settings.CodexAutoRefreshLogin);
 
         var list = new List<IUsageProvider>();
         if (_settings.ClaudeEnabled) list.Add(_claude);
