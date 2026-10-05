@@ -77,6 +77,38 @@ public sealed class UpdateChecker
     /// <summary>마지막으로 확인한 결과. 아직 확인 전이면 null.</summary>
     public UpdateInfo? Last { get; private set; }
 
+    /// <summary>
+    /// 웹의 /releases/latest는 최신 태그 페이지로 302를 돌려준다. API가 아니라 시간당 60회
+    /// 한도에 걸리지 않으므로, 팝업을 열 때마다 이것으로 태그만 엿본다. 리다이렉트를
+    /// 따라가면 HTML 전체를 받게 되므로 따라가지 않는다.
+    /// </summary>
+    private const string LatestReleasePage =
+        "https://github.com/1000Pro-1997/AI-Quota-Tray/releases/latest";
+
+    private static readonly HttpClient NoRedirect = new(new HttpClientHandler { AllowAutoRedirect = false })
+    {
+        Timeout = TimeSpan.FromSeconds(15),
+    };
+
+    /// <summary>최신 릴리스 태그의 버전만 가볍게 알아낸다. 실패하면 null.</summary>
+    public static async Task<Version?> PeekLatestAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Head, LatestReleasePage);
+            req.Headers.TryAddWithoutValidation("User-Agent", "AiQuotaTray");
+            using var res = await NoRedirect.SendAsync(req, ct).ConfigureAwait(false);
+            string? location = res.Headers.Location?.ToString();
+            if (location is null) return null;
+            return ParseVersion(location[(location.LastIndexOf('/') + 1)..]);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
+        catch
+        {
+            return null;
+        }
+    }
+
     /// <summary>지금 실행 중인 버전.</summary>
     public static Version Current
     {

@@ -547,10 +547,11 @@ public partial class App : Application
     private static readonly TimeSpan FlyoutReopenGuard = TimeSpan.FromMilliseconds(250);
 
     /// <summary>
-    /// 팝업을 열 때 새 버전을 묻는 최소 간격. GitHub API는 인증 없이 시간당 60회라
-    /// 팝업을 자주 여닫으면 금세 막히고, 그러면 설정 창의 확인 버튼까지 실패한다.
+    /// 팝업을 열 때 새 버전을 묻는 최소 간격. 엿보기는 API 한도를 쓰지 않아 짧게 둔다.
+    /// 5분으로 두었더니 켠 직후 올라온 판을 한참 못 알아챘다. 연달아 여닫을 때 같은
+    /// 질문을 겹쳐 보내지 않을 만큼만 둔다.
     /// </summary>
-    private static readonly TimeSpan UpdateCheckOnOpenGap = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan UpdateCheckOnOpenGap = TimeSpan.FromSeconds(15);
     private DateTime _lastUpdateCheckOnOpen = DateTime.MinValue;
     private bool _checkingUpdateOnOpen;
 
@@ -570,7 +571,10 @@ public partial class App : Application
         _lastUpdateCheckOnOpen = DateTime.Now;
         try
         {
-            await _updates.CheckAsync();
+            // 태그만 먼저 엿본다. API 한도를 쓰지 않으니 열 때마다 물어도 된다.
+            // 새 판일 때만 받을 파일·해시가 담긴 API를 한 번 부른다.
+            if (await UpdateChecker.PeekLatestAsync() is { } latest && latest > UpdateChecker.Current)
+                await _updates.CheckAsync();
         }
         catch
         {
