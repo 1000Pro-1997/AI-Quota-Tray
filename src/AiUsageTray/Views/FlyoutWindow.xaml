@@ -109,7 +109,9 @@
             </Setter>
         </Style>
 
-        <!-- 새 버전이 있을 때만 보이는 알약 버튼. 놓치지 않게 강조색으로 채운다. -->
+        <!-- 새 버전이 있을 때만 보이는 알약 버튼. 놓치지 않게 강조색으로 채운다.
+             받는 동안에는 바탕이 옅어지고 Tag(픽셀 너비)만큼 강조색이 왼쪽부터 차오른다.
+             ControlTemplate 안에서는 너비에 비율을 곱할 수 없어 코드에서 픽셀로 넣는다. -->
         <Style x:Key="UpdatePill" TargetType="Button">
             <Setter Property="Height" Value="20"/>
             <Setter Property="Padding" Value="8,0"/>
@@ -123,13 +125,16 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="Bd" Background="{TemplateBinding Background}"
-                                CornerRadius="10" Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        </Border>
+                        <Grid x:Name="Root">
+                            <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="10"/>
+                            <Border x:Name="Fill" Background="{DynamicResource AccentBrush}" CornerRadius="10"
+                                    HorizontalAlignment="Left" Width="{TemplateBinding Tag}"/>
+                            <ContentPresenter Margin="{TemplateBinding Padding}"
+                                              HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Opacity" Value="0.85"/>
+                                <Setter TargetName="Root" Property="Opacity" Value="0.85"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>

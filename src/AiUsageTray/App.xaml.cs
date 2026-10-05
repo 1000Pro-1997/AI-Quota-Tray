@@ -606,7 +606,7 @@ public partial class App : Application
             // 켤 때 시작한 배경 내려받기가 아직 돌고 있으면 같은 파일을 두 번 쓰지 않게 기다린다.
             if (_stagingDownload is { } staging)
             {
-                _flyout.SetUpdateProgress(Strings.Get("update.checking"));
+                _flyout.SetUpdateProgress(0);
                 try { await staging; } catch { }
             }
 
@@ -629,15 +629,15 @@ public partial class App : Application
                     // 자립형 exe는 75MB쯤 된다. 기본 100초로는 느린 회선에서 끊긴다.
                     Timeout = TimeSpan.FromMinutes(10),
                 });
-                _flyout.SetUpdateProgress(Strings.Get("update.downloading", 0));
+                _flyout.SetUpdateProgress(0);
 
                 // 교체를 맡을 런처가 없으면 먼저 갖춘다. 2MB라 금방 끝난다.
                 await downloader.EnsureLauncherAsync(info);
                 await downloader.DownloadAsync(info, new Progress<DownloadProgress>(p =>
-                    _flyout.SetUpdateProgress(Strings.Get("update.downloading", (int)p.Percent))));
+                    _flyout.SetUpdateProgress(p.Percent)));
             }
 
-            _flyout.SetUpdateProgress(Strings.Get("update.restarting"));
+            _flyout.SetUpdateProgress(100);
             if (UpdateDownloader.RestartToApply())
             {
                 Shutdown();

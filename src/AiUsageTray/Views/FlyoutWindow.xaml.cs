@@ -204,19 +204,37 @@ public partial class FlyoutWindow : Window
     {
         _updateTag = tag;
         UpdateButton.Visibility = tag is null ? Visibility.Collapsed : Visibility.Visible;
-        UpdateButton.Content = _updateProgress ?? Strings.Get("popup.update");
-        UpdateButton.IsEnabled = _updateProgress is null;
         UpdateButton.ToolTip = tag is null ? null : Strings.Get("update.available", tag.TrimStart('v', 'V'));
+
+        if (_updatePercent is not { } pct)
+        {
+            UpdateButton.Content = Strings.Get("popup.update");
+            UpdateButton.IsEnabled = true;
+            UpdateButton.ClearValue(WidthProperty);
+            UpdateButton.ClearValue(BackgroundProperty);
+            UpdateButton.Tag = 0.0;
+            return;
+        }
+
+        // 글자가 0%에서 100%로 바뀌며 폭이 출렁이면 게이지가 흔들려 보인다. 처음 폭으로 고정한다.
+        if (double.IsNaN(UpdateButton.Width))
+            UpdateButton.Width = Math.Max(UpdateButton.ActualWidth, 48);
+
+        var accent = ((SolidColorBrush)Resources["AccentBrush"]).Color;
+        UpdateButton.Background = new SolidColorBrush(Color.FromArgb(0x59, accent.R, accent.G, accent.B));
+        UpdateButton.Content = $"{pct:F0}%";
+        UpdateButton.IsEnabled = false;
+        UpdateButton.Tag = UpdateButton.Width * Math.Clamp(pct, 0, 100) / 100.0;
     }
 
-    /// <summary>받는 중이면 버튼 글자를 진행 상황으로 바꾸고 다시 누르지 못하게 한다. null이면 원래대로.</summary>
-    public void SetUpdateProgress(string? text)
+    /// <summary>받는 중이면 버튼이 퍼센트와 함께 왼쪽부터 차오르고 다시 누를 수 없다. null이면 원래대로.</summary>
+    public void SetUpdateProgress(double? percent)
     {
-        _updateProgress = text;
+        _updatePercent = percent;
         ShowUpdate(_updateTag);
     }
 
-    private string? _updateProgress;
+    private double? _updatePercent;
 
     public void SetBusy(bool busy)
     {
