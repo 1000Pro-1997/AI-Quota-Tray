@@ -206,20 +206,64 @@ public sealed class CodexProvider : IUsageProvider
     private readonly record struct Auth(string Token, string Account);
 
     /// <summary>
-    /// Codex CLI가 남긴 auth.json에서 토큰을 읽는다. 읽기만 한다. 갱신해서 다시 쓰면
-    /// CLI와 경쟁하다 로그인이 풀릴 수 있다.
+    /// Codex CLI가 남긴 auth.json의 토큰을 먼저 쓰고, 만료됐으면 omp가 관리하는 토큰을 쓴다.
+    /// 둘 다 읽기만 한다. 갱신해서 다시 쓰면 CLI·omp와 경쟁하다 로그인이 풀릴 수 있다.
+    /// CLI는 실행될 때만 토큰을 갱신하므로, omp로만 Codex를 쓰면 auth.json은 만료된 채
+    /// 남고 API가 401을 돌려 며칠 묵은 로그로 물러서게 된다.
     /// </summary>
     private async Task<Auth?> ReadAuthAsync(CancellationToken ct)
+    {
+        var cli = await ReadCliAuthAsync(ct).ConfigureAwait(false);
+        if (cli is not null) return cli;
+
+        var omp = OmpCredentials.ReadCodex();
+        return omp is { } o ? new Auth(o.Token, o.Account) : null;
+    }
+
+    private async Task<Auth?> ReadCliAuthAsync(CancellationToken ct)
     {
         string? authPath = FindAuthFile();
         if (authPath is null) return null;
 
-        using var doc = JsonDocument.Parse(await File.ReadAllTextAsync(authPath, ct).ConfigureAwait(false));
-        if (!doc.RootElement.TryGetProperty("tokens", out var tokens) || tokens.ValueKind != JsonValueKind.Object)
-            return null;
+        try
+        {
+            using var doc = JsonDocument.Parse(await File.ReadAllTextAsync(authPath, ct).ConfigureAwait(false));
+            if (!doc.RootElement.TryGetProperty("tokens", out var tokens) || tokens.ValueKind != JsonValueKind.Object)
+                return null;
 
-        string token = ReadString(tokens, "access_token");
-        return token.Length == 0 ? null : new Auth(token, ReadString(tokens, "account_id"));
+            string token = ReadString(tokens, "access_token");
+            if (token.Length == 0 || IsExpired(token)) return null;
+            return new Auth(token, ReadString(tokens, "account_id"));
+        }
+        catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
+        {
+            // CLI가 쓰는 중이거나 형식이 바뀌었으면 다른 출처로 물러선다.
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// access_token은 JWT라 exp로 만료를 미리 안다. 만료된 토큰으로 요청하면 401만 받고
+    /// 다른 출처를 써 볼 기회를 놓친다. 읽을 수 없으면 서버 판단에 맡긴다.
+    /// </summary>
+    private static bool IsExpired(string jwt)
+    {
+        try
+        {
+            string[] parts = jwt.Split('.');
+            if (parts.Length < 2) return false;
+            string b64 = parts[1].Replace('-', '+').Replace('_', '/');
+            b64 = b64.PadRight(b64.Length + (4 - b64.Length % 4) % 4, '=');
+            using var doc = JsonDocument.Parse(Convert.FromBase64String(b64));
+            if (!doc.RootElement.TryGetProperty("exp", out var exp) || exp.ValueKind != JsonValueKind.Number)
+                return false;
+            // 시계 어긋남과 요청 왕복 시간을 덮으려고 1분 일찍 만료로 본다.
+            return DateTimeOffset.FromUnixTimeSeconds(exp.GetInt64()) <= DateTimeOffset.UtcNow.AddMinutes(1);
+        }
+        catch (Exception ex) when (ex is FormatException or JsonException)
+        {
+            return false;
+        }
     }
 
     private static HttpRequestMessage NewRequest(HttpMethod method, string url, Auth auth)
@@ -418,12 +462,17 @@ public sealed class CodexProvider : IUsageProvider
         if (kind == WindowKind.Session && reset is null)
             return;
 
+        // 로그는 CLI를 돌릴 때만 쌓여 리셋 시각이 이미 지난 기록일 수 있다. 그 창은
+        // 서버에서 이미 비워졌으므로 옛 사용률을 그대로 두면 틀린 값이 "0분 0초"와 함께
+        // 계속 보인다. Codex는 다음 창을 첫 사용 때 열어 새 리셋 시각을 알 수 없으니 비워 둔다.
+        bool rolledOver = reset is { } r && r <= DateTime.Now;
+
         into.Add(new UsageWindow
         {
             Kind = kind,
             RawLabel = DescribeWindow(minutes),
-            Percent = pct,
-            ResetsAt = reset,
+            Percent = rolledOver ? 0 : pct,
+            ResetsAt = rolledOver ? null : reset,
         });
     }
 
