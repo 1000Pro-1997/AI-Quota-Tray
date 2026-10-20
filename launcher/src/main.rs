@@ -18,6 +18,7 @@ use windows_sys::Win32::Foundation::{CloseHandle, ERROR_ALREADY_EXISTS, GetLastE
 use windows_sys::Win32::System::Threading::{CreateMutexW, OpenMutexW};
 use windows_sys::Win32::UI::WindowsAndMessaging::{MB_ICONERROR, MB_OK, MessageBoxW};
 
+const REPO_URL: &str = "https://github.com/1000Pro-1997/AI-Quota-Tray";
 const RELEASE_API: &str = "https://api.github.com/repos/1000Pro-1997/AI-Quota-Tray/releases/latest";
 const ASSET_NAME: &str = "AiQuotaTray-standalone.exe";
 const CREATE_NO_WINDOW: u32 = 0x0800_0000;
@@ -42,6 +43,7 @@ struct Release {
 struct Asset {
     name: String,
     browser_download_url: String,
+    /// 모르면 0. 그때는 내려받기 응답의 길이를 쓴다.
     size: u64,
     digest: Option<String>,
 }
@@ -620,7 +622,19 @@ fn stage_latest_update(tray: Option<&tray::TrayIcon>) -> Result<(), String> {
     Ok(())
 }
 
+/// 최신 릴리즈를 알아낸다. API가 막히면 웹 페이지에서 같은 것을 읽는다.
+///
+/// API는 인증 없이 IP당 시간당 60회뿐이다. 부팅마다 도는 런처와 앱이 그 한도를
+/// 나눠 쓰고, 회사·학교처럼 IP를 함께 쓰면 남이 다 써 버리기도 한다. 그러면
+/// 403이 와서 첫 설치도 복구도 못 한다. 웹 페이지는 그 한도에 묶이지 않는다.
 fn fetch_release() -> Result<Release, String> {
+    fetch_release_api().or_else(|api_error| {
+        log_line(&format!("{api_error}; falling back to release page"));
+        fetch_release_page().map_err(|page_error| format!("{api_error}\n{page_error}"))
+    })
+}
+
+fn fetch_release_api() -> Result<Release, String> {
     let client = Client::builder()
         .timeout(Duration::from_secs(30))
         .build()
@@ -637,6 +651,58 @@ fn fetch_release() -> Result<Release, String> {
         return Err("정식 릴리즈가 아닙니다.".into());
     }
     Ok(release)
+}
+
+/// 웹의 /releases/latest는 최신 정식 릴리즈의 태그 페이지로 302를 돌려준다.
+/// 태그는 그 주소에서, SHA256은 태그 페이지에 그려진 릴리즈 노트의 Checksums
+/// 항목에서 얻는다. 파일 크기는 내려받을 때 응답 길이로 대신한다.
+fn fetch_release_page() -> Result<Release, String> {
+    // 리다이렉트를 따라가면 Location을 볼 수 없다.
+    let client = Client::builder()
+        .timeout(Duration::from_secs(30))
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .map_err(|e| e.to_string())?;
+    let response = client
+        .get(format!("{REPO_URL}/releases/latest"))
+        .header("User-Agent", "AI-Quota-Tray-Launcher")
+        .send()
+        .map_err(|e| format!("릴리즈 페이지 확인 실패: {e}"))?;
+    let tag = response
+        .headers()
+        .get(reqwest::header::LOCATION)
+        .and_then(|v| v.to_str().ok())
+        .and_then(tag_from_location)
+        .ok_or_else(|| format!("릴리즈 페이지 확인 실패: HTTP {}", response.status()))?
+        .to_string();
+
+    let body = client
+        .get(format!("{REPO_URL}/releases/tag/{tag}"))
+        .header("User-Agent", "AI-Quota-Tray-Launcher")
+        .send()
+        .and_then(|r| r.error_for_status())
+        .and_then(|r| r.text())
+        .map_err(|e| format!("릴리즈 페이지 확인 실패: {e}"))?;
+
+    Ok(Release {
+        tag_name: tag.clone(),
+        body,
+        draft: false,
+        prerelease: false,
+        assets: vec![Asset {
+            name: ASSET_NAME.into(),
+            browser_download_url: format!("{REPO_URL}/releases/download/{tag}/{ASSET_NAME}"),
+            size: 0,
+            digest: None,
+        }],
+    })
+}
+
+/// ".../releases/tag/v1.2.0"에서 태그만 떼어 낸다. 릴리즈가 없으면 /releases로
+/// 보내므로 그때는 None이다.
+fn tag_from_location(location: &str) -> Option<&str> {
+    let (_, tag) = location.rsplit_once("/releases/tag/")?;
+    (!tag.is_empty() && !tag.contains(['/', '?', '#'])).then_some(tag)
 }
 
 fn find_asset(release: &Release) -> Result<&Asset, String> {
@@ -668,6 +734,13 @@ fn download_verified(
         .and_then(|r| r.error_for_status())
         .map_err(|e| format!("다운로드 실패: {e}"))?;
 
+    // 릴리즈 페이지로 알아낸 경우에는 크기를 모른다. 응답 길이로 대신한다.
+    let size = if asset.size > 0 {
+        asset.size
+    } else {
+        response.content_length().unwrap_or(0)
+    };
+
     let mut file = File::create(destination).map_err(|e| e.to_string())?;
     let mut hasher = Sha256::new();
     let mut total = 0u64;
@@ -688,8 +761,8 @@ fn download_verified(
             if w.cancelled() {
                 return Err("사용자가 설치를 취소했습니다.".into());
             }
-            if asset.size > 0 {
-                w.set(total as f64 / asset.size as f64);
+            if size > 0 {
+                w.set(total as f64 / size as f64);
             }
         }
 
@@ -699,8 +772,8 @@ fn download_verified(
             }
             // 아이콘은 한 칸(1%) 단위로만 바뀐다. 그보다 자주 그려 봐야
             // 눈에 띄지 않고 셸에 메시지만 쌓인다.
-            if asset.size > 0 {
-                let percent = total as f64 * 100.0 / asset.size as f64;
+            if size > 0 {
+                let percent = total as f64 * 100.0 / size as f64;
                 if percent as i32 > reported {
                     reported = percent as i32;
                     icon.set_percent(label, percent);
@@ -714,7 +787,7 @@ fn download_verified(
     }
     file.flush().map_err(|e| e.to_string())?;
 
-    if total != asset.size {
+    if total != size {
         return Err("다운로드 크기가 릴리즈 정보와 다릅니다.".into());
     }
     let actual = format!("{:x}", hasher.finalize());
@@ -848,5 +921,34 @@ mod tests {
             expected_sha256(&asset, &format!("{ASSET_NAME}  {hash}")),
             Some(hash.into())
         );
+    }
+
+    #[test]
+    fn reads_hash_from_rendered_release_page() {
+        let asset = Asset {
+            name: ASSET_NAME.into(),
+            browser_download_url: String::new(),
+            size: 0,
+            digest: None,
+        };
+        let hash = "daf8ccc66298472394a755e1f479f40c3e9b53647e9fbb3ea05bde3da7d935c3";
+        // GitHub이 Checksums 코드 블록을 그린 모양 그대로. 앞줄은 이름만 있고 해시가 없다.
+        let page = format!(
+            "<p>The launcher downloads <code>{ASSET_NAME}</code> for you.<br>\n\
+             <div class=\"snippet-clipboard-content\" data-snippet-clipboard-copy-content=\"{ASSET_NAME}  {hash}\"><pre class=\"notranslate\"><code>{ASSET_NAME}  {hash}\n\
+             </code></pre></div>"
+        );
+        assert_eq!(expected_sha256(&asset, &page), Some(hash.into()));
+    }
+
+    #[test]
+    fn takes_tag_only_from_release_redirect() {
+        assert_eq!(
+            tag_from_location("https://github.com/o/r/releases/tag/v1.21.0"),
+            Some("v1.21.0")
+        );
+        // 릴리즈가 하나도 없으면 목록 페이지로 보낸다.
+        assert_eq!(tag_from_location("https://github.com/o/r/releases"), None);
+        assert_eq!(tag_from_location("https://github.com/o/r/releases/tag/"), None);
     }
 }
