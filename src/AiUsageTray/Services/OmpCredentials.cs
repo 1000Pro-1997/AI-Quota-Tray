@@ -7,9 +7,9 @@ using System.Text.Json;
 namespace AiUsageTray.Services;
 
 /// <summary>
-/// omp(코딩 에이전트)가 ChatGPT 구독으로 Codex 모델을 쓰면 ~/.codex에는 아무것도
-/// 남지 않는다. 로그도 토큰 갱신도 omp 쪽 agent.db에서만 일어나 Codex CLI의 토큰은
-/// 만료된 채 남는다. 같은 계정의 사용량 API를 부르려고 omp가 관리하는 토큰을 빌린다.
+/// omp(코딩 에이전트)로 ChatGPT·Claude 구독 모델을 쓰면 ~/.codex, ~/.claude에는 아무것도
+/// 남지 않는다. 토큰 갱신이 omp 쪽 agent.db에서만 일어나 각 CLI의 토큰은 만료된 채 남는다.
+/// 같은 계정의 사용량 API를 부르려고 omp가 관리하는 토큰을 빌린다.
 /// 읽기만 한다. 갱신은 omp가 하므로 여기서 리프레시 토큰을 쓰면 omp 로그인이 풀린다.
 /// </summary>
 internal static class OmpCredentials
@@ -18,7 +18,12 @@ internal static class OmpCredentials
         Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".omp", "agent", "agent.db");
 
     /// <summary>아직 만료되지 않은 openai-codex 토큰 중 가장 오래 쓸 수 있는 것.</summary>
-    public static (string Token, string Account)? ReadCodex()
+    public static (string Token, string Account)? ReadCodex() => ReadBest("openai-codex");
+
+    /// <summary>아직 만료되지 않은 anthropic 토큰 중 가장 오래 쓸 수 있는 것.</summary>
+    public static string? ReadAnthropic() => ReadBest("anthropic")?.Token;
+
+    private static (string Token, string Account)? ReadBest(string provider)
     {
         string path = DatabasePath;
         if (!File.Exists(path)) return null;
@@ -27,8 +32,9 @@ internal static class OmpCredentials
         long bestExpires = 0;
         long now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
+        // provider는 이 파일 안의 상수뿐이라 SQL에 바로 넣어도 된다.
         foreach (string json in Query(path,
-                     "SELECT data FROM auth_credentials WHERE provider = 'openai-codex' " +
+                     $"SELECT data FROM auth_credentials WHERE provider = '{provider}' " +
                      "AND credential_type = 'oauth' AND disabled_cause IS NULL"))
         {
             try

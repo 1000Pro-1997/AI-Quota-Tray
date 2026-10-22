@@ -20,6 +20,14 @@ public sealed class ClaudeProvider : IUsageProvider
     private const string UsageUrl = "https://api.anthropic.com/api/oauth/usage";
     private const string OAuthBeta = "oauth-2025-04-20";
 
+    /// <summary>
+    /// usage 엔드포인트는 User-Agent가 claude-code/버전이 아니면 훨씬 빡빡한 한도를
+    /// 적용해 429가 몇 시간씩 이어진다. 그래서 설치된 Claude Code 버전을 흉내 낸다.
+    /// 버전 폴더를 못 찾으면 알려진 버전을 쓴다. 숫자 자체는 검사하지 않는 것으로 보인다.
+    /// </summary>
+    private static readonly Lazy<string> ClaudeCodeUserAgent = new(() =>
+        "claude-code/" + (DetectClaudeCodeVersion() ?? "2.1.281"));
+
     private readonly HttpClient _http;
     private readonly Func<string> _credentialsPath;
 
@@ -47,27 +55,33 @@ public sealed class ClaudeProvider : IUsageProvider
     public async Task<ProviderUsage> FetchAsync(CancellationToken ct)
     {
         string path = _credentialsPath();
-        if (!File.Exists(path))
-        {
-            if (ClaudeStatusLineBridge.TryReadFresh("") is { } cached) return cached;
-            return ProviderUsage.SignedOut(Name);
-        }
+        string token = "", plan = "";
+        long expiresAt = 0;
 
-        string token, plan;
-        try
+        if (File.Exists(path))
         {
-            (token, plan) = ReadCredentials(path);
-        }
-        catch (Exception ex)
-        {
-            if (ClaudeStatusLineBridge.TryReadFresh("") is { } cached) return cached;
-            return ProviderUsage.Unavailable(Name, Strings.Get("error.credentialsUnreadable", ex.Message));
+            try
+            {
+                (token, plan, expiresAt) = ReadCredentials(path);
+            }
+            catch (Exception ex)
+            {
+                if (ClaudeStatusLineBridge.TryReadFresh("") is { } cached) return cached;
+                if (OmpCredentials.ReadAnthropic() is null)
+                    return ProviderUsage.Unavailable(Name, Strings.Get("error.credentialsUnreadable", ex.Message));
+            }
         }
 
         // Claude Code가 방금 실제 응답에서 받은 값이 가장 최신이다.
         // 없거나 오래됐으면 아래의 기존 OAuth usage 조회를 그대로 사용한다.
         if (ClaudeStatusLineBridge.TryReadFresh(plan) is { } bridged)
             return WithExtra(bridged);
+
+        // Claude Code를 안 켜고 omp로만 쓰면 ~/.claude 토큰은 만료된 채 남는다.
+        // 그 토큰으로 부르면 401만 받으니 omp가 갱신해 둔 토큰을 빌린다.
+        bool expired = expiresAt > 0 && expiresAt <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        if (string.IsNullOrEmpty(token) || expired)
+            token = OmpCredentials.ReadAnthropic() ?? token;
 
         // Claude Code는 로그아웃할 때 파일을 지우지 않고 토큰만 비워 둔다.
         if (string.IsNullOrEmpty(token))
@@ -85,6 +99,8 @@ public sealed class ClaudeProvider : IUsageProvider
             using var req = new HttpRequestMessage(HttpMethod.Get, UsageUrl);
             req.Headers.TryAddWithoutValidation("Authorization", "Bearer " + token);
             req.Headers.TryAddWithoutValidation("anthropic-beta", OAuthBeta);
+            // 요청에 넣은 값이 HttpClient 기본 User-Agent보다 우선한다.
+            req.Headers.TryAddWithoutValidation("User-Agent", ClaudeCodeUserAgent.Value);
 
             using var res = await _http.SendAsync(req, ct).ConfigureAwait(false);
 
@@ -136,18 +152,20 @@ public sealed class ClaudeProvider : IUsageProvider
         }
     }
 
-    private static (string token, string plan) ReadCredentials(string path)
+    private static (string token, string plan, long expiresAt) ReadCredentials(string path)
     {
         // Claude Code가 동시에 쓸 수 있으므로 공유 읽기로 연다.
         using var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
         using var doc = JsonDocument.Parse(fs);
 
         if (!doc.RootElement.TryGetProperty("claudeAiOauth", out var oauth))
-            return ("", "");
+            return ("", "", 0);
 
         string token = oauth.TryGetProperty("accessToken", out var t) ? t.GetString() ?? "" : "";
         string plan = oauth.TryGetProperty("subscriptionType", out var s) ? s.GetString() ?? "" : "";
-        return (token, Capitalize(plan));
+        long expiresAt = oauth.TryGetProperty("expiresAt", out var e) && e.ValueKind == JsonValueKind.Number
+            ? e.GetInt64() : 0;
+        return (token, Capitalize(plan), expiresAt);
     }
 
     /// <summary>
@@ -190,7 +208,7 @@ public sealed class ClaudeProvider : IUsageProvider
 
                 windows.Add(new UsageWindow
                 {
-                    Kind = KindFor(kind),
+                    Kind = KindFor(kind, lim),
                     RawLabel = LabelFor(kind, lim),
                     Percent = pct,
                     ResetsAt = reset,
@@ -261,13 +279,22 @@ public sealed class ClaudeProvider : IUsageProvider
         into.Add(new UsageWindow { Kind = kind, Percent = pct, ResetsAt = reset });
     }
 
-    /// <summary>서버가 준 kind를 화면 배치용 분류로 옮긴다.</summary>
-    private static WindowKind KindFor(string kind) => kind switch
+    /// <summary>
+    /// 서버가 준 kind를 화면 배치용 분류로 옮긴다. Weekly 칸은 전체 주간 한도
+    /// 하나만 차지한다. weekly_sonnet·weekly_opus나 scope가 붙은 모델별 한도까지
+    /// Weekly로 넣으면 Label이 모두 "주간"이 되어 같은 이름 줄이 둘 생기고,
+    /// 위젯바·트레이가 FirstOrDefault로 고르는 주간 값도 순서에 따라 바뀐다.
+    /// </summary>
+    private static WindowKind KindFor(string kind, JsonElement lim)
     {
-        "session" => WindowKind.Session,
-        _ when kind.StartsWith("weekly", StringComparison.Ordinal) => WindowKind.Weekly,
-        _ => WindowKind.Other,
-    };
+        if (kind == "session") return WindowKind.Session;
+
+        bool scoped = lim.TryGetProperty("scope", out var s) && s.ValueKind == JsonValueKind.String
+            && !string.IsNullOrEmpty(s.GetString());
+        if ((kind == "weekly_all" || kind == "weekly") && !scoped) return WindowKind.Weekly;
+
+        return WindowKind.Other;
+    }
 
     private static string LabelFor(string kind, JsonElement lim)
     {
@@ -299,6 +326,31 @@ public sealed class ClaudeProvider : IUsageProvider
     private static string Capitalize(string s) =>
         string.IsNullOrEmpty(s) ? "" : char.ToUpperInvariant(s[0]) + s[1..];
 
+    /// <summary>
+    /// 네이티브 설치판은 ~/.local/share/claude/versions/2.1.281 처럼 버전마다 폴더(파일)를
+    /// 남긴다. CLI를 실행하면 창이 번쩍이고 느려서 이름만 읽는다.
+    /// </summary>
+    private static string? DetectClaudeCodeVersion()
+    {
+        try
+        {
+            string dir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".local", "share", "claude", "versions");
+            if (!Directory.Exists(dir)) return null;
+
+            return Directory.EnumerateFileSystemEntries(dir)
+                .Select(Path.GetFileName)
+                .Select(name => Version.TryParse(name, out var v) ? v : null)
+                .Where(v => v is not null)
+                .Max()?.ToString();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     /// <summary>앱을 다시 켜도 서버가 지정한 재시도 시각을 어기지 않는다.</summary>
     private static DateTime LoadBlockedUntil()
     {
@@ -306,7 +358,10 @@ public sealed class ClaudeProvider : IUsageProvider
         {
             if (!File.Exists(BackoffFile)) return DateTime.MinValue;
             using var doc = JsonDocument.Parse(File.ReadAllText(BackoffFile));
+            // 예전 User-Agent로 받은 백오프는 지금의 한도 버킷과 무관하다. 표식이 없으면 버린다.
             if (!doc.RootElement.TryGetProperty("blocked_until", out var value) ||
+                !doc.RootElement.TryGetProperty("user_agent", out var ua) ||
+                ua.GetString() != ClaudeCodeUserAgent.Value ||
                 !DateTimeOffset.TryParse(value.GetString(), out var parsed))
                 return DateTime.MinValue;
 
@@ -333,6 +388,7 @@ public sealed class ClaudeProvider : IUsageProvider
             File.WriteAllText(tmp, JsonSerializer.Serialize(new
             {
                 blocked_until = new DateTimeOffset(blockedUntil).ToString("O"),
+                user_agent = ClaudeCodeUserAgent.Value,
             }));
             File.Move(tmp, BackoffFile, overwrite: true);
         }

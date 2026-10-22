@@ -60,7 +60,7 @@ default).
 
 | Tool | Method | Network |
 |---|---|---|
-| Claude | Reads the OAuth token from `~/.claude/.credentials.json`, then calls the official usage endpoint | Yes |
+| Claude | Reads the OAuth token from `~/.claude/.credentials.json` (or omp's Claude sign-in if that one has expired), then calls the official usage endpoint | Yes |
 | Codex | Calls the same usage endpoint the ChatGPT web page uses, signed in with your Codex token. Falls back to `rate_limits` recorded in `~/.codex/sessions/**/*.jsonl` if the server cannot be reached | Yes |
 
 **No API key needed.** If you are signed in to either CLI, the app finds it.
@@ -81,8 +81,14 @@ The Claude credentials file is **read, never written**. Access tokens expire aft
 a few hours, but Claude Code refreshes them and writes them back — this app just
 reads the file again. So it can never log you out.
 
-If you have not run Claude Code in a while and the token has expired, you will see
-"Waiting for token refresh". Running Claude Code once fixes it.
+If you have not run Claude Code in a while and the token has expired, the app
+borrows the Claude sign-in kept by omp (`~/.omp/agent/agent.db`), read-only. If
+neither is valid you will see "Waiting for token refresh". Running Claude Code once
+fixes it.
+
+The usage request identifies itself as Claude Code (`User-Agent: claude-code/<version>`,
+taken from the installed version). Any other User-Agent lands in a much stricter
+rate-limit bucket and gets 429s for hours.
 
 For Codex the app picks a token in this order:
 
