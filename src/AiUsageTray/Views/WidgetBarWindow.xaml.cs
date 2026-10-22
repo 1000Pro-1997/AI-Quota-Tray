@@ -84,6 +84,7 @@ public partial class WidgetBarWindow : Window
     public int ManualHeight { get; set; } = 36;
     public bool ModelsHorizontal { get; set; } = true;
     public bool ShowPercent { get; set; } = true;
+    public bool ShowModelWeekly { get; set; }
     public bool ShowResetTime { get; set; } = true;
     public int PercentFontSize { get; set; } = 11;
     public int ResetTimeFontSize { get; set; } = 10;
@@ -449,7 +450,9 @@ public partial class WidgetBarWindow : Window
 
         // 어느 쪽에도 속하지 않는 한도는 뒤에 덧붙인다.
         // 추가 사용량은 넣지 않는다. 세 줄이 되면 막대 높이가 줄어 위젯이 찌그러진다.
-        var others = u.Windows.Where(w => w.Kind == WindowKind.Other).ToList();
+        // 모델별 주간 한도도 같은 이유로 설정을 켰을 때만 넣는다.
+        var others = u.Windows.Where(w => w.Kind == WindowKind.Other ||
+                                          w.Kind == WindowKind.ModelWeekly && ShowModelWeekly).ToList();
 
         // 위 칸: 세션. 없으면 빈 자리로 남겨 주간이 아래에 오게 한다.
         if (session is not null)

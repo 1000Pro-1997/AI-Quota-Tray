@@ -257,6 +257,7 @@ public partial class App : Application
         _widgetBar.ManualWidth = _settings.WidgetWidth;
         _widgetBar.ManualHeight = _settings.WidgetHeight;
         _widgetBar.ModelsHorizontal = _settings.WidgetModelsHorizontal;
+        _widgetBar.ShowModelWeekly = _settings.WidgetShowModelWeekly;
         _widgetBar.HideOnFullScreen = _settings.WidgetHideOnFullScreen;
         _widgetBar.BringToFrontSeconds = _settings.WidgetBringToFrontSeconds;
         _widgetBar.ShowPercent = _settings.WidgetShowPercent;

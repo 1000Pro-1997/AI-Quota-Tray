@@ -87,6 +87,12 @@ public sealed class AppSettings
     public bool WidgetModelsHorizontal { get; set; } = true;
 
     /// <summary>
+    /// 위젯바에 모델별 주간 한도(예: 주간 Fable)를 셋째 줄로 넣는다. 팝업에는 늘 보인다.
+    /// 줄이 늘면 막대가 얇아져 기본은 끈다.
+    /// </summary>
+    public bool WidgetShowModelWeekly { get; set; }
+
+    /// <summary>
     /// 전체화면 앱이 떠 있는 동안 위젯바를 숨긴다.
     /// 작업표시줄이 가려질 때 위젯도 같이 물러나게 하는 장치다.
     /// </summary>
@@ -243,6 +249,7 @@ public sealed class AppSettings
         WidgetWidth = fresh.WidgetWidth;
         WidgetHeight = fresh.WidgetHeight;
         WidgetModelsHorizontal = fresh.WidgetModelsHorizontal;
+        WidgetShowModelWeekly = fresh.WidgetShowModelWeekly;
         WidgetHideOnFullScreen = fresh.WidgetHideOnFullScreen;
         WidgetBringToFrontSeconds = fresh.WidgetBringToFrontSeconds;
         WidgetShowPercent = fresh.WidgetShowPercent;

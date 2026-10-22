@@ -14,7 +14,7 @@ public static partial class TimeDisplayFormatter
 
     public static string Format(UsageWindow window, AppSettings settings, bool overlay = false)
     {
-        bool weekly = window.Kind == WindowKind.Weekly;
+        bool weekly = IsWeekly(window);
         string pattern = weekly ? settings.WeeklyTimeFormat : settings.SessionTimeFormat;
         int maxParts = Math.Clamp(weekly
             ? (overlay ? settings.WeeklyOverlayTimeMaxParts : settings.WeeklyTimeMaxParts)
@@ -26,7 +26,7 @@ public static partial class TimeDisplayFormatter
     public static bool ShowsSeconds(UsageWindow window, AppSettings settings, bool overlay = false)
     {
         if (window.ResetsAt is null) return false;
-        bool weekly = window.Kind == WindowKind.Weekly;
+        bool weekly = IsWeekly(window);
         string pattern = weekly ? settings.WeeklyTimeFormat : settings.SessionTimeFormat;
         int maxParts = Math.Clamp(weekly
             ? (overlay ? settings.WeeklyOverlayTimeMaxParts : settings.WeeklyTimeMaxParts)
@@ -43,6 +43,10 @@ public static partial class TimeDisplayFormatter
             : FindStart(parts, values, mode, window.ResetsAt.Value, now);
         return parts.Skip(start).Take(maxParts).Any(p => p.Token == "ss");
     }
+
+    // 모델별 주간 한도도 7일 창이다. 세션 형식을 쓰면 일(day) 단위가 잘려 "13시 24분"처럼 보인다.
+    private static bool IsWeekly(UsageWindow window) =>
+        window.Kind is WindowKind.Weekly or WindowKind.ModelWeekly;
 
     public static string Format(DateTime? resetAt, string pattern, int maxParts,
         TimeDisplayMode mode, DateTime now)

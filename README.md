@@ -42,7 +42,7 @@ background. If the network is unavailable, the installed version still starts.
 
 | Tool | Limits |
 |---|---|
-| **Claude** | 5-hour session limit, weekly limit, and when each resets |
+| **Claude** | 5-hour session limit, weekly limit, model-specific weekly limits (e.g. `Weekly Fable`), and when each resets |
 | **Codex** | 5-hour and weekly limits, reset times, and plan |
 
 Numbers default to what is **left** (`18% left`). Switch to what was **used**
@@ -160,6 +160,10 @@ An overlay that sits next to the notification area, one row per limit:
 
 Rows have fixed slots — session on top, weekly below. If a tool has no session
 limit, that slot stays empty, so weekly always lines up.
+
+Model-specific weekly limits (Claude's `Weekly Fable` and the like) always show in
+the popup. The bar leaves them out by default to stay at two rows; turn on
+**Show model weekly limits** in the Widget tab to add them as a third row.
 
 The filled width matches the number: showing what is left fills by what is left.
 Click the bar to open the popup. Hover to see which tool and which limit.

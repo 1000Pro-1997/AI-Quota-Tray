@@ -24,6 +24,12 @@ public enum WindowKind
     /// 캐시가 숫자로 저장하므로 기존 값 뒤에 붙인다.
     /// </summary>
     Extra,
+
+    /// <summary>
+    /// 특정 모델에만 걸린 주간 한도(Claude weekly_scoped 등). 전체 주간 한도 안의 몫이다.
+    /// 팝업에는 늘 보이고 위젯바에는 설정을 켰을 때만 넣는다. 캐시 숫자 때문에 맨 뒤에 둔다.
+    /// </summary>
+    ModelWeekly,
 }
 
 /// <summary>한도 창(window) 하나의 사용 현황.</summary>
@@ -33,7 +39,7 @@ public sealed class UsageWindow
     public WindowKind Kind { get; init; } = WindowKind.Other;
 
     /// <summary>
-    /// 분류에 맞지 않는 창의 이름. Kind가 Other일 때만 쓴다.
+    /// 분류에 맞지 않는 창의 이름. Kind가 Other면 전체 이름, ModelWeekly면 모델 이름이다.
     /// 번역할 수 없는 값이라 서버가 준 말을 그대로 둔다.
     /// </summary>
     public string RawLabel { get; init; } = "";
@@ -47,6 +53,8 @@ public sealed class UsageWindow
         WindowKind.Session => Strings.Get("window.session"),
         WindowKind.Weekly => Strings.Get("window.weekly"),
         WindowKind.Extra => Strings.Get("window.extra"),
+        WindowKind.ModelWeekly => string.IsNullOrEmpty(RawLabel)
+            ? Strings.Get("window.weekly") : $"{Strings.Get("window.weekly")} {RawLabel}",
         _ => string.IsNullOrEmpty(RawLabel) ? Strings.Get("window.usage") : RawLabel,
     };
 

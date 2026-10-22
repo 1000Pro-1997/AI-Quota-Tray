@@ -281,37 +281,43 @@ public sealed class ClaudeProvider : IUsageProvider
 
     /// <summary>
     /// 서버가 준 kind를 화면 배치용 분류로 옮긴다. Weekly 칸은 전체 주간 한도
-    /// 하나만 차지한다. weekly_sonnet·weekly_opus나 scope가 붙은 모델별 한도까지
-    /// Weekly로 넣으면 Label이 모두 "주간"이 되어 같은 이름 줄이 둘 생기고,
-    /// 위젯바·트레이가 FirstOrDefault로 고르는 주간 값도 순서에 따라 바뀐다.
+    /// 하나만 차지한다. 모델별 주간 한도(weekly_scoped·weekly_opus 등, scope가 붙은 것)까지
+    /// Weekly로 넣으면 같은 "주간" 줄이 둘 생기고, 위젯바·트레이가 FirstOrDefault로
+    /// 고르는 주간 값도 순서에 따라 바뀐다.
     /// </summary>
     private static WindowKind KindFor(string kind, JsonElement lim)
     {
         if (kind == "session") return WindowKind.Session;
+        if (!kind.StartsWith("weekly", StringComparison.Ordinal)) return WindowKind.Other;
 
-        bool scoped = lim.TryGetProperty("scope", out var s) && s.ValueKind == JsonValueKind.String
-            && !string.IsNullOrEmpty(s.GetString());
-        if ((kind == "weekly_all" || kind == "weekly") && !scoped) return WindowKind.Weekly;
-
-        return WindowKind.Other;
+        bool scoped = lim.TryGetProperty("scope", out var s)
+            && s.ValueKind is not (JsonValueKind.Null or JsonValueKind.Undefined);
+        return (kind == "weekly_all" || kind == "weekly") && !scoped
+            ? WindowKind.Weekly : WindowKind.ModelWeekly;
     }
 
+    /// <summary>
+    /// 모델별 주간 한도는 모델 이름만 남긴다. "주간" 부분은 화면에서 현재 언어로 붙인다.
+    /// scope는 {"model":{"display_name":"Fable"}} 처럼 객체로 온다(2026-10 실측).
+    /// 이름이 없으면 weekly_opus 같은 kind 꼬리를 쓴다.
+    /// </summary>
     private static string LabelFor(string kind, JsonElement lim)
     {
-        // scope가 있으면 모델별 한도다. 예: weekly_opus -> "주간 Opus"
-        string scope = lim.TryGetProperty("scope", out var s) && s.ValueKind == JsonValueKind.String
-            ? s.GetString() ?? "" : "";
+        if (KindFor(kind, lim) != WindowKind.ModelWeekly) return kind.Replace('_', ' ');
 
-        string baseLabel = kind switch
+        if (lim.TryGetProperty("scope", out var scope))
         {
-            "session" => Strings.Get("window.session"),
-            "weekly_all" => Strings.Get("window.weekly"),
-            "weekly_opus" => Strings.Get("window.weeklyOpus"),
-            "weekly_sonnet" => Strings.Get("window.weeklySonnet"),
-            _ => kind.Replace('_', ' '),
-        };
+            if (scope.ValueKind == JsonValueKind.String && !string.IsNullOrEmpty(scope.GetString()))
+                return scope.GetString()!;
+            if (scope.ValueKind == JsonValueKind.Object &&
+                scope.TryGetProperty("model", out var model) && model.ValueKind == JsonValueKind.Object &&
+                model.TryGetProperty("display_name", out var name) && name.ValueKind == JsonValueKind.String &&
+                !string.IsNullOrEmpty(name.GetString()))
+                return name.GetString()!;
+        }
 
-        return string.IsNullOrEmpty(scope) ? baseLabel : $"{baseLabel} ({scope})";
+        string tail = kind["weekly".Length..].TrimStart('_');
+        return tail is "" or "scoped" ? "" : Capitalize(tail);
     }
 
     private static double ReadNumber(JsonElement el) =>

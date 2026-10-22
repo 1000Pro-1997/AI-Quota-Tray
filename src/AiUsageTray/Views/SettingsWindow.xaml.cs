@@ -142,6 +142,7 @@ public partial class SettingsWindow : Window
         WidgetWidth.Text = _settings.WidgetWidth.ToString();
         WidgetHeight.Text = _settings.WidgetHeight.ToString();
         WidgetModelsHorizontal.IsChecked = _settings.WidgetModelsHorizontal;
+        WidgetShowModelWeekly.IsChecked = _settings.WidgetShowModelWeekly;
         WidgetHideOnFullScreen.IsChecked = _settings.WidgetHideOnFullScreen;
         WidgetBringToFrontInput.Text = _settings.WidgetBringToFrontSeconds.ToString(CultureInfo.CurrentCulture);
         WidgetAutoOffset.IsChecked = _settings.WidgetAutoOffset;
@@ -704,6 +705,8 @@ public partial class SettingsWindow : Window
         LblWidgetHeight.Text = Strings.Get("settings.widgetHeight");
         LblWidgetOrientation.Text = Strings.Get("settings.widgetOrientation");
         LblWidgetOrientationHint.Text = Strings.Get("settings.widgetOrientationHint");
+        LblWidgetShowModelWeekly.Text = Strings.Get("settings.widgetShowModelWeekly");
+        LblWidgetShowModelWeeklyHint.Text = Strings.Get("settings.widgetShowModelWeeklyHint");
         LblWidgetHideOnFullScreen.Text = Strings.Get("settings.widgetHideOnFullScreen");
         LblWidgetHideOnFullScreenHint.Text = Strings.Get("settings.widgetHideOnFullScreenHint");
         LblWidgetBringToFront.Text = Strings.Get("settings.widgetBringToFront");
@@ -954,6 +957,7 @@ public partial class SettingsWindow : Window
         _settings.WidgetWidth = ParseWidgetDimension(WidgetWidth.Text, 200, 80, 1200);
         _settings.WidgetHeight = ParseWidgetDimension(WidgetHeight.Text, 36, 24, 600);
         _settings.WidgetModelsHorizontal = WidgetModelsHorizontal.IsChecked == true;
+        _settings.WidgetShowModelWeekly = WidgetShowModelWeekly.IsChecked == true;
         _settings.WidgetHideOnFullScreen = WidgetHideOnFullScreen.IsChecked == true;
         // 이 칸은 입력을 마친 시점에 별도로 저장한다. 다른 설정을 바꾼 순간에
         // 미완성 소수("0.")를 자동 저장하면 의도하지 않은 간격이 된다.
@@ -1051,6 +1055,7 @@ public partial class SettingsWindow : Window
         WidgetWidth.Text = _settings.WidgetWidth.ToString();
         WidgetHeight.Text = _settings.WidgetHeight.ToString();
         WidgetModelsHorizontal.IsChecked = _settings.WidgetModelsHorizontal;
+        WidgetShowModelWeekly.IsChecked = _settings.WidgetShowModelWeekly;
         WidgetHideOnFullScreen.IsChecked = _settings.WidgetHideOnFullScreen;
         WidgetBringToFrontInput.Text = _settings.WidgetBringToFrontSeconds.ToString(CultureInfo.CurrentCulture);
         WidgetAutoOffset.IsChecked = _settings.WidgetAutoOffset;

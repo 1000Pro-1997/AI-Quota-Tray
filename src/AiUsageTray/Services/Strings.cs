@@ -142,8 +142,8 @@ public static class Strings
             // 한도 이름
             ["window.session"] = "5-hour",
             ["window.weekly"] = "Weekly",
-            ["window.weeklyOpus"] = "Weekly Opus",
-            ["window.weeklySonnet"] = "Weekly Sonnet",
+            ["settings.widgetShowModelWeekly"] = "Show model weekly limits",
+            ["settings.widgetShowModelWeeklyHint"] = "Adds limits like Weekly Fable as a third row. Bars get thinner",
             ["window.usage"] = "Usage",
             ["window.extra"] = "Extra usage",
 
@@ -370,8 +370,8 @@ public static class Strings
 
             ["window.session"] = "5시간",
             ["window.weekly"] = "주간",
-            ["window.weeklyOpus"] = "주간 Opus",
-            ["window.weeklySonnet"] = "주간 Sonnet",
+            ["settings.widgetShowModelWeekly"] = "모델별 주간 한도 표시",
+            ["settings.widgetShowModelWeeklyHint"] = "주간 Fable 같은 한도를 셋째 줄로 넣습니다. 막대가 얇아집니다",
             ["window.usage"] = "사용량",
             ["window.extra"] = "추가 사용량",
 
@@ -588,8 +588,8 @@ public static class Strings
 
             ["window.session"] = "5時間",
             ["window.weekly"] = "週間",
-            ["window.weeklyOpus"] = "週間 Opus",
-            ["window.weeklySonnet"] = "週間 Sonnet",
+            ["settings.widgetShowModelWeekly"] = "モデル別の週間上限を表示",
+            ["settings.widgetShowModelWeeklyHint"] = "週間 Fable などを 3 行目に追加します。バーが細くなります",
             ["window.usage"] = "使用量",
             ["window.extra"] = "追加使用量",
 
@@ -782,8 +782,8 @@ public static class Strings
 
             ["window.session"] = "5 小时",
             ["window.weekly"] = "每周",
-            ["window.weeklyOpus"] = "每周 Opus",
-            ["window.weeklySonnet"] = "每周 Sonnet",
+            ["settings.widgetShowModelWeekly"] = "显示各模型每周限额",
+            ["settings.widgetShowModelWeeklyHint"] = "将每周 Fable 等限额作为第三行显示，进度条会变细",
             ["window.usage"] = "用量",
             ["window.extra"] = "额外用量",
 
@@ -976,8 +976,8 @@ public static class Strings
 
             ["window.session"] = "5 小時",
             ["window.weekly"] = "每週",
-            ["window.weeklyOpus"] = "每週 Opus",
-            ["window.weeklySonnet"] = "每週 Sonnet",
+            ["settings.widgetShowModelWeekly"] = "顯示各模型每週限額",
+            ["settings.widgetShowModelWeeklyHint"] = "將每週 Fable 等限額作為第三列顯示，進度條會變細",
             ["window.usage"] = "用量",
             ["window.extra"] = "額外用量",
 
@@ -1170,8 +1170,8 @@ public static class Strings
 
             ["window.session"] = "5 horas",
             ["window.weekly"] = "Semanal",
-            ["window.weeklyOpus"] = "Semanal Opus",
-            ["window.weeklySonnet"] = "Semanal Sonnet",
+            ["settings.widgetShowModelWeekly"] = "Mostrar límites semanales por modelo",
+            ["settings.widgetShowModelWeeklyHint"] = "Añade límites como Semanal Fable en una tercera fila. Las barras se estrechan",
             ["window.usage"] = "Uso",
             ["window.extra"] = "Uso adicional",
 
@@ -1364,8 +1364,8 @@ public static class Strings
 
             ["window.session"] = "5 horas",
             ["window.weekly"] = "Semanal",
-            ["window.weeklyOpus"] = "Semanal Opus",
-            ["window.weeklySonnet"] = "Semanal Sonnet",
+            ["settings.widgetShowModelWeekly"] = "Mostrar limites semanais por modelo",
+            ["settings.widgetShowModelWeeklyHint"] = "Adiciona limites como Semanal Fable numa terceira linha. As barras ficam mais finas",
             ["window.usage"] = "Uso",
             ["window.extra"] = "Uso adicional",
 
@@ -1558,8 +1558,8 @@ public static class Strings
 
             ["window.session"] = "5 Stunden",
             ["window.weekly"] = "Wöchentlich",
-            ["window.weeklyOpus"] = "Wöchentlich Opus",
-            ["window.weeklySonnet"] = "Wöchentlich Sonnet",
+            ["settings.widgetShowModelWeekly"] = "Wochenlimits pro Modell anzeigen",
+            ["settings.widgetShowModelWeeklyHint"] = "Fügt Limits wie Wöchentlich Fable als dritte Zeile hinzu. Balken werden schmaler",
             ["window.usage"] = "Nutzung",
             ["window.extra"] = "Zusatznutzung",
 
@@ -1752,8 +1752,8 @@ public static class Strings
 
             ["window.session"] = "5 heures",
             ["window.weekly"] = "Hebdomadaire",
-            ["window.weeklyOpus"] = "Hebdomadaire Opus",
-            ["window.weeklySonnet"] = "Hebdomadaire Sonnet",
+            ["settings.widgetShowModelWeekly"] = "Afficher les limites hebdomadaires par modèle",
+            ["settings.widgetShowModelWeeklyHint"] = "Ajoute des limites comme Hebdomadaire Fable en troisième ligne. Les barres s'affinent",
             ["window.usage"] = "Utilisation",
             ["window.extra"] = "Utilisation supplémentaire",
 
@@ -1946,8 +1946,8 @@ public static class Strings
 
             ["window.session"] = "5 часов",
             ["window.weekly"] = "Неделя",
-            ["window.weeklyOpus"] = "Неделя Opus",
-            ["window.weeklySonnet"] = "Неделя Sonnet",
+            ["settings.widgetShowModelWeekly"] = "Недельные лимиты по моделям",
+            ["settings.widgetShowModelWeeklyHint"] = "Добавляет лимиты вроде «Неделя Fable» третьей строкой. Полосы станут тоньше",
             ["window.usage"] = "Использование",
             ["window.extra"] = "Доп. использование",
 
