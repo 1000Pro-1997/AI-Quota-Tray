@@ -72,10 +72,9 @@ public sealed class ClaudeProvider : IUsageProvider
             }
         }
 
-        // Claude Code가 방금 실제 응답에서 받은 값이 가장 최신이다.
-        // 없거나 오래됐으면 아래의 기존 OAuth usage 조회를 그대로 사용한다.
-        if (ClaudeStatusLineBridge.TryReadFresh(plan) is { } bridged)
-            return WithExtra(bridged);
+        // 서버 값을 먼저 쓴다. statusLine 값은 이 PC의 Claude Code가 마지막으로
+        // 요청한 순간에 멈춰 있어서, 그 뒤 다른 PC·웹에서 쓴 양이 빠진다.
+        // statusLine은 서버를 못 부를 때(429·네트워크·토큰 문제)만 대신 쓴다.
 
         // Claude Code를 안 켜고 omp로만 쓰면 ~/.claude 토큰은 만료된 채 남는다.
         // 그 토큰으로 부르면 401만 받으니 omp가 갱신해 둔 토큰을 빌린다.
@@ -91,7 +90,7 @@ public sealed class ClaudeProvider : IUsageProvider
         if (DateTime.Now < _blockedUntil)
         {
             int wait = (int)Math.Ceiling((_blockedUntil - DateTime.Now).TotalSeconds);
-            return ProviderUsage.Unavailable(Name, Strings.Get("error.rateLimitedWait", wait));
+            return BridgeOr(Strings.Get("error.rateLimitedWait", wait), plan);
         }
 
         try
@@ -105,7 +104,7 @@ public sealed class ClaudeProvider : IUsageProvider
             using var res = await _http.SendAsync(req, ct).ConfigureAwait(false);
 
             if (res.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-                return ProviderUsage.Unavailable(Name, Strings.Get("error.tokenRefresh"));
+                return BridgeOr(Strings.Get("error.tokenRefresh"), plan);
 
             if ((int)res.StatusCode == 429)
             {
@@ -127,12 +126,11 @@ public sealed class ClaudeProvider : IUsageProvider
                 _blockedUntil = DateTime.Now + retry;
                 SaveBlockedUntil(_blockedUntil);
 
-                return ProviderUsage.Unavailable(Name,
-                    Strings.Get("error.rateLimited", (int)retry.TotalSeconds));
+                return BridgeOr(Strings.Get("error.rateLimited", (int)retry.TotalSeconds), plan);
             }
 
             if (!res.IsSuccessStatusCode)
-                return ProviderUsage.Unavailable(Name, Strings.Get("error.httpFailed", (int)res.StatusCode));
+                return BridgeOr(Strings.Get("error.httpFailed", (int)res.StatusCode), plan);
 
             // 성공했으니 백오프를 푼다.
             _blockedUntil = DateTime.MinValue;
@@ -144,13 +142,22 @@ public sealed class ClaudeProvider : IUsageProvider
         catch (OperationCanceledException) { throw; }
         catch (HttpRequestException)
         {
-            return ProviderUsage.Unavailable(Name, Strings.Get("error.network"));
+            return BridgeOr(Strings.Get("error.network"), plan);
         }
         catch (Exception ex)
         {
-            return ProviderUsage.Unavailable(Name, ex.Message);
+            return BridgeOr(ex.Message, plan);
         }
     }
+
+    /// <summary>
+    /// 서버 조회가 실패했을 때 15분 안의 statusLine 값이 있으면 그걸 보여 준다.
+    /// 오류 화면이나 낡은 캐시보다 방금 Claude Code가 받은 값이 낫다.
+    /// </summary>
+    private ProviderUsage BridgeOr(string error, string plan) =>
+        ClaudeStatusLineBridge.TryReadFresh(plan) is { } bridged
+            ? WithExtra(bridged)
+            : ProviderUsage.Unavailable(Name, error);
 
     private static (string token, string plan, long expiresAt) ReadCredentials(string path)
     {

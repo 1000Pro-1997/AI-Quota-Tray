@@ -69,9 +69,11 @@ Because Codex numbers come from the server, usage from the web, other PCs, or a
 Mac is included — not just what this PC ran. If a session-log entry is older than
 its reset time, that window is shown as reset instead of a stale percentage.
 
-Claude also reports your limits to its own status line every time you use it. The
-app picks those up as a second source, so numbers can stay fresh even when the
-usage endpoint is unreachable. To receive them it registers a small helper script
+Claude numbers also come from the server first, so other PCs and the web are
+included. Claude Code reports your limits to its own status line every time you
+use it; the app keeps those as a fallback for when the usage endpoint is
+unreachable or rate-limited (only values from the last 15 minutes). They are not
+preferred because they freeze at this PC's last request. To receive them it registers a small helper script
 as Claude Code's `statusLine` in `~/.claude/settings.json` — **only if you have not
 set one yourself.** An existing status line is never overwritten.
 
