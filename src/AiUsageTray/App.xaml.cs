@@ -36,6 +36,8 @@ public partial class App : Application
 
     /// <summary>같은 앱이 두 번 뜨지 않게 한다.</summary>
     private Mutex? _singleInstance;
+    private EventWaitHandle? _showFlyoutSignal;
+    private RegisteredWaitHandle? _showFlyoutRegistration;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -52,11 +54,11 @@ public partial class App : Application
             return;
         }
 
+        _showFlyoutSignal = new EventWaitHandle(false, EventResetMode.AutoReset, "AiQuotaTray.ShowFlyout");
         _singleInstance = new Mutex(initiallyOwned: true, "AiQuotaTray.SingleInstance", out bool isFirst);
         if (!isFirst)
         {
-            MessageBox.Show(Strings.Get("app.alreadyRunning"),
-                Strings.Get("app.name"), MessageBoxButton.OK, MessageBoxImage.Information);
+            _showFlyoutSignal.Set();
             Shutdown();
             return;
         }
@@ -93,6 +95,13 @@ public partial class App : Application
         BuildFlyout();
         BuildWidgetBar();
         BuildTray();
+        _showFlyoutRegistration = ThreadPool.RegisterWaitForSingleObject(
+            _showFlyoutSignal, (_, _) => Dispatcher.BeginInvoke(() =>
+            {
+                if (Dispatcher.HasShutdownStarted) return;
+                if (_flyout.IsVisible) _flyout.Activate();
+                else ShowFlyout();
+            }), null, Timeout.Infinite, false);
 
         // 트레이 아이콘도 캐시값으로 먼저 채운다. 빈 뱃지로 떴다가 몇 초 뒤
         // 숫자가 나타나는 것보다, 지난 값이라도 바로 보여주는 편이 낫다.
@@ -116,7 +125,7 @@ public partial class App : Application
 
         _ = _monitor.RefreshAsync().ContinueWith(_ =>
         {
-            if (showNow) Dispatcher.Invoke(ToggleFlyout);
+            if (showNow) Dispatcher.Invoke(ShowFlyout);
         }, TaskScheduler.Default);
     }
 
@@ -540,6 +549,11 @@ public partial class App : Application
 
         if (DateTime.Now - _flyout.HiddenAt < FlyoutReopenGuard) return;
 
+        ShowFlyout();
+    }
+
+    private void ShowFlyout()
+    {
         _flyout.Render(_monitor.Latest);
         _flyout.ShowNearTray();
 
@@ -887,6 +901,8 @@ public partial class App : Application
         _flyout?.CancelLogin();
         _widgetBar?.Close();
         _currentIcon?.Dispose();
+        _showFlyoutRegistration?.Unregister(null);
+        _showFlyoutSignal?.Dispose();
         _singleInstance?.Dispose();
 
         base.OnExit(e);

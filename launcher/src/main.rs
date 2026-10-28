@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::Duration;
 use windows_sys::Win32::Foundation::{CloseHandle, ERROR_ALREADY_EXISTS, GetLastError, HANDLE};
-use windows_sys::Win32::System::Threading::{CreateMutexW, OpenMutexW};
+use windows_sys::Win32::System::Threading::{CreateMutexW, OpenEventW, OpenMutexW, SetEvent, EVENT_MODIFY_STATE};
 use windows_sys::Win32::UI::WindowsAndMessaging::{MB_ICONERROR, MB_OK, MessageBoxW};
 
 const REPO_URL: &str = "https://github.com/1000Pro-1997/AI-Quota-Tray";
@@ -84,8 +84,12 @@ fn run() -> Result<(), String> {
             let _ = fs::remove_file(pending_launcher_path());
             let _ = fs::remove_file(pending_launcher_version_path());
         } else {
-            Command::new(pending_launcher_path())
-                .arg("--replace-launcher-and-run")
+            let mut command = Command::new(pending_launcher_path());
+            command.arg("--replace-launcher-and-run");
+            if env::args().any(|a| a == "--flyout") {
+                command.arg("--flyout");
+            }
+            command
                 .creation_flags(CREATE_NO_WINDOW)
                 .spawn()
                 .map_err(|e| format!("새 런처 실행 실패: {e}"))?;
@@ -120,6 +124,10 @@ fn work(current: &Path, installed: &Path, tray: Option<&tray::TrayIcon>) -> Resu
     // 실패하거나(os error 32) 프로세스가 둘로 갈라졌다.
     if !same_path(current, installed) {
         install_launcher(current, installed)?;
+    }
+    // 기존 설치본으로 부팅할 때도 만들어, 예전 버전 사용자가 검색으로 다시 열 수 있게 한다.
+    if let Err(error) = ensure_start_menu_shortcut(installed) {
+        log_line(&format!("start menu shortcut skipped: {error}"));
     }
 
     // 다른 런처가 배경에서 내려받는 중일 수 있다. 그때도 앱은 띄워야 한다.
@@ -156,7 +164,12 @@ fn work(current: &Path, installed: &Path, tray: Option<&tray::TrayIcon>) -> Resu
     // 여기서 실패하면 곧장 포기하지 않는다. exe가 깨졌거나 반만 받아진
     // 상태일 수 있는데, 그대로 물러나면 다음에 눌러도 같은 파일로 또 실패해
     // 스스로 헤어날 길이 없다. 한 번은 새로 받아 갈아끼우고 다시 시도한다.
-    if let Err(error) = launch_and_confirm(tray, &[]) {
+    let launch_args: &[&str] = if env::args().any(|a| a == "--flyout") {
+        &["--flyout"]
+    } else {
+        &[]
+    };
+    if let Err(error) = launch_and_confirm(tray, launch_args) {
         log_line(&format!("app did not start: {error}; reinstalling"));
 
         if mutex.is_none() {
@@ -216,6 +229,16 @@ fn launch_and_confirm(tray: Option<&tray::TrayIcon>, args: &[&str]) -> Result<()
 
     if app_is_running() {
         set_tray(tray, 100, "AI Quota Tray 이미 실행 중");
+        if args.contains(&"--flyout") {
+            // 실행 중인 앱이라면 다시 만들지 말고 기존 창을 앞으로 보낸다.
+            let event = unsafe { OpenEventW(EVENT_MODIFY_STATE, 0, to_wide("AiQuotaTray.ShowFlyout").as_ptr()) };
+            if !event.is_null() {
+                unsafe {
+                    SetEvent(event);
+                    CloseHandle(event);
+                }
+            }
+        }
         return Ok(());
     }
 
@@ -396,6 +419,38 @@ fn install_launcher(source: &Path, target: &Path) -> Result<(), String> {
     Ok(())
 }
 
+/// 시작 메뉴의 사용자별 바로가기는 Windows 검색에도 나타난다.
+/// PowerShell에는 경로를 코드가 아니라 환경 변수로 넘겨 공백·따옴표가 있어도 안전하게 쓴다.
+fn ensure_start_menu_shortcut(target: &Path) -> Result<(), String> {
+    if !target.exists() {
+        return Err("설치된 런처가 없습니다.".into());
+    }
+    let appdata = env::var_os("APPDATA").ok_or("APPDATA를 찾지 못했습니다.")?;
+    let shortcut = PathBuf::from(appdata)
+        .join(r"Microsoft\Windows\Start Menu\Programs\AI Quota Tray.lnk");
+    if shortcut.exists() {
+        return Ok(());
+    }
+    fs::create_dir_all(shortcut.parent().unwrap()).map_err(|e| e.to_string())?;
+
+    let script = "$link = (New-Object -ComObject WScript.Shell).CreateShortcut($env:AI_QUOTA_TRAY_SHORTCUT_PATH); \
+        $link.TargetPath = $env:AI_QUOTA_TRAY_SHORTCUT_TARGET; \
+        $link.WorkingDirectory = $env:AI_QUOTA_TRAY_SHORTCUT_WORKDIR; \
+        $link.Arguments = '--flyout'; $link.Save()";
+    let status = Command::new("powershell.exe")
+        .args(["-NoProfile", "-NonInteractive", "-Command", script])
+        .env("AI_QUOTA_TRAY_SHORTCUT_PATH", &shortcut)
+        .env("AI_QUOTA_TRAY_SHORTCUT_TARGET", target)
+        .env("AI_QUOTA_TRAY_SHORTCUT_WORKDIR", target.parent().unwrap())
+        .creation_flags(CREATE_NO_WINDOW)
+        .status()
+        .map_err(|e| format!("시작 메뉴 바로가기 생성 실패: {e}"))?;
+    if !status.success() {
+        return Err(format!("시작 메뉴 바로가기 생성 실패: {status}"));
+    }
+    Ok(())
+}
+
 /// pending 복사본이 기존 런처의 파일 잠금이 풀릴 때까지 기다렸다 교체한다.
 fn replace_launcher(current: &Path, installed: &Path) -> Result<(), String> {
     fs::create_dir_all(install_dir()).map_err(|e| e.to_string())?;
@@ -433,7 +488,11 @@ fn replace_launcher(current: &Path, installed: &Path) -> Result<(), String> {
     log_line("launcher update applied");
 
     if relaunch {
-        Command::new(installed)
+        let mut command = Command::new(installed);
+        if env::args().any(|a| a == "--flyout") {
+            command.arg("--flyout");
+        }
+        command
             .creation_flags(CREATE_NO_WINDOW)
             .spawn()
             .map_err(|e| format!("갱신된 런처 실행 실패: {e}"))?;
