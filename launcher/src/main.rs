@@ -486,6 +486,11 @@ fn replace_launcher(current: &Path, installed: &Path) -> Result<(), String> {
     fs::write(launcher_version_path(), version).map_err(|e| e.to_string())?;
     let _ = fs::remove_file(pending_launcher_version_path());
     log_line("launcher update applied");
+    // 앱의 업데이트가 --apply-now로 구형 런처를 거쳐도, 교체된 런처가
+    // 일반 실행 경로(work)를 타지 않을 수 있으므로 여기서 등록한다.
+    if let Err(error) = ensure_start_menu_shortcut(installed) {
+        log_line(&format!("start menu shortcut skipped: {error}"));
+    }
 
     if relaunch {
         let mut command = Command::new(installed);

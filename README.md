@@ -39,10 +39,10 @@ already downloaded, starts the app immediately, then checks GitHub in the
 background. If the network is unavailable, the installed version still starts.
 
 If the tray icon disappears or the app stops, press the Windows key, search for
-**AI Quota Tray**, and open it. The launcher adds a per-user Start menu shortcut
-on the next launch (including for existing installations); it restarts a stopped
-app, or opens the popup of an app that is already running. The shortcut points
-to the installed launcher, so it also works if the app needs to be repaired.
+**AI Quota Tray**, and open it. The launcher creates a per-user Start menu
+shortcut when installed or updated (including updates started inside the app);
+it restarts a stopped app, or opens the popup of an app that is already running.
+The shortcut points to the installed launcher, not the downloaded installer.
 
 ## What it shows
 

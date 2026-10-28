@@ -54,8 +54,8 @@ public sealed class UpdateDownloader
     /// 런처가 없으면 바로 설치하고, 구판이면 검증한 새 파일을 pending으로 둔다.
     ///
     /// 사용자가 자립형 exe만 손으로 내려받아 쓰는 경우가 있다. 그때도 앱 안에서
-    /// 업데이트가 끝나도록 런처를 마련한다. 이미 설치된 런처는 실행 중일 수 있어
-    /// 다음 시작에서 새 복사본이 교체하도록 맡긴다.
+    /// 기존 런처가 사용 중일 수 있으므로 검증한 복사본으로 교체를 맡긴다.
+    /// 다음 실행까지 미루면 앱 업데이트는 구형 런처로 끝나 바로가기 등록도 늦어진다.
     /// </summary>
     public async Task<bool> EnsureLauncherAsync(UpdateInfo info, CancellationToken ct = default)
     {
@@ -120,6 +120,9 @@ public sealed class UpdateDownloader
 
             File.Move(LauncherPartialPath, PendingLauncherPath, overwrite: true);
             await File.WriteAllTextAsync(PendingLauncherVersionPath, latest, ct).ConfigureAwait(false);
+            // 새 런처를 받아 놓기만 하면 앱 재시작은 구형 런처(--apply-now)가 맡아
+            // 새 런처의 시작 메뉴 등록 코드가 실행되지 않는다. 즉시 교체를 맡긴다.
+            StartLauncherReplacement();
             return true;
         }
         catch
