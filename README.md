@@ -44,6 +44,25 @@ shortcut when installed or updated (including updates started inside the app);
 it restarts a stopped app, or opens the popup of an app that is already running.
 The shortcut points to the installed launcher, not the downloaded installer.
 
+### Windows Security exclusion
+
+The launcher is not code-signed. Microsoft Defender's behavior detection can
+mistake its startup registration for malware (`Behavior:Win32/Persistence.A!ml`)
+and quarantine the installed launcher together with its startup entry and Start
+menu shortcut — after that, the app no longer starts with Windows.
+
+So on first install, before copying anything or touching startup, the launcher
+asks you to add `%LOCALAPPDATA%\AI Quota Tray` to Windows Security's exclusion
+list. **Open exclusion settings** copies the folder path to the clipboard and
+opens the Exclusions page; add it as a **Folder** (paste with Ctrl+V), then press
+**I added it, continue**. You can also install without the exclusion, at the risk
+of a quarantine. The launcher never adds the exclusion itself and cannot check
+that it exists — that list is readable only by administrators. It asks again if a
+previously installed launcher has gone missing.
+
+Already installed and the app stopped starting with Windows? Add the same folder
+exclusion, then download and run `AI-Quota-Tray.exe` again.
+
 ## What it shows
 
 | Tool | Limits |

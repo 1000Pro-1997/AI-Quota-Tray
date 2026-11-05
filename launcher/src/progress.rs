@@ -17,7 +17,9 @@ use windows_sys::Win32::Graphics::Gdi::{
     CreateFontW, CreateSolidBrush, DEFAULT_CHARSET, DEFAULT_PITCH, FF_DONTCARE, FW_NORMAL, HBRUSH,
     UpdateWindow,
 };
-use windows_sys::Win32::UI::Controls::{PBM_SETBARCOLOR, PBM_SETBKCOLOR, PBM_SETPOS, PBM_SETRANGE32};
+use windows_sys::Win32::UI::Controls::{
+    PBM_SETBARCOLOR, PBM_SETBKCOLOR, PBM_SETPOS, PBM_SETRANGE32, SetWindowTheme,
+};
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
@@ -203,8 +205,11 @@ fn run_window(
         // 0~1000으로 잡아야 소수점 단위 움직임이 보인다.
         SendMessageW(bar, PBM_SETRANGE32, 0, 1000);
 
-        // 색을 직접 주면 테마가 꺼져 막대가 납작해진다. 여기서는 그편이
-        // 낫다 — 기본 테마의 초록 그라데이션보다 단색이 차분하다.
+        // 단색이 기본 테마의 초록 그라데이션보다 차분하다. 런처는 공용 컨트롤
+        // 6판 매니페스트를 쓰는데, 테마가 걸린 막대는 색 지정을 무시한다.
+        // 그래서 이 막대에서만 테마를 벗긴다.
+        let no_theme = to_wide("");
+        SetWindowTheme(bar, no_theme.as_ptr(), no_theme.as_ptr());
         SendMessageW(bar, PBM_SETBARCOLOR, 0, ACCENT as LPARAM);
         SendMessageW(bar, PBM_SETBKCOLOR, 0, TRACK as LPARAM);
 

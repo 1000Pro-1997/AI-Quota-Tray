@@ -1,5 +1,6 @@
 #![windows_subsystem = "windows"]
 
+mod guide;
 mod progress;
 mod tray;
 
@@ -123,6 +124,22 @@ fn work(current: &Path, installed: &Path, tray: Option<&tray::TrayIcon>) -> Resu
     // 예전에는 복사본을 다시 실행했는데, 자기 자신이 잠고 있어 덮어쓰기가
     // 실패하거나(os error 32) 프로세스가 둘로 갈라졌다.
     if !same_path(current, installed) {
+        // 복사하고 시작 프로그램에 올리기 전에 예외부터 안내한다. 이 두 가지가
+        // Defender의 Persistence 판정을 부른다(2026-10~11 실제 격리 기록).
+        if needs_exclusion_guide() {
+            match guide::ask(&install_dir()) {
+                Ok(guide::Choice::Confirmed) => {
+                    let _ = fs::write(exclusion_marker_path(), "confirmed");
+                }
+                Ok(guide::Choice::Skipped) => log_line("exclusion guide skipped"),
+                Ok(guide::Choice::Cancelled) => {
+                    log_line("install cancelled at exclusion guide");
+                    return Ok(());
+                }
+                // 창을 못 띄웠다고 설치까지 막을 일은 아니다. 예전처럼 진행한다.
+                Err(error) => log_line(&error),
+            }
+        }
         install_launcher(current, installed)?;
     }
     // 기존 설치본으로 부팅할 때도 만들어, 예전 버전 사용자가 검색으로 다시 열 수 있게 한다.
@@ -417,6 +434,25 @@ fn install_launcher(source: &Path, target: &Path) -> Result<(), String> {
         return Err("시작 프로그램을 등록하지 못했습니다.".into());
     }
     Ok(())
+}
+
+/// 사용자가 예외를 넣었다고 답한 흔적. 다음에 Setup.exe를 다시 눌러도 묻지 않는다.
+fn exclusion_marker_path() -> PathBuf {
+    install_dir().join("defender-exclusion.txt")
+}
+
+fn needs_exclusion_guide() -> bool {
+    exclusion_guide_needed(
+        exclusion_marker_path().exists(),
+        launcher_version_path().exists(),
+        launcher_path().exists(),
+    )
+}
+
+/// 예외를 넣었다고 했어도, 깔렸던 런처가 사라졌으면 다시 묻는다.
+/// 버전 파일은 남았는데 런처만 없는 것은 Defender가 격리했을 때의 모양이다.
+fn exclusion_guide_needed(confirmed: bool, was_installed: bool, launcher_present: bool) -> bool {
+    !confirmed || (was_installed && !launcher_present)
 }
 
 /// 시작 메뉴의 사용자별 바로가기는 Windows 검색에도 나타난다.
@@ -970,6 +1006,18 @@ mod tests {
         assert!(compare_versions("1.2.0", "1.1.9") > 0);
         assert_eq!(compare_versions("1.1", "1.1.0"), 0);
         assert!(compare_versions("2.0.0", "10.0.0") < 0);
+    }
+
+    #[test]
+    fn asks_for_exclusion_until_confirmed_and_again_after_quarantine() {
+        // 첫 설치: 아직 답을 듣지 못했다.
+        assert!(exclusion_guide_needed(false, false, false));
+        // 넣었다고 답했고 런처도 제자리에 있다.
+        assert!(!exclusion_guide_needed(true, true, true));
+        // 넣었다고 답했지만 깔렸던 런처가 사라졌다. 격리된 것이니 다시 묻는다.
+        assert!(exclusion_guide_needed(true, true, false));
+        // 답만 있고 아직 깔린 적이 없다(복사 직전). 다시 묻지 않는다.
+        assert!(!exclusion_guide_needed(true, false, false));
     }
 
     #[test]

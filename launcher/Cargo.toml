@@ -1,13 +1,13 @@
 [package]
 name = "ai-quota-tray-launcher"
-version = "1.22.3"
+version = "1.23.0"
 edition = "2024"
 
 [dependencies]
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
 serde = { version = "1", features = ["derive"] }
 sha2 = "0.10"
-windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Security", "Win32_System_Threading", "Win32_UI_WindowsAndMessaging", "Win32_UI_Controls", "Win32_UI_Shell", "Win32_Graphics_Gdi", "Win32_System_LibraryLoader"] }
+windows-sys = { version = "0.59", features = ["Win32_Foundation", "Win32_Security", "Win32_System_Threading", "Win32_UI_WindowsAndMessaging", "Win32_UI_Controls", "Win32_UI_Shell", "Win32_Graphics_Gdi", "Win32_System_LibraryLoader", "Win32_System_DataExchange", "Win32_System_Memory", "Win32_Globalization"] }
 
 [build-dependencies]
 winresource = "0.1"
