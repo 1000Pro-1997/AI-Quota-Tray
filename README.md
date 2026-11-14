@@ -75,13 +75,17 @@ Numbers default to what is **left** (`18% left`). Switch to what was **used**
 blue for Codex, both changeable.
 
 If your account has **usage-limit resets**, the Claude card lists the available
-Full, session, weekly, or Fable resets with their expiry and time left. Hold
-**Use reset** for 3 continuous seconds to spend one reset; it cannot be undone.
-The red gauge fills while held and gradually drains if released early, without
-using the reset. Re-pressing requires a fresh 3-second hold. If the server says
-the grant cannot be used yet, the card still shows the balance without an
-active button. Settings → Tools → Claude details → **Allow using Claude resets**
-turns off the Claude buttons without hiding the balance (on by default).
+Full, session, weekly, or Fable resets with their expiry and time left. Click
+the **Usage limit resets** heading to fold or unfold the list; the count stays
+visible. Claude and Codex remember their own fold state during refreshes.
+Hold **Use reset** for 3 continuous seconds to spend one reset; it cannot be
+undone. A short click shows the **Hold for 3 seconds** hint for three seconds
+after release. The red gauge fills while held and gradually drains if released
+early, without using the reset. Re-pressing requires a fresh 3-second hold.
+If the server says the grant cannot be used yet, the card still shows the
+balance without an active button. Settings → Tools → Claude details →
+**Allow using Claude resets** turns off the Claude buttons without hiding
+the balance (on by default).
 
 The Codex card also lists its limit reset credits with their expiry and time
 left (`Expires 10/23 · 17d 9h left`). The expiry turns yellow within a week

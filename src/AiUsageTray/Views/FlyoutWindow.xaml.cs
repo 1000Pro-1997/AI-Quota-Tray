@@ -42,6 +42,10 @@ public partial class FlyoutWindow : Window
 
     /// <summary>카드를 새로 그려도 팝업이 닫힐 때까지 공급자별 사용 결과를 남긴다.</summary>
     private readonly Dictionary<string, string> _resetMessages = new();
+    /// <summary>공급자별 접힘 상태. 새로고침으로 카드를 다시 그려도 유지한다.</summary>
+    private readonly Dictionary<string, bool> _resetExpanded = new(StringComparer.Ordinal);
+    /// <summary>짧게 눌렀을 때 안내 문구를 끝까지 보여줄 시각.</summary>
+    private readonly Dictionary<(string Provider, string Id), DateTime> _resetHintUntil = new();
 
     /// <summary>초기화를 서버에 보내는 중. 그사이 다른 초기화권을 누르지 못하게 막는다.</summary>
     private bool _resetting;
@@ -552,6 +556,7 @@ public partial class FlyoutWindow : Window
 
         if (provider != "Claude" || !stale)
         {
+            bool expanded = !_resetExpanded.TryGetValue(provider, out bool saved) || saved;
             var head = new Grid();
             head.Children.Add(new TextBlock
             {
@@ -563,14 +568,46 @@ public partial class FlyoutWindow : Window
             {
                 Text = Strings.Get("reset.available", credits.Sum(credit => credit.Count)),
                 FontSize = 11,
+                Margin = new Thickness(0, 0, 18, 0),
                 HorizontalAlignment = HorizontalAlignment.Right,
                 VerticalAlignment = VerticalAlignment.Center,
                 Foreground = (Brush)Resources["SubtleBrush"],
             });
-            section.Children.Add(head);
+            var arrow = new TextBlock
+            {
+                Text = expanded ? "▾" : "▸",
+                FontSize = 12,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Center,
+                Foreground = (Brush)Resources["SubtleBrush"],
+            };
+            head.Children.Add(arrow);
 
-            foreach (var credit in credits)
-                section.Children.Add(BuildResetRow(provider, credit, stale));
+            var toggle = new Button
+            {
+                Content = head,
+                Style = (Style)Resources["ResetDisclosureButton"],
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            };
+            System.Windows.Automation.AutomationProperties.SetName(toggle, Strings.Get("reset.title"));
+            section.Children.Add(toggle);
+
+            var rows = new StackPanel { Visibility = expanded ? Visibility.Visible : Visibility.Collapsed };
+            if (expanded)
+                foreach (var credit in credits)
+                    rows.Children.Add(BuildResetRow(provider, credit, stale));
+            section.Children.Add(rows);
+            toggle.Click += (_, _) =>
+            {
+                expanded = !expanded;
+                _resetExpanded[provider] = expanded;
+                if (expanded && rows.Children.Count == 0)
+                    foreach (var credit in credits)
+                        rows.Children.Add(BuildResetRow(provider, credit, stale));
+                arrow.Text = expanded ? "▾" : "▸";
+                rows.Visibility = expanded ? Visibility.Visible : Visibility.Collapsed;
+            };
         }
 
         if (_resetMessages.TryGetValue(provider, out var message))
@@ -638,9 +675,17 @@ public partial class FlyoutWindow : Window
         if (provider == "Claude" ? stale || !ClaudeResetActionsEnabled || !credit.CanRedeem : provider != "Codex")
             return row;
 
+        var hintKey = (provider, credit.Id);
+        bool showHint = _resetHintUntil.TryGetValue(hintKey, out DateTime hintUntil) &&
+            hintUntil > DateTime.UtcNow;
+        if (!showHint)
+        {
+            hintUntil = default;
+            _resetHintUntil.Remove(hintKey);
+        }
         var label = new TextBlock
         {
-            Text = Strings.Get("reset.use"),
+            Text = Strings.Get(showHint ? "reset.hold" : "reset.use"),
             FontSize = 11,
             FontWeight = FontWeights.SemiBold,
             Foreground = (Brush)Resources["TextBrush"],
@@ -673,6 +718,7 @@ public partial class FlyoutWindow : Window
         bool holding = false;
         double progress = 0;
         double drainFrom = 0;
+        if (showHint) timer.Start();
 
         void SetProgress(double value)
         {
@@ -689,7 +735,10 @@ public partial class FlyoutWindow : Window
             if (button.IsMouseCaptured) button.ReleaseMouseCapture();
             drainFrom = progress;
             drain.Restart();
-            label.Text = Strings.Get("reset.use");
+            // 짧게 눌러도 안내를 읽을 수 있게 손을 뗀 뒤 3초 동안 유지한다.
+            hintUntil = DateTime.UtcNow.AddSeconds(3);
+            _resetHintUntil[hintKey] = hintUntil;
+            label.Text = Strings.Get("reset.hold");
             label.Foreground = (Brush)Resources["TextBrush"];
         }
 
@@ -741,12 +790,20 @@ public partial class FlyoutWindow : Window
                 });
                 if (_lastRendered is not null) Render(_lastRendered);
             }
-            else if (drain.IsRunning)
+            else
             {
-                SetProgress(drainFrom * (1 - drain.Elapsed.TotalSeconds / 1.5));
-                if (progress > 0) return;
-                drain.Stop();
-                timer.Stop();
+                if (drain.IsRunning)
+                {
+                    SetProgress(drainFrom * (1 - drain.Elapsed.TotalSeconds / 1.5));
+                    if (progress <= 0) drain.Stop();
+                }
+                if (hintUntil != default && DateTime.UtcNow >= hintUntil)
+                {
+                    hintUntil = default;
+                    _resetHintUntil.Remove(hintKey);
+                    label.Text = Strings.Get("reset.use");
+                }
+                if (!drain.IsRunning && hintUntil == default) timer.Stop();
             }
         };
         button.MouseLeftButtonDown += (_, e) =>
@@ -755,6 +812,8 @@ public partial class FlyoutWindow : Window
             if (_resetting || holding || provider == "Claude" && !ClaudeResetActionsEnabled ||
                 (provider == "Claude" ? ClaudeResetConsumer : CodexResetConsumer) is null)
                 return;
+            _resetHintUntil.Remove(hintKey);
+            hintUntil = default;
             drain.Stop();
             SetProgress(0);
             holding = true;
