@@ -193,6 +193,8 @@ public sealed class ResetCredit
     public string Id { get; init; } = "";
     /// <summary>남은 초기화 횟수. Codex 초기화권은 항상 한 번이다.</summary>
     public int Count { get; init; } = 1;
+    /// <summary>서버가 지금 이 권리를 쓸 수 있다고 확인했는가.</summary>
+    public bool CanRedeem { get; init; } = true;
 
     /// <summary>초기화할 한도의 종류. 알 수 없으면 Title을 보여준다.</summary>
     public string ResetType { get; init; } = "";
@@ -221,6 +223,9 @@ public enum ResetOutcome
     NothingToReset,
     NoCredit,
     Failed,
+    RateLimited,
+    /// <summary>요청이 처리됐는지 확인할 수 없다. 다시 보내면 안 된다.</summary>
+    Unknown,
 }
 
 /// <summary>기간 내 토큰 합계.</summary>

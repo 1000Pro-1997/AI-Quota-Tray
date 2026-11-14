@@ -75,13 +75,19 @@ Numbers default to what is **left** (`18% left`). Switch to what was **used**
 blue for Codex, both changeable.
 
 If your account has **usage-limit resets**, the Claude card lists the available
-Full, session, weekly, or Fable resets with their expiry and time left. Claude
-resets are display-only here: use **Settings → Usage** on claude.ai to redeem one.
+Full, session, weekly, or Fable resets with their expiry and time left. Hold
+**Use reset** for 3 continuous seconds to spend one reset; it cannot be undone.
+The red gauge fills while held and gradually drains if released early, without
+using the reset. Re-pressing requires a fresh 3-second hold. If the server says
+the grant cannot be used yet, the card still shows the balance without an
+active button. Settings → Tools → Claude details → **Allow using Claude resets**
+turns off the Claude buttons without hiding the balance (on by default).
+
 The Codex card also lists its limit reset credits with their expiry and time
 left (`Expires 10/23 · 17d 9h left`). The expiry turns yellow within a week
-and red within 3 days. **Use reset** on Codex asks for a second click to
-confirm, then spends the credit. Settings → Tools has shared switches to hide
-the lists, dates, time left, or colors (all shown by default).
+and red within 3 days. Codex's **Use reset** has the same 3-second hold.
+Settings → Tools has shared switches to hide the lists, dates, time left, or
+colors (all shown by default).
 
 ## Where the data comes from
 
@@ -144,6 +150,11 @@ in your default browser. If the browser displays a code, reopen the flyout and
 paste it into the code field; the login attempt ends after 10 minutes if unfinished.
 
 Usage lookups are read-only, so **they do not consume any of your quota**.
+Only a completed **Use reset** hold sends a write request to the provider.
+Claude reset redemption uses your existing OAuth sign-in to request an account
+organization and spend the selected grant. If the confirmation request loses
+its response, the reset may already have been used; check Claude Settings →
+Usage before trying again. The app never automatically retries a redemption.
 
 ### Privacy
 

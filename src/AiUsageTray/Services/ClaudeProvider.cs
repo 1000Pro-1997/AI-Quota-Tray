@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Net.Http.Json;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,6 +19,8 @@ namespace AiUsageTray.Services;
 public sealed class ClaudeProvider : IUsageProvider
 {
     private const string UsageUrl = "https://api.anthropic.com/api/oauth/usage?cedar_ember=1";
+    private const string ProfileUrl = "https://api.anthropic.com/api/oauth/profile";
+    private const string OrganizationUrl = "https://api.anthropic.com/api/organizations/";
     private const string OAuthBeta = "oauth-2025-04-20";
 
     /// <summary>
@@ -41,6 +44,8 @@ public sealed class ClaudeProvider : IUsageProvider
     /// 그쪽 값을 쓸 때도 사라지지 않도록 덧붙이는 데 쓴다.
     /// </summary>
     private UsageWindow? _lastExtra;
+    // 조회한 계정과 다른 토큰으로 권리를 쓰지 않도록 마지막 서버 조회의 토큰을 기억한다.
+    private string? _inventoryToken;
 
     public string Name => "Claude";
 
@@ -53,35 +58,16 @@ public sealed class ClaudeProvider : IUsageProvider
 
     public async Task<ProviderUsage> FetchAsync(CancellationToken ct)
     {
-        string path = _credentialsPath();
-        string token = "", plan = "";
-        long expiresAt = 0;
-
-        if (File.Exists(path))
+        var (token, plan, unreadable) = ReadOAuthToken();
+        if (unreadable && string.IsNullOrEmpty(token))
         {
-            try
-            {
-                (token, plan, expiresAt) = ReadCredentials(path);
-            }
-            catch (Exception ex)
-            {
-                if (ClaudeStatusLineBridge.TryReadFresh("") is { } cached) return cached;
-                if (OmpCredentials.ReadAnthropic() is null)
-                    return ProviderUsage.Unavailable(Name, Strings.Get("error.credentialsUnreadable", ex.Message));
-            }
+            if (ClaudeStatusLineBridge.TryReadFresh("") is { } cached) return cached;
+            return ProviderUsage.Unavailable(Name, Strings.Get("error.credentialsUnreadable", ""));
         }
 
         // 서버 값을 먼저 쓴다. statusLine 값은 이 PC의 Claude Code가 마지막으로
         // 요청한 순간에 멈춰 있어서, 그 뒤 다른 PC·웹에서 쓴 양이 빠진다.
         // statusLine은 서버를 못 부를 때(429·네트워크·토큰 문제)만 대신 쓴다.
-
-        // Claude Code를 안 켜고 omp로만 쓰면 ~/.claude 토큰은 만료된 채 남는다.
-        // 그 토큰으로 부르면 401만 받으니 omp가 갱신해 둔 토큰을 빌린다.
-        bool expired = expiresAt > 0 && expiresAt <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        if (string.IsNullOrEmpty(token) || expired)
-            token = OmpCredentials.ReadAnthropic() ?? token;
-
-        // Claude Code는 로그아웃할 때 파일을 지우지 않고 토큰만 비워 둔다.
         if (string.IsNullOrEmpty(token))
             return ProviderUsage.SignedOut(Name);
 
@@ -94,11 +80,7 @@ public sealed class ClaudeProvider : IUsageProvider
 
         try
         {
-            using var req = new HttpRequestMessage(HttpMethod.Get, UsageUrl);
-            req.Headers.TryAddWithoutValidation("Authorization", "Bearer " + token);
-            req.Headers.TryAddWithoutValidation("anthropic-beta", OAuthBeta);
-            // 요청에 넣은 값이 HttpClient 기본 User-Agent보다 우선한다.
-            req.Headers.TryAddWithoutValidation("User-Agent", ClaudeCodeUserAgent.Value);
+            using var req = NewOAuthRequest(HttpMethod.Get, UsageUrl, token);
 
             using var res = await _http.SendAsync(req, ct).ConfigureAwait(false);
 
@@ -107,24 +89,7 @@ public sealed class ClaudeProvider : IUsageProvider
 
             if ((int)res.StatusCode == 429)
             {
-                // 서버가 알려주는 대기 시간을 따른다. 없거나 이상하면 넉넉히 2분.
-                var fallback = TimeSpan.FromMinutes(2);
-                TimeSpan retry;
-
-                if (res.Headers.RetryAfter?.Delta is { } delta)
-                    retry = delta;
-                else if (res.Headers.RetryAfter?.Date is { } date)
-                    retry = date - DateTimeOffset.Now;
-                else
-                    retry = fallback;
-
-                // 0초나 음수는 즉시 재시도를 뜻하지만, 그러면 429를 또 받는다.
-                if (retry < TimeSpan.FromSeconds(30)) retry = fallback;
-                if (retry > TimeSpan.FromMinutes(15)) retry = TimeSpan.FromMinutes(15);
-
-                _blockedUntil = DateTime.Now + retry;
-                SaveBlockedUntil(_blockedUntil);
-
+                TimeSpan retry = SetBackoff(res);
                 return BridgeOr(Strings.Get("error.rateLimited", (int)retry.TotalSeconds), plan);
             }
 
@@ -136,7 +101,9 @@ public sealed class ClaudeProvider : IUsageProvider
             ClearBlockedUntil();
 
             string body = await res.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-            return Parse(body, plan);
+            var usage = Parse(body, plan);
+            _inventoryToken = token;
+            return usage;
         }
         catch (OperationCanceledException) { throw; }
         catch (HttpRequestException)
@@ -149,6 +116,143 @@ public sealed class ClaudeProvider : IUsageProvider
         }
     }
 
+    /// <summary>표시된 권리와 같은 로그인인지 확인한 뒤 한 번만 사용 요청을 보낸다.</summary>
+    public async Task<ResetOutcome> ConsumeResetAsync(string creditId, CancellationToken ct = default)
+    {
+        if (!ValidGrantId(creditId)) return ResetOutcome.Failed;
+        if (DateTime.Now < _blockedUntil) return ResetOutcome.RateLimited;
+
+        string token;
+        try
+        {
+            (token, _, _) = ReadOAuthToken();
+        }
+        catch
+        {
+            return ResetOutcome.Failed;
+        }
+        if (string.IsNullOrEmpty(token) ||
+            !string.Equals(token, _inventoryToken, StringComparison.Ordinal))
+            return ResetOutcome.Failed;
+
+        string orgUuid;
+        try
+        {
+            using var req = NewOAuthRequest(HttpMethod.Get, ProfileUrl, token);
+            using var res = await _http.SendAsync(req, ct).ConfigureAwait(false);
+            if ((int)res.StatusCode == 429)
+            {
+                SetBackoff(res);
+                return ResetOutcome.RateLimited;
+            }
+            if (!res.IsSuccessStatusCode) return ResetOutcome.Failed;
+
+            using var doc = JsonDocument.Parse(
+                await res.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
+            if (!doc.RootElement.TryGetProperty("organization", out var organization) ||
+                organization.ValueKind != JsonValueKind.Object ||
+                !organization.TryGetProperty("uuid", out var uuid) ||
+                uuid.ValueKind != JsonValueKind.String ||
+                !Guid.TryParseExact(uuid.GetString(), "D", out var parsed))
+                return ResetOutcome.Failed;
+            orgUuid = parsed.ToString("D");
+        }
+        catch
+        {
+            return ResetOutcome.Failed;
+        }
+
+        // 보내기 시작한 뒤의 통신 오류는 서버가 처리했을 수도 있다. 자동 재전송하지 않는다.
+        try
+        {
+            using var req = NewOAuthRequest(HttpMethod.Post,
+                OrganizationUrl + orgUuid + "/reset_rate_limits", token);
+            req.Content = JsonContent.Create(new
+            {
+                program = "cedar_ember",
+                grant_id = creditId,
+                request_id = Guid.NewGuid().ToString("D"),
+            });
+            using var res = await _http.SendAsync(req, ct).ConfigureAwait(false);
+            if ((int)res.StatusCode == 429)
+            {
+                SetBackoff(res);
+                return ResetOutcome.RateLimited;
+            }
+            if (res.StatusCode is System.Net.HttpStatusCode.Unauthorized or
+                System.Net.HttpStatusCode.Forbidden)
+                return ResetOutcome.Failed;
+            if (!res.IsSuccessStatusCode) return ResetOutcome.Unknown;
+
+            using var doc = JsonDocument.Parse(
+                await res.Content.ReadAsStringAsync(ct).ConfigureAwait(false));
+            if (!doc.RootElement.TryGetProperty("result", out var result) ||
+                result.ValueKind != JsonValueKind.String)
+                return ResetOutcome.Unknown;
+            return result.GetString() switch
+            {
+                "reset" => ResetOutcome.Reset,
+                "already_used" => ResetOutcome.NoCredit,
+                "not_limited" => ResetOutcome.NothingToReset,
+                "cooldown" => ResetOutcome.RateLimited,
+                "ineligible" or "unavailable" => ResetOutcome.Failed,
+                _ => ResetOutcome.Unknown,
+            };
+        }
+        catch
+        {
+            return ResetOutcome.Unknown;
+        }
+    }
+
+    private static bool ValidGrantId(string? id)
+    {
+        if (id is null || id.Length is < 1 or > 40) return false;
+        foreach (char c in id)
+            if (c is not (>= 'a' and <= 'z' or >= '0' and <= '9' or '_' or '-'))
+                return false;
+        return true;
+    }
+
+    private (string token, string plan, bool unreadable) ReadOAuthToken()
+    {
+        string path = _credentialsPath();
+        string token = "", plan = "";
+        long expiresAt = 0;
+        bool unreadable = false;
+        if (File.Exists(path))
+        {
+            try { (token, plan, expiresAt) = ReadCredentials(path); }
+            catch { unreadable = true; }
+        }
+
+        // Claude Code가 멈춰 있어 파일 토큰이 만료됐으면 omp의 같은 OAuth 토큰을 쓴다.
+        if (string.IsNullOrEmpty(token) ||
+            expiresAt > 0 && expiresAt <= DateTimeOffset.UtcNow.ToUnixTimeMilliseconds())
+            token = OmpCredentials.ReadAnthropic() ?? token;
+        return (token, plan, unreadable);
+    }
+
+    private static HttpRequestMessage NewOAuthRequest(HttpMethod method, string url, string token)
+    {
+        var req = new HttpRequestMessage(method, url);
+        req.Headers.TryAddWithoutValidation("Authorization", "Bearer " + token);
+        req.Headers.TryAddWithoutValidation("anthropic-beta", OAuthBeta);
+        req.Headers.TryAddWithoutValidation("User-Agent", ClaudeCodeUserAgent.Value);
+        return req;
+    }
+
+    private TimeSpan SetBackoff(HttpResponseMessage res)
+    {
+        var fallback = TimeSpan.FromMinutes(2);
+        TimeSpan retry = res.Headers.RetryAfter?.Delta ??
+            (res.Headers.RetryAfter?.Date is { } date ? date - DateTimeOffset.Now : fallback);
+        if (retry < TimeSpan.FromSeconds(30)) retry = fallback;
+        if (retry > TimeSpan.FromMinutes(15)) retry = TimeSpan.FromMinutes(15);
+        _blockedUntil = DateTime.Now + retry;
+        SaveBlockedUntil(_blockedUntil);
+        return retry;
+    }
     /// <summary>
     /// 서버 조회가 실패했을 때 15분 안의 statusLine 값이 있으면 그걸 보여 준다.
     /// 오류 화면이나 낡은 캐시보다 방금 Claude Code가 받은 값이 낫다.
@@ -249,8 +353,8 @@ public sealed class ClaudeProvider : IUsageProvider
         var credits = new List<ResetCredit>();
         if (!root.TryGetProperty("cedar_ember", out var ember) ||
             ember.ValueKind != JsonValueKind.Object ||
-            !ember.TryGetProperty("eligible", out var eligible) ||
-            eligible.ValueKind != JsonValueKind.True ||
+            !ember.TryGetProperty("eligible", out var eligibility) ||
+            eligibility.ValueKind != JsonValueKind.True ||
             !ember.TryGetProperty("grants", out var grants) ||
             grants.ValueKind != JsonValueKind.Array)
             return credits;
@@ -262,9 +366,7 @@ public sealed class ClaudeProvider : IUsageProvider
                 !grant.TryGetProperty("id", out var id) || id.ValueKind != JsonValueKind.String ||
                 string.IsNullOrWhiteSpace(id.GetString()) ||
                 !grant.TryGetProperty("resets_left", out var left) ||
-                left.ValueKind != JsonValueKind.Number || !left.TryGetInt32(out int count) || count <= 0 ||
-                grant.TryGetProperty("paused", out var paused) && paused.ValueKind != JsonValueKind.False &&
-                    paused.ValueKind != JsonValueKind.Null)
+                left.ValueKind != JsonValueKind.Number || !left.TryGetInt32(out int count) || count <= 0)
                 continue;
 
             if (!grant.TryGetProperty("starts_at", out var start) || ReadDate(start) is not { } startsAt ||
@@ -286,13 +388,28 @@ public sealed class ClaudeProvider : IUsageProvider
                 }
             }
 
-            string type = session && weekly ? "claude_full"
-                : session ? "claude_session"
+            // Fable 권리는 5시간 창도 채우므로 세션만 보고 분류하면 종류가 틀린다.
+            string type = weekly && session ? "claude_full"
                 : weekly ? "claude_weekly"
-                : fable ? "claude_fable" : "";
+                : fable ? "claude_fable"
+                : session ? "claude_session" : "";
             if (type.Length == 0) continue;
             string title = grant.TryGetProperty("label", out var label) &&
                 label.ValueKind == JsonValueKind.String ? label.GetString() ?? "" : "";
+            bool usable = grant.TryGetProperty("usable_now", out var usableNow) &&
+                usableNow.ValueKind == JsonValueKind.True;
+            bool requiresLimit = !grant.TryGetProperty("use_requires_limit", out var requires) ||
+                requires.ValueKind != JsonValueKind.False;
+            bool atLimit = grant.TryGetProperty("at_limit", out var atLimitValue)
+                ? atLimitValue.ValueKind == JsonValueKind.True
+                : ember.TryGetProperty("at_limit", out var emberLimit) &&
+                    emberLimit.ValueKind == JsonValueKind.True;
+            bool pausedNow = grant.TryGetProperty("paused", out var paused) &&
+                paused.ValueKind != JsonValueKind.False &&
+                paused.ValueKind != JsonValueKind.Null;
+            bool coolingDown = ember.TryGetProperty("cooldown_until", out var cooldown) &&
+                ReadDate(cooldown) > now;
+
             credits.Add(new ResetCredit
             {
                 Id = id.GetString()!,
@@ -300,6 +417,8 @@ public sealed class ClaudeProvider : IUsageProvider
                 Title = title,
                 Count = count,
                 ExpiresAt = endsAt,
+                CanRedeem = ValidGrantId(id.GetString()) &&
+                    usable && !pausedNow && !coolingDown && (!requiresLimit || atLimit),
             });
         }
         return credits;

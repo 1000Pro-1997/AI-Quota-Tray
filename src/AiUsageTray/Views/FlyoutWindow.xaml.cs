@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -24,6 +25,7 @@ public partial class FlyoutWindow : Window
 
     /// <summary>공급자별 초기화권 목록과 그 만료 표시를 각각 켜고 끈다. 설정에서 바뀐다.</summary>
     public bool ShowResetCredits { get; set; } = true;
+    public bool ClaudeResetActionsEnabled { get; set; } = true;
     public bool ShowResetCreditDate { get; set; } = true;
     public bool ShowResetCreditTimeLeft { get; set; } = true;
     public bool ResetCreditExpiryColors { get; set; } = true;
@@ -34,17 +36,16 @@ public partial class FlyoutWindow : Window
     /// <summary>공급자 이름 → 서비스 장애 상태.</summary>
     public Func<string, ServiceStatus>? StatusResolver { get; set; }
 
-    /// <summary>초기화권 id → 사용 결과. 앱이 UsageMonitor로 넘긴다.</summary>
-    public Func<string, System.Threading.Tasks.Task<ResetOutcome>>? ResetConsumer { get; set; }
+    /// <summary>공급자별 초기화권 id → 사용 결과.</summary>
+    public Func<string, System.Threading.Tasks.Task<ResetOutcome>>? CodexResetConsumer { get; set; }
+    public Func<string, System.Threading.Tasks.Task<ResetOutcome>>? ClaudeResetConsumer { get; set; }
 
-    /// <summary>
-    /// 마지막 초기화 결과 문구. 사용 직후 새로고침이 카드를 새로 그리므로 버튼 옆에
-    /// 두면 사라진다. 팝업이 닫힐 때까지 카드 아래에 남겨 둔다.
-    /// </summary>
-    private string? _resetMessage;
+    /// <summary>카드를 새로 그려도 팝업이 닫힐 때까지 공급자별 사용 결과를 남긴다.</summary>
+    private readonly Dictionary<string, string> _resetMessages = new();
 
     /// <summary>초기화를 서버에 보내는 중. 그사이 다른 초기화권을 누르지 못하게 막는다.</summary>
     private bool _resetting;
+    private readonly List<DispatcherTimer> _resetTimers = new();
 
     /// <summary>마지막으로 숨겨진 시각. 클릭 한 번이 닫고 다시 여는 것을 막는 데 쓴다.</summary>
     public DateTime HiddenAt { get; private set; } = DateTime.MinValue;
@@ -84,7 +85,10 @@ public partial class FlyoutWindow : Window
             if (!shown)
             {
                 HiddenAt = DateTime.Now;
-                _resetMessage = null;
+                _resetMessages.Clear();
+                foreach (var timer in _resetTimers) timer.Stop();
+                if (Mouse.Captured is Border captured && _resetTimers.Count > 0)
+                    captured.ReleaseMouseCapture();
             }
 
             if (shown)
@@ -167,6 +171,11 @@ public partial class FlyoutWindow : Window
     public void Render(IReadOnlyList<ProviderUsage> usages)
     {
         _lastRendered = usages;
+        // 갱신 중 버튼이 교체되면 이전 버튼의 누름 상태가 남아 자동으로 사용되면 안 된다.
+        if (Mouse.Captured is Border captured && _resetTimers.Count > 0)
+            captured.ReleaseMouseCapture();
+        foreach (var timer in _resetTimers) timer.Stop();
+        _resetTimers.Clear();
         ProviderList.Items.Clear();
         _timeLabels.Clear();
 
@@ -451,11 +460,12 @@ public partial class FlyoutWindow : Window
         foreach (var w in u.Windows)
             panel.Children.Add(BuildWindowRow(w, barBrush));
 
-        // 조회 실패 중에는 초기화권 잔량이 바뀌었을 수 있으므로 Claude 목록을 숨긴다.
-        // Codex의 사용 직후 결과 문구는 그대로 남긴다.
-        if (ShowResetCredits && (u.Provider != "Claude" || !u.IsStale) &&
-            (u.ResetCredits.Count > 0 || u.Provider == "Codex" && _resetMessage is not null))
-            panel.Children.Add(BuildResetSection(u.Provider, u.ResetCredits));
+        // 조회 실패 중에는 잔량이 바뀌었을 수 있으므로 Claude 목록을 숨긴다.
+        // 사용 직후 결과 문구는 해당 공급자의 카드에 남긴다.
+        if (ShowResetCredits && (u.Provider != "Claude" || !u.IsStale || _resetMessages.ContainsKey(u.Provider)) &&
+            (u.ResetCredits.Count > 0 && (u.Provider != "Claude" || !u.IsStale) ||
+             _resetMessages.ContainsKey(u.Provider)))
+            panel.Children.Add(BuildResetSection(u.Provider, u.ResetCredits, u.IsStale));
 
         // 갱신하지 못한 이유가 있으면 수치 아래에 덧붙인다.
         if (u.IsStale && u.Error is { } why)
@@ -535,38 +545,38 @@ public partial class FlyoutWindow : Window
         return wrap;
     }
 
-    /// <summary>
-    /// 두 공급자의 초기화권을 표시한다. Codex만 되돌릴 수 없는 사용 버튼을 제공하므로
-    /// 확인 문구를 한 번 거쳐 쓴다. 대화상자는 팝업 포커스를 잃게 하므로 쓰지 않는다.
-    /// </summary>
-    private UIElement BuildResetSection(string provider, IReadOnlyList<ResetCredit> credits)
+    /// <summary>공급자별 초기화권과 사용 결과를 표시한다.</summary>
+    private UIElement BuildResetSection(string provider, IReadOnlyList<ResetCredit> credits, bool stale)
     {
         var section = new StackPanel { Margin = new Thickness(0, 10, 0, 0) };
 
-        var head = new Grid();
-        head.Children.Add(new TextBlock
+        if (provider != "Claude" || !stale)
         {
-            Text = Strings.Get("reset.title"),
-            FontSize = 11.5,
-            Foreground = (Brush)Resources["TextBrush"],
-        });
-        head.Children.Add(new TextBlock
-        {
-            Text = Strings.Get("reset.available", credits.Sum(credit => credit.Count)),
-            FontSize = 11,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Center,
-            Foreground = (Brush)Resources["SubtleBrush"],
-        });
-        section.Children.Add(head);
+            var head = new Grid();
+            head.Children.Add(new TextBlock
+            {
+                Text = Strings.Get("reset.title"),
+                FontSize = 11.5,
+                Foreground = (Brush)Resources["TextBrush"],
+            });
+            head.Children.Add(new TextBlock
+            {
+                Text = Strings.Get("reset.available", credits.Sum(credit => credit.Count)),
+                FontSize = 11,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Center,
+                Foreground = (Brush)Resources["SubtleBrush"],
+            });
+            section.Children.Add(head);
 
-        foreach (var credit in credits)
-            section.Children.Add(BuildResetRow(provider, credit));
+            foreach (var credit in credits)
+                section.Children.Add(BuildResetRow(provider, credit, stale));
+        }
 
-        if (provider == "Codex" && _resetMessage is not null)
+        if (_resetMessages.TryGetValue(provider, out var message))
             section.Children.Add(new TextBlock
             {
-                Text = _resetMessage,
+                Text = message,
                 FontSize = 10.5,
                 Margin = new Thickness(0, 6, 0, 0),
                 TextWrapping = TextWrapping.Wrap,
@@ -576,7 +586,7 @@ public partial class FlyoutWindow : Window
         return section;
     }
 
-    private UIElement BuildResetRow(string provider, ResetCredit credit)
+    private UIElement BuildResetRow(string provider, ResetCredit credit, bool stale)
     {
         var row = new Grid { Margin = new Thickness(0, 6, 0, 0) };
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -624,8 +634,9 @@ public partial class FlyoutWindow : Window
         }
         row.Children.Add(text);
 
-        // Claude 초기화권은 조회 전용이며 사용 API를 호출하지 않는다.
-        if (provider != "Codex") return row;
+        // 사용 불가능한 Claude 초기화권도 목록과 만료 정보는 유지한다.
+        if (provider == "Claude" ? stale || !ClaudeResetActionsEnabled || !credit.CanRedeem : provider != "Codex")
+            return row;
 
         var label = new TextBlock
         {
@@ -647,62 +658,115 @@ public partial class FlyoutWindow : Window
         };
         Grid.SetColumn(button, 1);
 
-        bool armed = false;
-        button.MouseEnter += (_, _) => { if (!_resetting) button.Opacity = 0.85; };
-        button.MouseLeave += (_, _) =>
-        {
-            if (_resetting) return;
-            button.Opacity = 1;
+        var baseColor = ((SolidColorBrush)Resources["BorderBrush2"]).Color;
+        var gauge = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(1, 0) };
+        var filled = new GradientStop(((SolidColorBrush)Resources["DangerBrush"]).Color, 0);
+        var edge = new GradientStop(baseColor, 0);
+        gauge.GradientStops.Add(filled);
+        gauge.GradientStops.Add(edge);
+        button.Background = gauge;
 
-            // 확인 문구를 띄운 채 손을 떼면 다음에 무심코 누른 것이 확정되지 않게 되돌린다.
-            if (!armed) return;
-            armed = false;
+        var clock = new Stopwatch();
+        var drain = new Stopwatch();
+        var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(20) };
+        _resetTimers.Add(timer);
+        bool holding = false;
+        double progress = 0;
+        double drainFrom = 0;
+
+        void SetProgress(double value)
+        {
+            progress = Math.Clamp(value, 0, 1);
+            filled.Offset = progress;
+            edge.Offset = progress;
+        }
+
+        void CancelHold()
+        {
+            if (!holding) return;
+            holding = false;
+            clock.Stop();
+            if (button.IsMouseCaptured) button.ReleaseMouseCapture();
+            drainFrom = progress;
+            drain.Restart();
             label.Text = Strings.Get("reset.use");
             label.Foreground = (Brush)Resources["TextBrush"];
-            button.Background = (Brush)Resources["BorderBrush2"];
+        }
+
+        timer.Tick += async (_, _) =>
+        {
+            if (holding)
+            {
+                if (!IsVisible || !button.IsMouseOver || Mouse.LeftButton != MouseButtonState.Pressed)
+                {
+                    CancelHold();
+                    return;
+                }
+                SetProgress(clock.Elapsed.TotalSeconds / 3);
+                if (clock.Elapsed < TimeSpan.FromSeconds(3)) return;
+
+                holding = false;
+                clock.Stop();
+                timer.Stop();
+                if (button.IsMouseCaptured) button.ReleaseMouseCapture();
+                var consumer = provider == "Claude" ? ClaudeResetConsumer : CodexResetConsumer;
+                if (_resetting || consumer is null || provider == "Claude" && !ClaudeResetActionsEnabled)
+                    return;
+
+                _resetting = true;
+                label.Text = Strings.Get("reset.working");
+                button.Opacity = 0.5;
+                ResetOutcome outcome;
+                try
+                {
+                    outcome = await consumer(credit.Id);
+                }
+                catch
+                {
+                    outcome = ResetOutcome.Failed;
+                }
+                finally
+                {
+                    _resetting = false;
+                }
+
+                _resetMessages[provider] = Strings.Get(outcome switch
+                {
+                    ResetOutcome.Reset => "reset.done",
+                    ResetOutcome.NothingToReset => "reset.nothing",
+                    ResetOutcome.NoCredit => "reset.noCredit",
+                    ResetOutcome.RateLimited => "reset.rateLimited",
+                    ResetOutcome.Unknown => "reset.unknown",
+                    _ => "reset.failed",
+                });
+                if (_lastRendered is not null) Render(_lastRendered);
+            }
+            else if (drain.IsRunning)
+            {
+                SetProgress(drainFrom * (1 - drain.Elapsed.TotalSeconds / 1.5));
+                if (progress > 0) return;
+                drain.Stop();
+                timer.Stop();
+            }
         };
-        button.MouseLeftButtonUp += async (_, e) =>
+        button.MouseLeftButtonDown += (_, e) =>
         {
             e.Handled = true;
-            if (_resetting || ResetConsumer is null) return;
-
-            if (!armed)
-            {
-                armed = true;
-                label.Text = Strings.Get("reset.confirm");
-                label.Foreground = Brushes.White;
-                button.Background = (Brush)Resources["AccentBrush"];
+            if (_resetting || holding || provider == "Claude" && !ClaudeResetActionsEnabled ||
+                (provider == "Claude" ? ClaudeResetConsumer : CodexResetConsumer) is null)
                 return;
-            }
-
-            _resetting = true;
-            label.Text = Strings.Get("reset.working");
-            button.Opacity = 0.5;
-
-            ResetOutcome outcome;
-            try
-            {
-                outcome = await ResetConsumer(credit.Id);
-            }
-            catch
-            {
-                outcome = ResetOutcome.Failed;
-            }
-            finally
-            {
-                _resetting = false;
-            }
-
-            // 새로고침이 이미 카드를 다시 그렸다. 결과 문구만 남기고 한 번 더 그린다.
-            _resetMessage = Strings.Get(outcome switch
-            {
-                ResetOutcome.Reset => "reset.done",
-                ResetOutcome.NothingToReset => "reset.nothing",
-                ResetOutcome.NoCredit => "reset.noCredit",
-                _ => "reset.failed",
-            });
-            if (_lastRendered is not null) Render(_lastRendered);
+            drain.Stop();
+            SetProgress(0);
+            holding = true;
+            label.Text = Strings.Get("reset.hold");
+            label.Foreground = (Brush)Resources["TextBrush"];
+            button.CaptureMouse();
+            clock.Restart();
+            timer.Start();
         };
+        button.MouseLeftButtonUp += (_, e) => { e.Handled = true; CancelHold(); };
+        button.MouseLeave += (_, _) => CancelHold();
+        button.LostMouseCapture += (_, _) => CancelHold();
         row.Children.Add(button);
 
         return row;

@@ -186,7 +186,8 @@ public partial class App : Application
         _flyout.RefreshRequested += () => _ = _monitor.RefreshAsync(force: true);
         _flyout.SettingsRequested += OpenSettings;
         _flyout.UpdateRequested += StartUpdateFromFlyout;
-        _flyout.ResetConsumer = _monitor.ConsumeCodexResetAsync;
+        _flyout.CodexResetConsumer = _monitor.ConsumeCodexResetAsync;
+        _flyout.ClaudeResetConsumer = _monitor.ConsumeClaudeResetAsync;
         _flyout.WidgetBarToggled += enabled =>
         {
             _settings.ShowWidgetBar = enabled;
@@ -209,6 +210,7 @@ public partial class App : Application
         _flyout.DisplayMode = _settings.DisplayMode;
         _flyout.TimeFormatter = w => TimeDisplayFormatter.Format(w, _settings, overlay: true);
         _flyout.ShowResetCredits = _settings.ShowResetCredits;
+        _flyout.ClaudeResetActionsEnabled = _settings.ClaudeResetActionsEnabled;
         _flyout.ShowResetCreditDate = _settings.ShowResetCreditDate;
         _flyout.ShowResetCreditTimeLeft = _settings.ShowResetCreditTimeLeft;
         _flyout.ResetCreditExpiryColors = _settings.ResetCreditExpiryColors;

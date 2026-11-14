@@ -57,6 +57,8 @@ public sealed class AppSettings
     /// 대가: CLI가 같은 순간 갱신하면 한쪽 로그인이 풀릴 수 있다.
     /// </summary>
     public bool CodexAutoRefreshLogin { get; set; } = true;
+    /// <summary>Claude 초기화권 사용 버튼만 끈다. 목록은 계속 표시한다.</summary>
+    public bool ClaudeResetActionsEnabled { get; set; } = true;
 
     /// <summary>팝업의 공급자별 초기화권 목록과 그 만료 표시. 모두 기본으로 보인다.</summary>
     public bool ShowResetCredits { get; set; } = true;
@@ -236,6 +238,7 @@ public sealed class AppSettings
         CodexPrimeFiveHour = fresh.CodexPrimeFiveHour;
         CodexPrimeWeekly = fresh.CodexPrimeWeekly;
         CodexAutoRefreshLogin = fresh.CodexAutoRefreshLogin;
+        ClaudeResetActionsEnabled = fresh.ClaudeResetActionsEnabled;
         ShowResetCredits = fresh.ShowResetCredits;
         ShowResetCreditDate = fresh.ShowResetCreditDate;
         ShowResetCreditTimeLeft = fresh.ShowResetCreditTimeLeft;

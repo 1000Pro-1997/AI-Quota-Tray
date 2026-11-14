@@ -355,6 +355,55 @@ public sealed class UsageMonitor : IDisposable
     }
 
     /// <summary>
+    /// Claude 초기화권은 최근 서버 응답에 있던, 지금 쓸 수 있는 권리만 요청한다.
+    /// 응답을 잃어도 사용됐을 수 있으므로 재조회가 실패하면 직전 권리를 되살리지 않는다.
+    /// </summary>
+    public async Task<ResetOutcome> ConsumeClaudeResetAsync(string creditId)
+    {
+        ResetOutcome outcome;
+        await _gate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (!_settings.ClaudeEnabled || !_settings.ClaudeResetActionsEnabled ||
+                Latest.FirstOrDefault(u => u.Provider == "Claude") is not { } current ||
+                current.Error is not null || current.IsStale ||
+                current.LastUpdated is not { } updated ||
+                updated > DateTime.Now || DateTime.Now - updated > TimeSpan.FromMinutes(15) ||
+                !current.ResetCredits.Any(c => c.Id == creditId && c.CanRedeem && c.Count > 0 &&
+                    c.ExpiresAt > DateTime.Now))
+                return ResetOutcome.Failed;
+
+            _claude ??= new ClaudeProvider(_http, () => _settings.EffectiveClaudePath);
+            outcome = await _claude.ConsumeResetAsync(creditId).ConfigureAwait(false);
+
+            // POST의 답을 잃었을 수 있다. 실패한 재조회에서 이전 권리가 다시 보이면
+            // 중복 요청을 유도하므로 새 서버 응답을 받기 전까지 목록을 숨긴다.
+            _lastGood["Claude"] = WithoutCredits(current);
+            Latest = Latest.Select(u => u.Provider == "Claude" ? WithoutCredits(u) : u).ToList();
+            Updated?.Invoke(Latest);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+
+        await RefreshAsync(force: true).ConfigureAwait(false);
+        return outcome;
+    }
+
+    private static ProviderUsage WithoutCredits(ProviderUsage usage) => new()
+    {
+        Provider = usage.Provider,
+        PlanName = usage.PlanName,
+        Windows = usage.Windows,
+        Tokens = usage.Tokens,
+        LastUpdated = usage.LastUpdated,
+        Error = usage.Error,
+        IsStale = usage.IsStale,
+        NeedsLogin = usage.NeedsLogin,
+    };
+
+    /// <summary>
     /// 프로바이더는 한 번만 만들어 재사용한다. 매번 새로 만들면
     /// 429 백오프 같은 내부 상태가 사라져 제한을 계속 두드리게 된다.
     /// 활성화 여부만 매 호출 시점의 설정을 따른다.

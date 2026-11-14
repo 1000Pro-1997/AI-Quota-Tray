@@ -121,6 +121,7 @@ public partial class SettingsWindow : Window
         StartWithWindows.IsChecked = _settings.StartWithWindows;
         ClaudePrimeFive.IsChecked = _settings.ClaudePrimeFiveHour;
         ClaudePrimeWeekly.IsChecked = _settings.ClaudePrimeWeekly;
+        ClaudeResetActions.IsChecked = _settings.ClaudeResetActionsEnabled;
         CodexPrimeFive.IsChecked = _settings.CodexPrimeFiveHour;
         CodexPrimeWeekly.IsChecked = _settings.CodexPrimeWeekly;
         CodexAutoRefresh.IsChecked = _settings.CodexAutoRefreshLogin;
@@ -726,6 +727,7 @@ public partial class SettingsWindow : Window
         LblStartup.Text = Strings.Get("settings.startWithWindows");
         LblClaudePrimeFive.Text = PrimerLabel("settings.primeFive", "settings.claudePrimeFiveHint");
         LblClaudePrimeWeekly.Text = PrimerLabel("settings.primeWeekly", "settings.claudePrimeWeeklyHint");
+        LblClaudeResetActions.Text = PrimerLabel("settings.claudeResetActions", "settings.claudeResetActionsHint");
         LblCodexPrimeFive.Text = PrimerLabel("settings.primeFive", "settings.codexPrimeFiveHint");
         LblCodexPrimeWeekly.Text = PrimerLabel("settings.primeWeekly", "settings.codexPrimeWeeklyHint");
         LblCodexAutoRefresh.Text = PrimerLabel("settings.codexAutoRefresh", "settings.codexAutoRefreshHint");
@@ -936,6 +938,7 @@ public partial class SettingsWindow : Window
         _settings.StartWithWindows = autoStart;
         _settings.ClaudePrimeFiveHour = ClaudePrimeFive.IsChecked == true;
         _settings.ClaudePrimeWeekly = ClaudePrimeWeekly.IsChecked == true;
+        _settings.ClaudeResetActionsEnabled = ClaudeResetActions.IsChecked == true;
         _settings.CodexPrimeFiveHour = CodexPrimeFive.IsChecked == true;
         _settings.CodexPrimeWeekly = CodexPrimeWeekly.IsChecked == true;
         _settings.CodexAutoRefreshLogin = CodexAutoRefresh.IsChecked == true;
@@ -1038,6 +1041,7 @@ public partial class SettingsWindow : Window
         ClaudePrimeFive.IsChecked = _settings.ClaudePrimeFiveHour;
         ClaudePrimeWeekly.IsChecked = _settings.ClaudePrimeWeekly;
         CodexPrimeFive.IsChecked = _settings.CodexPrimeFiveHour;
+        ClaudeResetActions.IsChecked = _settings.ClaudeResetActionsEnabled;
         CodexPrimeWeekly.IsChecked = _settings.CodexPrimeWeekly;
         CodexAutoRefresh.IsChecked = _settings.CodexAutoRefreshLogin;
         ShowResetCredits.IsChecked = _settings.ShowResetCredits;
