@@ -58,7 +58,7 @@ public sealed class AppSettings
     /// </summary>
     public bool CodexAutoRefreshLogin { get; set; } = true;
 
-    /// <summary>팝업의 Codex 초기화권 목록과 그 만료 표시. 모두 기본으로 보인다.</summary>
+    /// <summary>팝업의 공급자별 초기화권 목록과 그 만료 표시. 모두 기본으로 보인다.</summary>
     public bool ShowResetCredits { get; set; } = true;
     public bool ShowResetCreditDate { get; set; } = true;
     public bool ShowResetCreditTimeLeft { get; set; } = true;

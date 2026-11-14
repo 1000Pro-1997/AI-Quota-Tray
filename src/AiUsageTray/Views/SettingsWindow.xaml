@@ -879,32 +879,6 @@
                             <CheckBox x:Name="CodexAutoRefresh" Style="{StaticResource CompactSwitch}"
                                       Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
                         </Grid>
-                        <Border Style="{StaticResource RowDivider}" Margin="0,3,0,7"/>
-                        <Grid Height="25">
-                            <TextBlock x:Name="LblShowResetCredits" Style="{StaticResource ChildSettingText}"
-                                       Margin="0,0,42,0"/>
-                            <CheckBox x:Name="ShowResetCredits" Style="{StaticResource CompactSwitch}"
-                                      Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
-                        </Grid>
-                        <Grid Height="25">
-                            <TextBlock x:Name="LblShowResetCreditDate" Style="{StaticResource ChildSettingText}"
-                                       Margin="0,0,42,0"/>
-                            <CheckBox x:Name="ShowResetCreditDate" Style="{StaticResource CompactSwitch}"
-                                      Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
-                        </Grid>
-                        <Grid Height="25">
-                            <TextBlock x:Name="LblShowResetCreditTimeLeft" Style="{StaticResource ChildSettingText}"
-                                       Margin="0,0,42,0"/>
-                            <CheckBox x:Name="ShowResetCreditTimeLeft" Style="{StaticResource CompactSwitch}"
-                                      Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
-                        </Grid>
-                        <Grid Height="25">
-                            <TextBlock x:Name="LblResetCreditExpiryColors" Style="{StaticResource ChildSettingText}"
-                                       Margin="0,0,42,0"/>
-                            <CheckBox x:Name="ResetCreditExpiryColors" Style="{StaticResource CompactSwitch}"
-                                      Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
-                        </Grid>
-                        <Border Style="{StaticResource RowDivider}" Margin="0,3,0,7"/>
                         <TextBlock x:Name="LblCodexFolder" Style="{StaticResource ChildSettingText}"
                                    Margin="0,0,0,5"/>
                         <Grid Margin="0,0,0,2">
@@ -920,6 +894,32 @@
                         </Grid>
                       </StackPanel>
                     </Border>
+                    <!-- 두 공급자의 초기화권 표시를 함께 제어한다. -->
+                    <Border Style="{StaticResource RowDivider}" Margin="0,3,0,7"/>
+                    <Grid Height="25">
+                        <TextBlock x:Name="LblShowResetCredits" Style="{StaticResource ChildSettingText}"
+                                   Margin="0,0,42,0"/>
+                        <CheckBox x:Name="ShowResetCredits" Style="{StaticResource CompactSwitch}"
+                                  Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
+                    </Grid>
+                    <Grid Height="25">
+                        <TextBlock x:Name="LblShowResetCreditDate" Style="{StaticResource ChildSettingText}"
+                                   Margin="0,0,42,0"/>
+                        <CheckBox x:Name="ShowResetCreditDate" Style="{StaticResource CompactSwitch}"
+                                  Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
+                    </Grid>
+                    <Grid Height="25">
+                        <TextBlock x:Name="LblShowResetCreditTimeLeft" Style="{StaticResource ChildSettingText}"
+                                   Margin="0,0,42,0"/>
+                        <CheckBox x:Name="ShowResetCreditTimeLeft" Style="{StaticResource CompactSwitch}"
+                                  Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
+                    </Grid>
+                    <Grid Height="25">
+                        <TextBlock x:Name="LblResetCreditExpiryColors" Style="{StaticResource ChildSettingText}"
+                                   Margin="0,0,42,0"/>
+                        <CheckBox x:Name="ResetCreditExpiryColors" Style="{StaticResource CompactSwitch}"
+                                  Checked="OnSettingChanged" Unchecked="OnSettingChanged"/>
+                    </Grid>
 
                 </StackPanel>
             </Border>

@@ -74,12 +74,14 @@ Numbers default to what is **left** (`18% left`). Switch to what was **used**
 (`82% used`) in Settings. Bar colors tell the tools apart — orange for Claude,
 blue for Codex, both changeable.
 
-If your ChatGPT account has **Codex limit reset credits**, the Codex card lists
-them with their expiry date and how long is left (`Expires 10/23 · 17d 9h left`).
-The expiry turns yellow within a week and red within 3 days. **Use reset** asks
-for a second click to confirm, then spends the credit. Settings → Tools → Codex
-details can hide the list, the date, the time left, or the colors (all shown by
-default).
+If your account has **usage-limit resets**, the Claude card lists the available
+Full, session, weekly, or Fable resets with their expiry and time left. Claude
+resets are display-only here: use **Settings → Usage** on claude.ai to redeem one.
+The Codex card also lists its limit reset credits with their expiry and time
+left (`Expires 10/23 · 17d 9h left`). The expiry turns yellow within a week
+and red within 3 days. **Use reset** on Codex asks for a second click to
+confirm, then spends the credit. Settings → Tools has shared switches to hide
+the lists, dates, time left, or colors (all shown by default).
 
 ## Where the data comes from
 
@@ -95,12 +97,16 @@ Mac is included — not just what this PC ran. If a session-log entry is older t
 its reset time, that window is shown as reset instead of a stale percentage.
 
 Claude numbers also come from the server first, so other PCs and the web are
-included. Claude Code reports your limits to its own status line every time you
+included. The same OAuth usage request asks for available limit resets; these
+are occasional account-specific grants, not the ordinary 5-hour/weekly reset
+times. Claude Code reports your limits to its own status line every time you
 use it; the app keeps those as a fallback for when the usage endpoint is
-unreachable or rate-limited (only values from the last 15 minutes). They are not
-preferred because they freeze at this PC's last request. To receive them it registers a small helper script
-as Claude Code's `statusLine` in `~/.claude/settings.json` — **only if you have not
-set one yourself.** An existing status line is never overwritten.
+unreachable or rate-limited (only values from the last 15 minutes). They are
+not preferred because they freeze at this PC's last request. To receive them
+it registers a small helper script as Claude Code's `statusLine` in
+`~/.claude/settings.json` — **only if you have not set one yourself.** An
+existing status line is never overwritten. Status-line fallback does not report
+limit reset grants.
 
 ### How tokens are handled
 
@@ -113,9 +119,11 @@ borrows the Claude sign-in kept by omp (`~/.omp/agent/agent.db`), read-only. If
 neither is valid you will see "Waiting for token refresh". Running Claude Code once
 fixes it.
 
-The usage request identifies itself as Claude Code (`User-Agent: claude-code/<version>`,
-taken from the installed version). Any other User-Agent lands in a much stricter
-rate-limit bucket and gets 429s for hours.
+The usage request identifies itself as the installed Claude CLI
+(`User-Agent: claude-cli/<version> (external, cli)`) to receive its optional
+limit reset inventory. Other User-Agents may omit the grants or hit a much
+stricter rate-limit bucket, causing 429s for hours. The inventory is
+undocumented and may change; missing grants are not treated as zero balance.
 
 For Codex the app picks a token in this order:
 

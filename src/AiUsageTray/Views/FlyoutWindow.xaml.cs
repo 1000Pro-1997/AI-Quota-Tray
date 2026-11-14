@@ -22,7 +22,7 @@ public partial class FlyoutWindow : Window
     public Func<UsageWindow, string>? TimeFormatter { get; set; }
     public Func<UsageWindow, bool>? SecondDisplayResolver { get; set; }
 
-    /// <summary>Codex 초기화권 목록과 그 만료 표시를 각각 켜고 끈다. 설정에서 바뀐다.</summary>
+    /// <summary>공급자별 초기화권 목록과 그 만료 표시를 각각 켜고 끈다. 설정에서 바뀐다.</summary>
     public bool ShowResetCredits { get; set; } = true;
     public bool ShowResetCreditDate { get; set; } = true;
     public bool ShowResetCreditTimeLeft { get; set; } = true;
@@ -451,8 +451,11 @@ public partial class FlyoutWindow : Window
         foreach (var w in u.Windows)
             panel.Children.Add(BuildWindowRow(w, barBrush));
 
-        if (ShowResetCredits && (u.ResetCredits.Count > 0 || _resetMessage is not null && u.Provider == "Codex"))
-            panel.Children.Add(BuildResetSection(u.ResetCredits));
+        // 조회 실패 중에는 초기화권 잔량이 바뀌었을 수 있으므로 Claude 목록을 숨긴다.
+        // Codex의 사용 직후 결과 문구는 그대로 남긴다.
+        if (ShowResetCredits && (u.Provider != "Claude" || !u.IsStale) &&
+            (u.ResetCredits.Count > 0 || u.Provider == "Codex" && _resetMessage is not null))
+            panel.Children.Add(BuildResetSection(u.Provider, u.ResetCredits));
 
         // 갱신하지 못한 이유가 있으면 수치 아래에 덧붙인다.
         if (u.IsStale && u.Error is { } why)
@@ -533,11 +536,10 @@ public partial class FlyoutWindow : Window
     }
 
     /// <summary>
-    /// 사용 한도 초기화권 목록. 되돌릴 수 없는 동작이라 한 번 눌러서는 쓰지 않고,
-    /// 버튼이 확인 문구로 바뀐 뒤 한 번 더 눌러야 쓴다. 대화상자를 띄우면 팝업이
-    /// 포커스를 잃고 닫혀 버리므로 버튼 안에서 확인을 받는다.
+    /// 두 공급자의 초기화권을 표시한다. Codex만 되돌릴 수 없는 사용 버튼을 제공하므로
+    /// 확인 문구를 한 번 거쳐 쓴다. 대화상자는 팝업 포커스를 잃게 하므로 쓰지 않는다.
     /// </summary>
-    private UIElement BuildResetSection(IReadOnlyList<ResetCredit> credits)
+    private UIElement BuildResetSection(string provider, IReadOnlyList<ResetCredit> credits)
     {
         var section = new StackPanel { Margin = new Thickness(0, 10, 0, 0) };
 
@@ -550,7 +552,7 @@ public partial class FlyoutWindow : Window
         });
         head.Children.Add(new TextBlock
         {
-            Text = Strings.Get("reset.available", credits.Count),
+            Text = Strings.Get("reset.available", credits.Sum(credit => credit.Count)),
             FontSize = 11,
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center,
@@ -559,10 +561,9 @@ public partial class FlyoutWindow : Window
         section.Children.Add(head);
 
         foreach (var credit in credits)
-            section.Children.Add(BuildResetRow(credit));
+            section.Children.Add(BuildResetRow(provider, credit));
 
-        if (_resetMessage is not null)
-        {
+        if (provider == "Codex" && _resetMessage is not null)
             section.Children.Add(new TextBlock
             {
                 Text = _resetMessage,
@@ -571,12 +572,11 @@ public partial class FlyoutWindow : Window
                 TextWrapping = TextWrapping.Wrap,
                 Foreground = (Brush)Resources["SubtleBrush"],
             });
-        }
 
         return section;
     }
 
-    private UIElement BuildResetRow(ResetCredit credit)
+    private UIElement BuildResetRow(string provider, ResetCredit credit)
     {
         var row = new Grid { Margin = new Thickness(0, 6, 0, 0) };
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -585,7 +585,7 @@ public partial class FlyoutWindow : Window
         var text = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         text.Children.Add(new TextBlock
         {
-            Text = credit.Label,
+            Text = credit.Count > 1 ? $"{credit.Label} ×{credit.Count}" : credit.Label,
             FontSize = 11,
             TextTrimming = TextTrimming.CharacterEllipsis,
             Foreground = (Brush)Resources["TextBrush"],
@@ -623,6 +623,9 @@ public partial class FlyoutWindow : Window
             return Strings.Get("age.minutes", span.Minutes);
         }
         row.Children.Add(text);
+
+        // Claude 초기화권은 조회 전용이며 사용 API를 호출하지 않는다.
+        if (provider != "Codex") return row;
 
         var label = new TextBlock
         {

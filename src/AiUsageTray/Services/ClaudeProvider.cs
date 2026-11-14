@@ -17,16 +17,15 @@ namespace AiUsageTray.Services;
 /// </summary>
 public sealed class ClaudeProvider : IUsageProvider
 {
-    private const string UsageUrl = "https://api.anthropic.com/api/oauth/usage";
+    private const string UsageUrl = "https://api.anthropic.com/api/oauth/usage?cedar_ember=1";
     private const string OAuthBeta = "oauth-2025-04-20";
 
     /// <summary>
-    /// usage 엔드포인트는 User-Agent가 claude-code/버전이 아니면 훨씬 빡빡한 한도를
-    /// 적용해 429가 몇 시간씩 이어진다. 그래서 설치된 Claude Code 버전을 흉내 낸다.
-    /// 버전 폴더를 못 찾으면 알려진 버전을 쓴다. 숫자 자체는 검사하지 않는 것으로 보인다.
+    /// 초기화권은 CLI 형태의 User-Agent에서만 내려온다. 설치된 버전을 사용해
+    /// 사용량과 초기화권을 한 번의 요청으로 받는다.
     /// </summary>
     private static readonly Lazy<string> ClaudeCodeUserAgent = new(() =>
-        "claude-code/" + (DetectClaudeCodeVersion() ?? "2.1.281"));
+        "claude-cli/" + (DetectClaudeCodeVersion() ?? "2.1.322") + " (external, cli)");
 
     private readonly HttpClient _http;
     private readonly Func<string> _credentialsPath;
@@ -233,14 +232,77 @@ public sealed class ClaudeProvider : IUsageProvider
         // 추가 사용량은 limits에 들어오지 않고 별도 필드로만 온다.
         _lastExtra = ReadExtra(root);
         if (_lastExtra is not null) windows.Add(_lastExtra);
+        var credits = ReadResetCredits(root);
 
         return new ProviderUsage
         {
             Provider = Name,
             PlanName = plan,
             Windows = windows,
+            ResetCredits = credits,
             LastUpdated = DateTime.Now,
         };
+    }
+
+    private static IReadOnlyList<ResetCredit> ReadResetCredits(JsonElement root)
+    {
+        var credits = new List<ResetCredit>();
+        if (!root.TryGetProperty("cedar_ember", out var ember) ||
+            ember.ValueKind != JsonValueKind.Object ||
+            !ember.TryGetProperty("eligible", out var eligible) ||
+            eligible.ValueKind != JsonValueKind.True ||
+            !ember.TryGetProperty("grants", out var grants) ||
+            grants.ValueKind != JsonValueKind.Array)
+            return credits;
+
+        DateTime now = DateTime.Now;
+        foreach (var grant in grants.EnumerateArray())
+        {
+            if (grant.ValueKind != JsonValueKind.Object ||
+                !grant.TryGetProperty("id", out var id) || id.ValueKind != JsonValueKind.String ||
+                string.IsNullOrWhiteSpace(id.GetString()) ||
+                !grant.TryGetProperty("resets_left", out var left) ||
+                left.ValueKind != JsonValueKind.Number || !left.TryGetInt32(out int count) || count <= 0 ||
+                grant.TryGetProperty("paused", out var paused) && paused.ValueKind != JsonValueKind.False &&
+                    paused.ValueKind != JsonValueKind.Null)
+                continue;
+
+            if (!grant.TryGetProperty("starts_at", out var start) || ReadDate(start) is not { } startsAt ||
+                !grant.TryGetProperty("ends_at", out var end) || ReadDate(end) is not { } endsAt ||
+                startsAt > now || endsAt <= now)
+                continue;
+
+            if (!grant.TryGetProperty("clears", out var clears) || clears.ValueKind != JsonValueKind.Array)
+                continue;
+            bool session = false, weekly = false, fable = false;
+            foreach (var clear in clears.EnumerateArray())
+            {
+                if (clear.ValueKind != JsonValueKind.String) continue;
+                switch (clear.GetString())
+                {
+                    case "five_hour": session = true; break;
+                    case "seven_day": weekly = true; break;
+                    case "seven_day_overage_included": fable = true; break;
+                }
+            }
+
+            string type = session && weekly ? "claude_full"
+                : session ? "claude_session"
+                : weekly ? "claude_weekly"
+                : fable ? "claude_fable" : "";
+            if (type.Length == 0) continue;
+            string title = grant.TryGetProperty("label", out var label) &&
+                label.ValueKind == JsonValueKind.String ? label.GetString() ?? "" : "";
+            credits.Add(new ResetCredit
+            {
+                Id = id.GetString()!,
+                ResetType = type,
+                Title = title,
+                Count = count,
+                ExpiresAt = endsAt,
+            });
+        }
+        return credits;
     }
 
     /// <summary>
